@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zehner-Paare</title>
+<meta name="description" content="Streiche Zahlenpaare weg: gleiche Zahlen oder Summe 10. Das klassische Zahlenrätsel, gebaut fürs Smartphone.">
+<meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12141c" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zehner-Paare">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M4 9h9a6 6 0 1 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 4.5 3.5 9 8 13.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.4.9 1 .9 1.7v.4h5.2v-.4c0-.7.3-1.3.9-1.7A6 6 0 0 0 12 3Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-new" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M20 3.5V9h-5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8l1.4 2.3 2.7-.5.5 2.7 2.3 1.4-1.3 2.4 1.3 2.4-2.3 1.4-.5 2.7-2.7-.5L12 21.2l-1.4-2.3-2.7.5-.5-2.7-2.3-1.4L6.4 12 5.1 9.6l2.3-1.4.5-2.7 2.7.5L12 2.8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.4" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="app">
+  <header class="topbar">
+    <button class="icon-btn" id="btn-rules" type="button" aria-label="Spielregeln">
+      <svg class="ic" aria-hidden="true"><use href="#i-help"></use></svg>
+    </button>
+    <h1 class="brand">Zehner<span class="brand-dot">·</span>Paare</h1>
+    <button class="icon-btn" id="btn-settings" type="button" aria-label="Einstellungen">
+      <svg class="ic" aria-hidden="true"><use href="#i-gear"></use></svg>
+    </button>
+  </header>
+
+  <div class="statbar">
+    <div class="stat"><span class="stat-k">Punkte</span><strong class="stat-v" id="stat-score">0</strong></div>
+    <div class="stat"><span class="stat-k">Übrig</span><strong class="stat-v" id="stat-left">0</strong></div>
+    <div class="stat"><span class="stat-k">Zeit</span><strong class="stat-v" id="stat-time">0:00</strong></div>
+    <div class="combo" id="combo" aria-hidden="true"></div>
+  </div>
+
+  <div class="progress" aria-hidden="true"><i id="progress-fill"></i></div>
+
+  <main class="board-wrap" id="board-wrap">
+    <div class="board" id="board" role="group" aria-label="Zahlenfeld"></div>
+    <div class="fx" id="fx" aria-hidden="true"></div>
+  </main>
+
+  <p class="sr-only" id="live" role="status" aria-live="polite"></p>
+
+  <nav class="actions" aria-label="Spielaktionen">
+    <button class="act" id="btn-undo" type="button">
+      <svg class="ic" aria-hidden="true"><use href="#i-undo"></use></svg><span>Zurück</span>
+    </button>
+    <button class="act" id="btn-hint" type="button">
+      <svg class="ic" aria-hidden="true"><use href="#i-bulb"></use></svg><span>Tipp</span>
+    </button>
+    <button class="act act-refill" id="btn-refill" type="button">
+      <svg class="ic" aria-hidden="true"><use href="#i-plus"></use></svg><span>Auffüllen <b id="refill-count">5</b></span>
+    </button>
+    <button class="act" id="btn-new" type="button">
+      <svg class="ic" aria-hidden="true"><use href="#i-new"></use></svg><span>Neu</span>
+    </button>
+  </nav>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<!-- Regeln -->
+<dialog class="sheet" tabindex="-1" id="dlg-rules" aria-labelledby="rules-title">
+  <div class="sheet-head">
+    <h2 id="rules-title">So wird gespielt</h2>
+    <button class="icon-btn" type="button" data-close aria-label="Schließen"><svg class="ic" aria-hidden="true"><use href="#i-close"></use></svg></button>
+  </div>
+  <div class="sheet-body">
+    <p class="lead">Streiche zwei Zahlen weg, wenn sie <b>gleich</b> sind oder zusammen <b>10</b> ergeben.</p>
+
+    <div class="demo" aria-hidden="true">
+      <div class="demo-grid">
+        <span class="dcell">7</span><span class="dcell">1</span><span class="dcell">5</span>
+        <span class="dcell dm-a">3</span><span class="dcell">8</span><span class="dcell">2</span>
+        <span class="dcell dm-a">7</span><span class="dcell dm-b">6</span><span class="dcell dm-b">4</span>
+      </div>
+      <div class="demo-legend">
+        <span><i class="swatch sw-a"></i>3 + 7 = 10 · senkrecht</span>
+        <span><i class="swatch sw-b"></i>6 + 4 = 10 · waagrecht</span>
+      </div>
+    </div>
+
+    <h3>Wann sind zwei Zahlen benachbart?</h3>
+    <ul class="rules-list">
+      <li><b>Waagrecht</b> nebeneinander oder <b>senkrecht</b> übereinander.</li>
+      <li><b>Diagonal</b> übers Eck.</li>
+      <li><b>In Leserichtung</b> – auch am Zeilenende zur nächsten Zeile.</li>
+      <li>Schon gestrichene Felder zählen nicht mehr: du <b>siehst durch sie hindurch</b>. Deshalb entstehen mit jedem Zug neue Paare.</li>
+    </ul>
+
+    <h3>Und wenn nichts mehr geht?</h3>
+    <p>Mit <b>Auffüllen</b> werden alle übrigen Zahlen hinten noch einmal angehängt. Das Guthaben dafür ist begrenzt.</p>
+    <p>Eine komplett leere Zeile verschwindet. Wer das ganze Feld leer räumt, gewinnt.</p>
+
+    <p class="hint-note">Diagonale und Zeilenumbruch lassen sich in den <b>Einstellungen</b> abschalten.</p>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn btn-primary" type="button" data-close>Los geht's</button>
+  </div>
+</dialog>
+
+<!-- Einstellungen -->
+<dialog class="sheet" tabindex="-1" id="dlg-settings" aria-labelledby="set-title">
+  <div class="sheet-head">
+    <h2 id="set-title">Einstellungen</h2>
+    <button class="icon-btn" type="button" data-close aria-label="Schließen"><svg class="ic" aria-hidden="true"><use href="#i-close"></use></svg></button>
+  </div>
+  <div class="sheet-body">
+    <fieldset class="field">
+      <legend>Schwierigkeit</legend>
+      <div class="segmented" id="seg-difficulty" role="group">
+        <button type="button" data-value="leicht">Leicht</button>
+        <button type="button" data-value="mittel">Mittel</button>
+        <button type="button" data-value="schwer">Schwer</button>
+        <button type="button" data-value="klassisch">Klassisch</button>
+      </div>
+      <p class="field-note" id="difficulty-note"></p>
+    </fieldset>
+
+    <fieldset class="field">
+      <legend>Regeln</legend>
+      <label class="switch"><input type="checkbox" id="opt-diagonal"><span class="track"></span><span class="switch-text">Diagonale Paare erlauben</span></label>
+      <label class="switch"><input type="checkbox" id="opt-wrap"><span class="track"></span><span class="switch-text">Zeilenumbruch (Leserichtung)</span></label>
+    </fieldset>
+
+    <fieldset class="field">
+      <legend>Darstellung &amp; Feedback</legend>
+      <div class="segmented" id="seg-theme" role="group">
+        <button type="button" data-value="auto">Auto</button>
+        <button type="button" data-value="light">Hell</button>
+        <button type="button" data-value="dark">Dunkel</button>
+      </div>
+      <label class="switch"><input type="checkbox" id="opt-sound"><span class="track"></span><span class="switch-text">Ton</span></label>
+      <label class="switch"><input type="checkbox" id="opt-vibrate"><span class="track"></span><span class="switch-text">Vibration</span></label>
+    </fieldset>
+
+    <fieldset class="field">
+      <legend>Bestwerte</legend>
+      <ul class="best-list" id="best-list"></ul>
+    </fieldset>
+
+    <p class="field-note">Ein Regelwechsel gilt sofort für die laufende Partie. Ein Wechsel der Schwierigkeit startet ein neues Spiel.</p>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn" type="button" id="btn-rules-2">Regeln</button>
+    <button class="btn btn-primary" type="button" data-close>Fertig</button>
+  </div>
+</dialog>
+
+<!-- Ende -->
+<dialog class="sheet sheet-center" tabindex="-1" id="dlg-end" aria-labelledby="end-title">
+  <div class="sheet-body end-body">
+    <div class="end-badge" id="end-badge" aria-hidden="true">★</div>
+    <h2 id="end-title">Geschafft!</h2>
+    <p id="end-text" class="lead"></p>
+    <dl class="end-stats" id="end-stats"></dl>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn" type="button" id="btn-end-undo">Zug zurück</button>
+    <button class="btn btn-primary" type="button" id="btn-end-new">Neues Spiel</button>
+  </div>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
