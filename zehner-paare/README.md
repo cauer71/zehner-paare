@@ -70,14 +70,40 @@ node --test zehner-paare/game.test.js
 | `game.test.js` | Regeltests |
 | `app.js` | Oberfläche: Rendering, FLIP-Animationen, Ton, Speicher |
 | `index.html` | Markup inkl. Regel-, Einstellungs- und Enddialog |
-| `styles.css` | Design-Tokens, Hell/Dunkel, Animationen |
+| `classic.css`, `material3.css`, `m3-colors.css` | die beiden Stile und die erzeugten M3-Farbrollen |
 | `sw.js` | Offline-Cache |
 
 Die Logik in `game.js` kennt kein DOM: `createGame`, `canMatch`, `applyMatch`, `refill`,
 `findPair`, `undo`. Wer eine andere Oberfläche bauen will, braucht nur diese Datei.
 
-## Schrift
+## Zwei Stile
 
-Die Ziffern laufen in **Nunito** (`fonts/nunito-latin-var.woff2`, auf Latin beschnittene
-Variable-Font-Datei, 39 kB). Lizenz: SIL Open Font License 1.1, Volltext in
-[`fonts/OFL.txt`](fonts/OFL.txt).
+Unter **Einstellungen → Darstellung** lässt sich zwischen zwei Oberflächen umschalten:
+
+* **Original** (Voreinstellung) – warmes Papierweiß, runde weiße Spielsteine, beschriftete
+  Knopfleiste, Schrift Nunito.
+* **Material 3** – Farbrollen nach Material You, Top App Bar, Bottom App Bar mit erweitertem
+  FAB, modale Bottom Sheets mit Griff, Chips, Switches, Snackbar, Zustandsebenen und Ripple,
+  Schrift Roboto, Icons aus den Material Symbols (Rounded).
+
+Beide Stile laufen auf demselben Markup; umgeschaltet wird über `disabled` an den beiden
+Stylesheets, ein kleines Skript im `<head>` setzt die Wahl noch vor dem ersten Rendern, damit
+nichts aufblitzt. Die Wahl liegt wie alle Einstellungen im `localStorage`.
+
+Die Material-3-Farbtokens in `m3-colors.css` sind nicht von Hand gepflegt, sondern aus dem
+Quellton `#EF7D31` berechnet (Schema *Vibrant*, wie es Material You tut) – siehe
+[`tools/gen-m3-colors.mjs`](../tools/gen-m3-colors.mjs).
+
+| Datei | Inhalt |
+|---|---|
+| `classic.css` | Skin „Original" |
+| `material3.css` | Skin „Material 3" |
+| `m3-colors.css` | erzeugte Farbrollen (hell und dunkel) |
+
+## Schriften und Lizenzen
+
+* **Nunito** (`fonts/nunito-latin-var.woff2`, 39 kB) – SIL Open Font License 1.1,
+  Volltext in [`fonts/OFL.txt`](fonts/OFL.txt).
+* **Roboto** (`fonts/roboto-latin-var.woff2`, 43 kB) und die **Material Symbols** im
+  Icon-Sprite der `index.html` – Apache License 2.0, Volltext in
+  [`fonts/APACHE-2.0.txt`](fonts/APACHE-2.0.txt).
