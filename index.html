@@ -2,6 +2,13 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Diese Datei ist der Einstiegspunkt des Vite-Projekts und laeuft erst nach
+      // einem Build. GitHub Pages liefert das Repo unkompiliert aus, dort bleibt
+      // die Seite deshalb leer – also direkt zum spielbaren Spiel weiterleiten.
+      // Greift nur auf *.github.io, die lokale Entwicklung bleibt unberuehrt.
+      if (location.hostname.endsWith('.github.io')) location.replace('zehner-paare/');
+    </script>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mathe-Kreuz</title>
