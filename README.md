@@ -168,6 +168,18 @@ Absichtlich dick aufgetragen: Kitsch mit Regeln.
   Farbzyklus wie im Palette-RAM von Robotron 2084, Bildschirmruckeln wie in den CPS-1-Titeln,
   bei ×10 der Weißblitz. Der Bildstopp von Pac-Man ist bewusst *nicht* dabei: er würde die
   Eingabe blockieren.
+* **Der Anschlag knallt, gelesen wird im Stehen.** Die Einblendung zoomt in rund 220 ms herein
+  und bleibt dann **unbewegt und voll deckend stehen** – gemessen 1,27 s (bei ×10 1,9 s), davon
+  über eine Sekunde völlig still. Alles Flackernde, Wackelnde und der Farbzyklus laufen nur im
+  Anschlag; danach steht die Schrift in der Ruhefarbe ihrer Stufe (kalt nach heiß: Cyan, Grün,
+  Gelb, Amber, Magenta). Vorher standen die Texte 220–460 ms – zu kurz zum Lesen.
+* **Kleine Melodien für die besonderen Momente.** Notiert als lesbare Tonfolge
+  (`'G4:1 C5:1 E5:1 G5:1 …'`, gleichstufig mit A4 = 440 Hz), gespielt mit Pulswelle und
+  Bassgang: *Stage Clear* nach dem Leerräumen, *Extend* wenn der Bestwert fällt (setzt erst nach
+  der Siegfanfare ein, damit sich beide nicht ins Gehege kommen), *Maximum* bei Kombo ×10,
+  *Game Over* mit abstürzendem Schlusston, dazu je ein Stück für die Rettung und für eine neue
+  Endlos-Runde. Die Töne haben absichtlich eine Lücke zwischen sich – so klingt ein Chip, der
+  den Kanal kurz auf null schreibt.
 * **Chiptune** als zweite Tonstimme: Pulswellen mit 12,5/25/50 % Tastverhältnis über
   `PeriodicWave`, gefiltertes Rauschen für die Perkussion, Tonhöhenabfall in Stufen statt als
   Rutsch. Alles läuft über einen Sammelausgang mit weicher Begrenzung, weil Treffer + Zeile +

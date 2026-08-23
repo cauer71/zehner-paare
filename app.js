@@ -10,7 +10,7 @@ import {
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.3.0';
+export const VERSION = '1.4.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2', seen: 'zp.seen.v1' };
 
@@ -283,6 +283,40 @@ function arp(freqs, { step = 0.045, dur = 0.05, duty = 0.5, gain = 0.035, delay 
   freqs.forEach((f, i) => chip({ freq: f, dur, duty, gain, delay: delay + i * step }));
 }
 
+/* ------------------------------------------------------- Kleine Melodien --- */
+
+const HALBTON = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+
+/** Notenname zu Frequenz, gleichstufig mit A4 = 440 Hz. 'r' ist eine Pause. */
+function hz(name) {
+  const m = /^([A-G]#?)(-?\d)$/.exec(name);
+  if (!m) return 0;
+  const halbton = HALBTON[m[1]] + (Number(m[2]) + 1) * 12;   // wie MIDI: A4 = 69
+  return 440 * Math.pow(2, (halbton - 69) / 12);
+}
+
+/**
+ * Spielt eine kleine Melodie. Geschrieben als "Note:Laenge"-Folge, damit man
+ * sie im Quelltext lesen kann: 'C5:1 E5:1 G5:2' sind zwei kurze und ein
+ * doppelt langer Ton. Laengen zaehlen in Schritten, nicht in Sekunden.
+ *
+ * Die Toene bekommen absichtlich eine Luecke (0.82 der Schrittlaenge): so
+ * klingt ein Chip, der den Kanal zwischen zwei Noten kurz auf null schreibt.
+ * Ohne die Luecke verschmiert die Tonfolge zu einem Geleier.
+ */
+function melodie(satz, { schritt = 0.1, duty = 0.5, gain = 0.032, delay = 0, drop = 0 } = {}) {
+  let t = delay;
+  for (const stueck of satz.trim().split(/\s+/)) {
+    const [name, len = '1'] = stueck.split(':');
+    const laenge = Number(len) * schritt;
+    if (name !== 'r') {
+      chip({ freq: hz(name), dur: laenge * 0.82, duty, gain, delay: t, drop });
+    }
+    t += laenge;
+  }
+  return t - delay;      // Gesamtlaenge, damit man anschliessen kann
+}
+
 /*
  * Zwei Stimmen, eine Auswahl. Die weiche Stimme gehoert zu Original und
  * Material 3, die Chipstimme zum Automaten. Die Lautstaerken sind so gewaehlt,
@@ -311,6 +345,8 @@ const VOICES = {
     },
     hint: () => tone({ freq: 880, dur: 0.09, gain: 0.03 }),
     undo: () => tone({ freq: 300, dur: 0.1, gain: 0.03, type: 'triangle' }),
+    rescue: () => [392, 523, 659].forEach((f, i) => tone({ freq: f, dur: 0.18, delay: i * 0.09, gain: 0.04, type: 'triangle' })),
+    round: () => [523, 659, 784, 1046].forEach((f, i) => tone({ freq: f, dur: 0.16, delay: i * 0.08, gain: 0.042 })),
     comboUp: () => {},        // die Feier gehoert dem Automaten
   },
 
@@ -337,22 +373,35 @@ const VOICES = {
       chip({ freq: 1046, dur: 0.05, duty: 0.5, gain: 0.03, delay: 0.04 });
       chip({ freq: 1568, dur: 0.07, duty: 0.5, gain: 0.028, delay: 0.09 });
     },
-    // Stage Clear: kurze Fanfare in Terzen.
+    // STAGE CLEAR: aufsteigende Fanfare mit Bassgang darunter, wie die
+    // Zwischenmusik nach einem geschafften Abschnitt.
     win: () => {
-      arp([523, 659, 784], { step: 0.08, dur: 0.09, duty: 0.5, gain: 0.04 });
-      arp([1046, 1046], { step: 0.14, dur: 0.18, duty: 0.25, gain: 0.038, delay: 0.26 });
+      melodie('G4:1 C5:1 E5:1 G5:1 E5:1 G5:2 C6:4', { schritt: 0.11, duty: 0.5, gain: 0.034 });
+      melodie('C3:4 G3:3 C3:4', { schritt: 0.11, duty: 0.25, gain: 0.017 });
     },
-    // Rekord: die Extend-Fanfare, oben mit Vibrato ausgehalten.
+    // EXTEND: der Lauf nach oben, den es fuer ein Extraleben gab. Setzt nach
+    // der Siegfanfare ein, damit sich die beiden nicht ins Gehege kommen.
     record: () => {
-      arp([659, 880, 1046, 1319], { step: 0.09, dur: 0.09, duty: 0.25, gain: 0.036, delay: 0.45 });
-      chip({ freq: 1760, dur: 0.4, duty: 0.5, gain: 0.032, delay: 0.82, vibrato: 0.012 });
-      noise({ dur: 0.12, gain: 0.016, freq: 6000, q: 1, delay: 0.82 });
+      const ab = 1.25;
+      melodie('C5:1 E5:1 G5:1 C6:1 E6:1 G6:1', { schritt: 0.085, duty: 0.25, gain: 0.03, delay: ab });
+      chip({ freq: hz('C7'), dur: 0.5, duty: 0.5, gain: 0.028, delay: ab + 0.51, vibrato: 0.012 });
+      noise({ dur: 0.14, gain: 0.014, freq: 6000, q: 1, delay: ab + 0.51 });
     },
-    // Game Over: drei Stufen abwaerts, das letzte mit Absturz.
+    // GAME OVER: vier Stufen abwaerts, die letzte stuerzt weg.
     lose: () => {
-      chip({ freq: 392, dur: 0.12, duty: 0.5, gain: 0.036 });
-      chip({ freq: 311, dur: 0.12, duty: 0.5, gain: 0.036, delay: 0.13 });
-      chip({ freq: 233, dur: 0.28, duty: 0.5, gain: 0.036, delay: 0.26, drop: 0.5 });
+      melodie('C5:2 A#4:2 G#4:2', { schritt: 0.14, duty: 0.5, gain: 0.034 });
+      chip({ freq: hz('G4'), dur: 0.5, duty: 0.5, gain: 0.034, delay: 0.84, drop: 0.55 });
+      melodie('C3:3 G#2:3', { schritt: 0.14, duty: 0.25, gain: 0.016, delay: 0.42 });
+    },
+    // Rettung: ein aufatmendes Stueck - "weiter geht's".
+    rescue: () => {
+      noise({ dur: 0.05, gain: 0.022, freq: 2400, q: 2 });
+      melodie('G4:1 A#4:1 C5:1 D#5:1 F5:3', { schritt: 0.1, duty: 0.25, gain: 0.032, delay: 0.05 });
+    },
+    // Neue Runde im Endlos-Modus: kurzes "next stage".
+    round: () => {
+      melodie('E5:1 G5:1 C6:2 r:1 G5:1 C6:3', { schritt: 0.095, duty: 0.5, gain: 0.032 });
+      melodie('C3:4 C3:4', { schritt: 0.095, duty: 0.25, gain: 0.016 });
     },
     /*
      * Kombo-Level-Up: eine Sprosse hoeher je Stufe, ab 5 ein zweiter Ton, ab 8
@@ -381,9 +430,11 @@ const VOICES = {
         chip({ freq: base * 2, dur: 0.09, duty, gain: 0.028, delay: 0.11 });
         noise({ dur: 0.05, gain: 0.018, freq: 3200, q: 1.5, delay: 0.11 });
       }
-      if (level >= 10) {
-        arp([1046, 1319, 1568, 2093], { step: 0.05, dur: 0.1, duty: 0.5, gain: 0.026, delay: 0.16 });
-        noise({ dur: 0.18, gain: 0.02, freq: 900, q: 0.7, delay: 0.16 });
+      if (level >= POINTS.maxCombo) {
+        // MAXIMUM: acht Noten hinauf, oben zwei Akzente, dazu ein Beckenschlag.
+        melodie('C5:1 G5:1 C6:1 G5:1 C6:1 E6:1 G6:2 C7:2', { schritt: 0.062, duty: 0.5, gain: 0.026, delay: 0.16 });
+        noise({ dur: 0.2, gain: 0.018, freq: 900, q: 0.7, delay: 0.16 });
+        noise({ dur: 0.16, gain: 0.014, freq: 5200, q: 1, delay: 0.16 + 0.062 * 6 });
       }
     },
   },
@@ -404,6 +455,8 @@ const sfx = {
   recordLive: () => voice().recordLive(),
   hint: () => voice().hint(),
   undo: () => voice().undo(),
+  rescue: () => voice().rescue(),
+  round: () => voice().round(),
   comboUp: (level) => voice().comboUp(level),
 };
 
@@ -721,7 +774,13 @@ const POP_WORT = {
   5: 'Stark! ×5', 6: 'Kombo ×6', 7: 'Heiß! ×7',
   8: 'Irre! ×8', 9: 'Kombo ×9', 10: 'Maximum ×10',
 };
-const POP_MS = { 2: 220, 3: 220, 4: 240, 5: 300, 6: 300, 7: 320, 8: 340, 9: 340, 10: 460 };
+/*
+ * Wie lange die Einblendung steht. Der Anschlag dauert nur rund 220 ms, den
+ * Rest steht die Schrift unbewegt da: bei 1600 ms sind das gut 1090 ms zum
+ * Lesen. Kuerzer war es vorher (220-460 ms) - da konnte man nichts entziffern.
+ * Die Zahlen muessen zu --pop-dur in arcade.css passen.
+ */
+const POP_MS = { 2: 1600, 3: 1600, 4: 1600, 5: 1600, 6: 1600, 7: 1600, 8: 1600, 9: 1600, 10: 2000 };
 // Stufe -> [Dauer, Weite] des Ruettlers. Unter 5 wird nicht geruettelt.
 const POP_SHAKE = { 5: [120, 2], 6: [120, 2], 7: [140, 3], 8: [160, 3], 9: [160, 3], 10: [200, 4] };
 
@@ -899,7 +958,7 @@ function doMatch(i, j) {
     updateStats();
     if (res.round) {
       toast(`Runde ${res.round.round} · +${res.round.bonus} · ein Auffüllen zurück`, 3000);
-      sfx.row();
+      sfx.round();
       buzz([20, 50, 20]);
       announce(`Runde ${res.round.round}`);
     }
@@ -996,7 +1055,7 @@ function doRescue() {
   renderBoard({ enterFrom: res.from });
   updateStats();
   startTimer();
-  sfx.refill();
+  sfx.rescue();
   buzz([12, 30, 12]);
   announce(`Rettung: ${res.added} Zahlen noch einmal auf dem Feld`);
   toast('Rettung! Noch eine Chance.', 2800);

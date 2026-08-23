@@ -638,11 +638,14 @@ body::before {
   color: var(--yellow);
   text-shadow: var(--hard);
   white-space: nowrap;
-  animation: arc-floatup .8s steps(8) forwards;
+  /* Laenger als die 0,8 s vorher: hier stehen auch Woerter ("Zeile frei!"),
+     nicht nur zweistellige Zahlen, und die will man lesen koennen. */
+  animation: arc-floatup 1.2s steps(12) forwards;
 }
 @keyframes arc-floatup {
   0% { opacity: 0; translate: -50% -30%; }
-  25% { opacity: 1; translate: -50% -70%; }
+  15% { opacity: 1; translate: -50% -60%; }
+  70% { opacity: 1; translate: -50% -120%; }
   100% { opacity: 0; translate: -50% -180%; }
 }
 
@@ -1093,15 +1096,16 @@ body::before {
   white-space: nowrap;
   text-align: center;
 
-  /* Die Palette liegt in Variablen: der Zyklus schaltet sie hart weiter. */
-  --pop-c1: var(--yellow);
+  /* Die Palette liegt in Variablen: der Zyklus schaltet sie hart weiter und
+     laesst die Schrift danach auf --pop-c1 stehen - der Ruhefarbe der Stufe. */
+  --pop-c1: var(--cyan);
   --pop-c2: var(--magenta-t);
   --pop-c3: var(--cyan);
   --pop-c4: var(--green);
   --pop-c5: var(--ink);
   --pop-c6: var(--amber);
-  --pop-dur: 220ms;
-  --pop-cycle: 120ms;
+  --pop-dur: 1600ms;     /* davon rund 1090 ms unbewegtes Stehen */
+  --pop-cycle: 70ms;
   --pop-out: 3px;                /* harte Kontur wie ein Sprite */
 
   /* Die Einblendung liegt mitten über dem Feld - genau wie im Automaten. Damit
@@ -1123,13 +1127,21 @@ body::before {
   transform: translate(-50%, -50%) scale(1);
 }
 
-/* Stufe 2 bis 4: nur der Zoom. */
-.combo-pop.show { animation: pop-zoom var(--pop-dur) steps(3, jump-none) both; }
+/*
+ * Die Dramaturgie hat drei Teile, und der mittlere ist der wichtigste:
+ *   0 -  14 %  Anschlag: hereinzoomen mit Ueberschwingen (rund 220 ms)
+ *  14 -  82 %  Stehen: unbewegt und voll deckend, gut ueber eine Sekunde
+ *  82 - 100 %  Abtreten: aufsteigen und ausblenden
+ * Der Anschlag darf knallen, aber gelesen wird im Stehen - darum ist der Teil
+ * bei allen Stufen gleich lang und nichts flackert darin.
+ */
+.combo-pop.show { animation: pop-zoom var(--pop-dur) steps(4, jump-none) both; }
 @keyframes pop-zoom {
   0%   { opacity: 0; transform: translate(-50%, -50%) scale(.34); }
-  30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.26); }
-  55%  { opacity: 1; transform: translate(-50%, -50%) scale(.92); }
-  72%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  7%   { opacity: 1; transform: translate(-50%, -50%) scale(1.26); }
+  11%  { opacity: 1; transform: translate(-50%, -50%) scale(.94); }
+  14%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  82%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -62%) scale(1); }
 }
 
@@ -1152,27 +1164,30 @@ body::before {
   50%      { rotate: 2.5deg; }
 }
 
-/* Stufe 5 bis 7: größer, mit Farbzyklus. */
+/* Die Ruhefarbe steigt mit der Stufe von kalt nach heiss. */
+.combo-pop[data-level="2"], .combo-pop[data-level="3"] { --pop-c1: var(--cyan); }
+.combo-pop[data-level="4"], .combo-pop[data-level="5"] { --pop-c1: var(--green); }
+.combo-pop[data-level="6"], .combo-pop[data-level="7"] { --pop-c1: var(--yellow); }
+.combo-pop[data-level="8"], .combo-pop[data-level="9"] { --pop-c1: var(--amber); }
+.combo-pop[data-level="10"] { --pop-c1: var(--magenta-t); }
+
+/* Stufe 5 bis 7: größer, mit Farbzyklus im Anschlag. Die Wiederholungszahl
+   ist so gewaehlt, dass der Zyklus vor dem Stehen fertig ist. */
 .combo-pop.show[data-level="5"],
 .combo-pop.show[data-level="6"],
 .combo-pop.show[data-level="7"] {
   --pop-px: 3;
-  --pop-dur: 300ms;
-  --pop-cycle: 110ms;
   animation: pop-zoom var(--pop-dur) steps(4, jump-none) both,
-             pop-cycle var(--pop-cycle) steps(1, end) 2;
+             pop-cycle var(--pop-cycle) steps(1, end) 3;
 }
-.combo-pop.show[data-level="7"] { --pop-dur: 320ms; --pop-cycle: 100ms; }
 
-/* Stufe 8 und 9: dazu das Wackeln. */
+/* Stufe 8 und 9: dazu das Wackeln, ebenfalls nur im Anschlag. */
 .combo-pop.show[data-level="8"],
 .combo-pop.show[data-level="9"] {
   --pop-px: 4;
-  --pop-dur: 340ms;
-  --pop-cycle: 90ms;
   --pop-out: 4px;
   animation: pop-zoom var(--pop-dur) steps(4, jump-none) both,
-             pop-cycle var(--pop-cycle) steps(1, end) 3,
+             pop-cycle var(--pop-cycle) steps(1, end) 4,
              pop-wobble 90ms steps(2, end) 3;
 }
 
@@ -1180,11 +1195,11 @@ body::before {
    ganzen Achtern, damit jedes Zwischenbild aufs Pixelraster fällt. */
 .combo-pop.show[data-level="10"] {
   --pop-px: 4;
-  --pop-dur: 460ms;
+  --pop-dur: 2000ms;     /* der Hoechststand darf am laengsten stehen */
   --pop-cycle: 70ms;
   --pop-out: 4px;
   animation: pop-zoom-max var(--pop-dur) steps(1, end) both,
-             pop-cycle var(--pop-cycle) steps(1, end) 6,
+             pop-cycle var(--pop-cycle) steps(1, end) 8,
              pop-wobble 80ms steps(2, end) 5;
 }
 /* Der Sprung laeuft ueber scale, nicht ueber font-size: eine Schriftgroesse in
@@ -1192,11 +1207,12 @@ body::before {
    schmale Geraete wirkungslos und "Maximum ×10" liefe aus dem Bild. */
 @keyframes pop-zoom-max {
   0%   { opacity: 0; transform: translate(-50%, -50%) scale(.25); }
-  14%  { opacity: 1; transform: translate(-50%, -50%) scale(.75); }
-  28%  { opacity: 1; transform: translate(-50%, -50%) scale(1.5); }
-  42%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  56%  { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
-  85%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  4%   { opacity: 1; transform: translate(-50%, -50%) scale(.8); }
+  8%   { opacity: 1; transform: translate(-50%, -50%) scale(1.5); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) scale(.95); }
+  16%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  86%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -66%) scale(1); }
 }
 
@@ -1240,7 +1256,7 @@ body::before {
   background: repeating-conic-gradient(from 0deg, var(--pop-c1) 0deg 9deg, transparent 9deg 18deg);
   -webkit-mask-image: radial-gradient(closest-side, #000 30%, transparent 78%);
   mask-image: radial-gradient(closest-side, #000 30%, transparent 78%);
-  animation: pop-rays 460ms steps(8, end) both;
+  animation: pop-rays 420ms steps(8, end) both;
 }
 @keyframes pop-rays {
   0%   { rotate: 0deg; opacity: 0; }
