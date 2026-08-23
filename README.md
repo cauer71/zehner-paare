@@ -1,6 +1,6 @@
 # Zehner-Paare
 
-**Spielen: https://cauer71.github.io/Mathe-Kreuz/** – die Seite lässt sich auf Android und iOS
+**Spielen: https://cauer71.github.io/zehner-paare/** – die Seite lässt sich auf Android und iOS
 zum Startbildschirm hinzufügen und läuft danach ohne Browserleiste und offline.
 
 Ein Nachbau des klassischen Zahlen-Streichspiels (bekannt als *Number Match*, *Numberzilla*
@@ -92,7 +92,6 @@ npm test           # oder: node --test game.test.js
 | `game.js` | reine Spiellogik, DOM-frei und damit in Node testbar |
 | `icons/` | App-Icons, maskierbare Varianten, iOS-Startbilder, Screenshots fürs Manifest |
 | `manifest.webmanifest` | Web-App-Manifest inkl. Kurzbefehlen |
-| `mathe-kreuz/` | das ältere Mathe-Kreuz-Projekt (Vite + React), nicht Teil der Seite |
 | `game.test.js` | Regeltests |
 | `app.js` | Oberfläche: Rendering, FLIP-Animationen, Ton, Speicher |
 | `index.html` | Markup inkl. Regel-, Einstellungs- und Enddialog |
@@ -133,3 +132,9 @@ Quellton `#EF7D31` berechnet (Schema *Vibrant*, wie es Material You tut) – sie
 * **Roboto** (`fonts/roboto-latin-var.woff2`, 43 kB) und die **Material Symbols** im
   Icon-Sprite der `index.html` – Apache License 2.0, Volltext in
   [`fonts/APACHE-2.0.txt`](fonts/APACHE-2.0.txt).
+
+## Herkunft
+
+Das Spiel entstand als Nachbau eines Videos und lag anfangs im Repo
+[`cauer71/Mathe-Kreuz`](https://github.com/cauer71/Mathe-Kreuz); dort liegt weiterhin das
+ältere Mathe-Kreuz-Projekt (Vite + React). Die Historie ist vollständig mit umgezogen.
