@@ -491,6 +491,9 @@ body::before {
 .fab__count { font-variant-numeric: tabular-nums; }
 .fab:disabled, .bottom-app-bar .icon-button:disabled { opacity: .38; cursor: default; }
 .fab.urge { animation: urge 1.2s ease-in-out infinite; }
+/* In der Sackgasse ist der Knopf die Rettung – und sieht auch danach aus. */
+.fab--rescue { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.fab--rescue .icon { color: var(--accent-ink); }
 @keyframes urge {
   0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); }
   50% { box-shadow: 0 0 0 6px var(--accent-soft); }

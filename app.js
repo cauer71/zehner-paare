@@ -71,6 +71,7 @@ const elCombo = $('#combo');
 const btnUndo = $('#btn-undo');
 const btnHint = $('#btn-hint');
 const btnRefill = $('#btn-refill');
+const refillLabel = $('#btn-refill .fab__label');
 const btnNew = $('#btn-new');
 const refillCount = $('#refill-count');
 const dlgRules = $('#dlg-rules');
@@ -301,9 +302,21 @@ function renderBoard({ enterFrom = -1 } = {}) {
 function updateStats({ bumpScore = false } = {}) {
   elScore.textContent = String(state.score);
   elLeft.textContent = String(remaining(state));
+  // In der Sackgasse wird aus dem Auffuell-Knopf der Rettungsknopf. Der
+  // Enddialog laesst sich wegtippen - ohne das hier waere die Rettung dann
+  // nicht mehr erreichbar.
+  const rettungDa = state.status === 'stuck' && state.rescuesLeft > 0;
+  refillLabel.textContent = rettungDa ? 'Rettung' : 'Auffüllen';
+  refillCount.hidden = rettungDa;
   refillCount.textContent = String(state.refillsLeft);
-  btnRefill.disabled = state.refillsLeft <= 0 || state.status !== 'playing';
-  btnUndo.disabled = !canUndo(state) || state.status !== 'playing';
+  btnRefill.classList.toggle('fab--rescue', rettungDa);
+  if (rettungDa) btnRefill.classList.add('urge');
+  btnRefill.disabled = rettungDa
+    ? false
+    : state.refillsLeft <= 0 || state.status !== 'playing';
+  // In der Sackgasse ist Zurueck der zweite Ausweg – der Enddialog bietet ihn
+  // an, also darf der Knopf darunter nicht gesperrt sein.
+  btnUndo.disabled = !canUndo(state) || state.status === 'won';
   btnHint.disabled = state.status !== 'playing';
   if (bumpScore) {
     elScore.classList.remove('bump');
@@ -960,7 +973,10 @@ board.addEventListener('keydown', (e) => {
 
 btnUndo.addEventListener('click', doUndo);
 btnHint.addEventListener('click', doHint);
-btnRefill.addEventListener('click', doRefill);
+btnRefill.addEventListener('click', () => {
+  if (state.status === 'stuck' && state.rescuesLeft > 0) doRescue();
+  else doRefill();
+});
 btnNew.addEventListener('click', () => {
   if (state.moves > 0 && state.status === 'playing' &&
       !confirm('Neues Spiel starten? Die laufende Partie geht verloren.')) return;

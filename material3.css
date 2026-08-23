@@ -510,6 +510,12 @@ body {
   text-align: center;
 }
 .fab.urge { animation: urge 1.4s var(--md-sys-motion-easing-standard) infinite; }
+/* In der Sackgasse ist der Knopf die Rettung – und sieht auch danach aus. */
+.fab--rescue {
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
+}
+.fab--rescue .icon { color: var(--md-sys-color-on-tertiary-container); }
 @keyframes urge {
   0%, 100% { box-shadow: var(--md-sys-elevation-3); }
   50% { box-shadow: var(--md-sys-elevation-3), 0 0 0 8px color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent); }
