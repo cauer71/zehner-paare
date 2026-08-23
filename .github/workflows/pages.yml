@@ -42,10 +42,13 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
-      - name: Spielordner als Artefakt hochladen
+      # Das ganze Repo hochladen, nicht nur den Spielordner: dann liefert der
+      # Workflow dieselben Adressen aus wie die Branch-Variante von Pages
+      # (Wurzel leitet auf zehner-paare/ weiter), egal welche gerade aktiv ist.
+      - name: Seite als Artefakt hochladen
         uses: actions/upload-pages-artifact@v3
         with:
-          path: zehner-paare
+          path: .
       - name: Deployment
         id: deployment
         uses: actions/deploy-pages@v4
