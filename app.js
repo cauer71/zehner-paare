@@ -672,6 +672,7 @@ function renderSettings() {
   $('#opt-partners').checked = settings.partners;
   $('#opt-sound').checked = settings.sound;
   $('#opt-vibrate').checked = settings.vibrate;
+  refreshInstallUi();
   const d = DIFFICULTIES[settings.difficulty];
   $('#difficulty-note').textContent =
     `${d.rows} × ${d.cols} Felder · ${d.refills}× Auffüllen` +
@@ -840,15 +841,87 @@ document.addEventListener('pointerdown', (e) => {
   ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
 }, { passive: true });
 
+/* ------------------------------------------------- Installation als App */
+
+let installPrompt = null;
+
+const isStandalone = () =>
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.matchMedia('(display-mode: minimal-ui)').matches ||
+  navigator.standalone === true;
+
+// iPadOS meldet sich als Mac, verrät sich aber über die Berührungspunkte.
+const isApplePhone = () =>
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+function refreshInstallUi() {
+  const field = $('#install-field');
+  const button = $('#btn-install');
+  const note = $('#install-note');
+  if (!field) return;
+
+  if (isStandalone()) {                       // läuft bereits als App
+    field.hidden = true;
+    return;
+  }
+  if (installPrompt) {                        // Android, Chrome, Edge …
+    field.hidden = false;
+    button.hidden = false;
+    note.textContent = 'Danach startet das Spiel ohne Browserleiste und läuft auch offline.';
+    return;
+  }
+  if (isApplePhone()) {                       // iOS kennt keinen Installationsdialog
+    field.hidden = false;
+    button.hidden = true;
+    note.textContent = 'In Safari unten auf „Teilen“ tippen und „Zum Home-Bildschirm“ wählen. '
+      + 'Danach startet das Spiel ohne Browserleiste und läuft auch offline.';
+    return;
+  }
+  field.hidden = true;
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  refreshInstallUi();
+});
+
+window.addEventListener('appinstalled', () => {
+  installPrompt = null;
+  refreshInstallUi();
+  toast('Zehner-Paare liegt jetzt auf dem Startbildschirm.');
+});
+
+$('#btn-install')?.addEventListener('click', async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  refreshInstallUi();
+});
+
 /* ------------------------------------------------------------------ Start */
 
 applyAppearance();
-if (!load()) {
+
+/** App-Kurzbefehle (?neu=leicht) starten direkt eine Partie. */
+function difficultyFromUrl() {
+  const wanted = new URLSearchParams(location.search).get('neu');
+  if (!wanted || !(wanted in DIFFICULTIES)) return null;
+  history.replaceState(null, '', location.pathname);   // Adresse wieder aufräumen
+  return wanted;
+}
+
+const requested = difficultyFromUrl();
+if (requested) settings.difficulty = requested;
+if (requested || !load()) {
   state = createGame({
     difficulty: settings.difficulty,
     diagonal: settings.diagonal,
     wrap: settings.wrap,
   });
+  if (requested) saveSettings();
 }
 renderBoard();
 updateStats();

@@ -1,12 +1,12 @@
 /**
- * Erzeugt zehner-paare/m3-colors.css – das Farbschema nach Material 3.
+ * Erzeugt m3-colors.css – das Farbschema nach Material 3.
  *
  * Die Tokens werden nicht von Hand gepflegt, sondern aus einem Quellton
  * berechnet, genau wie es Material You tut. Neu erzeugen:
  *
  *   npm i @material/material-color-utilities esbuild
  *   npx esbuild --bundle tools/gen-m3-colors.mjs --platform=node --format=esm \
- *     --outfile=/tmp/gen.mjs && node /tmp/gen.mjs > zehner-paare/m3-colors.css
+ *     --outfile=/tmp/gen.mjs && node /tmp/gen.mjs > m3-colors.css
  *
  * (Der Umweg über esbuild ist nötig, weil das Paket ESM-Importe ohne
  * Dateiendung ausliefert, die Node nicht auflösen kann.)

@@ -1,21 +1,12 @@
 {
-  "name": "mathe-kreuz",
+  "name": "zehner-paare",
+  "version": "1.0.0",
   "private": true,
-  "version": "0.0.0",
+  "description": "Zahlen-Streichspiel: gleiche Zahlen oder Summe 10 wegstreichen.",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "test": "node --test game.test.js",
+    "start": "python3 -m http.server 4173"
   },
-  "dependencies": {
-    "react-dom": "^19.2.0",
-    "react": "^19.2.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
-  }
+  "license": "MIT"
 }
