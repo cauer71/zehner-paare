@@ -1,0 +1,1398 @@
+/* =========================================================================
+   Zehner-Paare – Skin "Arcade"
+
+   Ein Spielautomat von 1989 auf einem Telefon: schwarzer Bildschirm, Neon auf
+   Schwarz, harte Kanten, Pixelschrift, alles rastet ein statt zu gleiten.
+
+   Drei Regeln, die den Stil zusammenhalten:
+   * Farbe statt Helligkeit. Zustände unterscheiden sich über die Neonrolle und
+     die Rahmenform, nie über eine Aufhellung. Das hält die Palette klein und
+     macht jeden Zustand auch ohne Farbunterscheidung lesbar.
+   * Alles in Achteln. Ein Pixel der Schrift ist ein Achtel der Schriftgröße,
+     darum sind alle Größen Vielfache von 8 px – sonst zerfließt das Raster.
+   * steps() statt Kurven. Bewegung springt in Stufen, wie ein getauschtes
+     Sprite; nichts interpoliert weich.
+
+   Läuft auf demselben Markup wie classic.css und material3.css. Weil dieses
+   Stylesheet allein aktiv ist, trägt es das ganze Gerüst selbst – kein Token
+   der anderen Stile existiert hier.
+   ========================================================================= */
+
+@font-face {
+  font-family: 'ZP Pixel';
+  src: url('fonts/zp-pixel.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;   /* lieber kurz nichts als kurz die falsche Schrift */
+}
+
+/* Das hidden-Attribut muss immer stechen: .button, .snackbar und andere
+   Komponenten setzen selbst ein display und wuerden es sonst ueberschreiben. */
+[hidden] { display: none !important; }
+
+:root {
+  color-scheme: dark;
+
+  /* --- Flächen: CRT-Schwarz ist echtes Schwarz ------------------------- */
+  --black:    #000000;   /* Bildschirmgrund */
+  --board:    #110022;   /* Spielfeld, Knopfgrund */
+  --tile:     #112244;   /* Kachel, "Blaustahl" */
+  --bevel:    #223366;   /* Lichtkante oben/links */
+  --bevel-d:  #000011;   /* Schattenkante unten/rechts */
+  --grid:     #221144;   /* Rasterlinien, leere Fassungen */
+  --dim:      #6655aa;   /* Taste ohne Strom: gedaempft, aber noch da */
+
+  /* --- Text ------------------------------------------------------------ */
+  --ink:      #ffffff;
+  --ink-dim:  #aabbdd;
+
+  /* --- Neon: eine Farbe je Rolle --------------------------------------- */
+  --cyan:     #55eeff;   /* Tipp, Rahmen, Fokus */
+  --green:    #55ff55;   /* Erfolg, Partner, Fortschritt */
+  --yellow:   #ffdd00;   /* Auswahl, Punktzahl */
+  --amber:    #ffaa00;   /* Auffüllen, gefüllte Knöpfe */
+  --magenta:  #ff55aa;   /* Kombo, Rekord – nur Flächen */
+  --magenta-t:#ff77aa;   /* dieselbe Rolle als Text, heller */
+  --red:      #ff2200;   /* Signal – nur Rahmen und Glut */
+  --red-t:    #ff9988;   /* Fehlertext */
+  --violet:   #cc88ff;   /* Rettung, Strahlenkranz */
+
+  /* --- Maße ------------------------------------------------------------ */
+  --px: 2px;             /* eine Hardware-Pixeleinheit */
+  --gap: 2px;            /* wird von .board gelesen, auch in der Breitenformel */
+  --cell-max: 56px;      /* dito */
+  --hard: 3px 3px 0 var(--black);   /* harter Pixelschatten */
+}
+
+/* --- Fundament ------------------------------------------------------------ */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overscroll-behavior: none;
+}
+/* Der Bildschirmruettler verschiebt den body; ohne clip entstuende dabei eine
+   Bildlaufleiste. */
+html { overflow: clip; }
+
+body {
+  background: var(--black);
+  color: var(--ink);
+  font-family: 'ZP Pixel', ui-monospace, monospace;
+  font-size: 8px;
+  line-height: 1.6;
+  letter-spacing: 1px;
+  -webkit-font-smoothing: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+/* Die Röhre steht in einem dunklen Raum: ein Hauch Streulicht in der Mitte.
+   Auf breiten Bildschirmen wird daraus das Seitenblech des Automaten. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 50% 0%, #14002a 0%, transparent 60%),
+    radial-gradient(100% 70% at 50% 100%, #001424 0%, transparent 60%),
+    repeating-linear-gradient(135deg,
+      rgba(255, 85, 170, .05) 0 10px, transparent 10px 20px,
+      rgba(85, 238, 255, .05) 20px 30px, transparent 30px 40px);
+}
+
+/* Das Sternenfeld des Attract-Modes: drei Ebenen, die unterschiedlich schnell
+   nach unten ziehen. Bewegt wird nur translate, das kostet nichts. */
+.starfield {
+  position: fixed;
+  inset: -8px;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.starfield i {
+  position: absolute;
+  left: 0; top: -100%;
+  width: 100%; height: 200%;
+  display: block;
+  will-change: transform;
+}
+.starfield i:nth-child(1) {
+  background-image:
+    radial-gradient(1px 1px at 12% 8%, #fff 50%, transparent 50%),
+    radial-gradient(1px 1px at 78% 22%, #fff 50%, transparent 50%),
+    radial-gradient(1px 1px at 34% 41%, #fff 50%, transparent 50%),
+    radial-gradient(1px 1px at 61% 63%, #fff 50%, transparent 50%),
+    radial-gradient(1px 1px at 22% 84%, #fff 50%, transparent 50%),
+    radial-gradient(1px 1px at 89% 92%, #fff 50%, transparent 50%);
+  opacity: .30;
+  animation: arc-stars 26s linear infinite;
+}
+.starfield i:nth-child(2) {
+  background-image:
+    radial-gradient(2px 2px at 44% 14%, var(--cyan) 50%, transparent 50%),
+    radial-gradient(2px 2px at 8% 37%, var(--magenta-t) 50%, transparent 50%),
+    radial-gradient(2px 2px at 71% 52%, var(--cyan) 50%, transparent 50%),
+    radial-gradient(2px 2px at 29% 71%, var(--yellow) 50%, transparent 50%),
+    radial-gradient(2px 2px at 93% 79%, var(--green) 50%, transparent 50%);
+  opacity: .34;
+  animation: arc-stars 16s linear infinite;
+}
+.starfield i:nth-child(3) {
+  background-image:
+    radial-gradient(3px 3px at 58% 26%, var(--violet) 50%, transparent 50%),
+    radial-gradient(3px 3px at 17% 58%, var(--magenta-t) 50%, transparent 50%),
+    radial-gradient(3px 3px at 82% 88%, var(--cyan) 50%, transparent 50%);
+  opacity: .28;
+  animation: arc-stars 9s linear infinite;
+}
+@keyframes arc-stars { to { transform: translateY(50%); } }
+
+::selection { background: var(--yellow); color: var(--board); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+:focus-visible { outline: var(--px) solid var(--cyan); outline-offset: 2px; }
+
+/* Material-Zutaten, die im Automaten nichts verloren haben */
+.ripple, .sheet__handle, .chip__check, .segmented__check { display: none !important; }
+
+.body-large { font-size: 16px; }
+.body-medium, .body-small { font-size: 8px; }
+
+/* Scrollbalken im Pixellook, sonst leuchtet eine helle Systemleiste heraus */
+* { scrollbar-width: thin; scrollbar-color: var(--grid) var(--black); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--black); }
+::-webkit-scrollbar-thumb { background: var(--grid); border: 0; border-radius: 0; }
+
+/* --- Grundgerüst ---------------------------------------------------------- */
+
+.app {
+  position: relative;      /* Anker fuer die Kombo-Einblendung */
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 620px;
+  margin-inline: auto;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* --- Kopfzeile: die Marquee ----------------------------------------------- */
+
+.top-app-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: none;
+  padding: 8px 8px 8px;
+  background: var(--black);
+  box-shadow: inset 0 calc(-1 * var(--px)) 0 var(--cyan);
+}
+
+/* Das Schild ueber dem Automaten: Farblauf durch die Schrift, Neonflackern
+   wie bei einer Roehre mit Wackelkontakt, darunter die Attract-Zeile. */
+.top-app-bar__title {
+  position: relative;
+  flex: 1;
+  margin: 0;
+  padding-bottom: 10px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--yellow);
+  background: linear-gradient(90deg,
+    var(--yellow) 0%, var(--amber) 18%, var(--magenta-t) 36%,
+    var(--violet) 54%, var(--cyan) 72%, var(--green) 86%, var(--yellow) 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(2px 2px 0 var(--black)) drop-shadow(0 0 10px rgba(255, 221, 0, .5));
+  animation: arc-marquee 6s linear infinite, arc-neon 5s steps(1) infinite;
+}
+@keyframes arc-marquee { to { background-position: 300% 0; } }
+/* Zweimal kurz aussetzen, dann lange ruhig - so stottert eine echte Roehre. */
+@keyframes arc-neon {
+  0%, 86% { opacity: 1; }
+  87% { opacity: .35; }
+  88% { opacity: 1; }
+  90% { opacity: .5; }
+  91%, 100% { opacity: 1; }
+}
+/* Die Attract-Zeile: wechselt zwischen den beiden Spruechen jedes Automaten. */
+.top-app-bar__title::after {
+  content: "1UP · HIGH SCORE";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  font-size: 8px;
+  letter-spacing: 2px;
+  -webkit-text-fill-color: var(--cyan);
+  animation: arc-attract 4s steps(1) infinite;
+}
+@keyframes arc-attract {
+  0%, 45% { content: "1UP · HIGH SCORE"; opacity: 1; }
+  48%, 52% { opacity: 0; }
+  55%, 100% { content: "★ EINWURF FREI ★"; opacity: 1; }
+}
+.brand-dot {
+  -webkit-text-fill-color: var(--magenta-t);
+  animation: arc-blink 1s steps(1) infinite;
+}
+@keyframes arc-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cyan);
+  font: inherit;
+  cursor: pointer;
+}
+.icon-button:active { color: var(--yellow); }
+@media (hover: hover) { .icon-button:hover { color: var(--ink); } }
+.icon-button:disabled { color: var(--dim); cursor: default; }
+
+/* Ohne feste Größe rendert der Browser das SVG als 300x150. */
+.icon {
+  /* 16, 32 oder 48 - ein Vielfaches der 16er-Zeichenflaeche. Bei 24px laege
+     jede Pixelkante auf halben Geraetepixeln und die Symbole fransen aus.
+     image-rendering wirkt auf SVG-Geometrie nicht, shape-rendering schon. */
+  width: 32px; height: 32px;
+  display: block;
+  fill: currentColor;
+  shape-rendering: crispEdges;
+}
+
+/* --- Statuszeile ---------------------------------------------------------- */
+
+.hud {
+  position: relative;
+  display: flex;
+  gap: var(--px);
+  flex: none;
+  padding: 8px 8px 8px;
+}
+.stat-card {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  padding: 6px 4px;
+  border-radius: 0;
+  background: var(--black);
+  box-shadow: inset 0 0 0 var(--px) var(--grid);
+}
+.stat-card__label {
+  font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.stat-card__value {
+  font-size: 16px;
+  color: var(--yellow);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--yellow) 45%, transparent);
+}
+/* Der Sprung rastet in drei Stufen ein, wie ein getauschtes Sprite. */
+.stat-card__value.bump { animation: arc-bump .24s steps(3); }
+@keyframes arc-bump {
+  0% { scale: 1; }
+  50% { scale: 1.25; color: var(--magenta-t); }
+  100% { scale: 1; }
+}
+.stat-card__note {
+  margin-top: 2px;
+  font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.stat-card.beaten { box-shadow: inset 0 0 0 var(--px) var(--magenta); }
+.stat-card.beaten .stat-card__note {
+  color: var(--magenta-t);
+  animation: arc-blink .6s steps(1) infinite;
+}
+
+/* --- Fortschritt: ein LED-Balken mit fester Blockrasterung ---------------- */
+
+.progress {
+  position: relative;
+  flex: none;
+  height: 8px;
+  margin: 0 8px;
+  border-radius: 0;
+  background: var(--black);
+  box-shadow: inset 0 0 0 var(--px) var(--grid);
+  overflow: hidden;
+}
+.progress__indicator {
+  display: block; height: 100%; width: 0;
+  border-radius: 0;
+  background: var(--green);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--green) 60%, transparent);
+  transition: width .35s steps(6, jump-end);
+}
+/* Das Gitter hängt am Balken, nicht an der Füllung: die Blöcke rasten ein. */
+.progress::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 8px, var(--black) 8px 10px);
+}
+
+/* --- Feste Zeile für Kombo und Hinweise ----------------------------------- */
+
+.ticker {
+  position: relative;
+  flex: none;
+  height: 40px;
+  margin: 0 8px;
+}
+.ticker.hint .combo-badge { opacity: 0; }
+
+.combo-badge {
+  position: absolute;
+  left: 50%; top: 50%;
+  translate: -50% -50%;
+  scale: .4;
+  padding: 5px 10px;
+  border-radius: 0;
+  background: var(--magenta);
+  color: var(--board);
+  font-size: 8px; letter-spacing: 2px; text-transform: uppercase;
+  box-shadow: var(--hard);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity .1s steps(2), scale .18s steps(3);
+}
+.combo-badge.show { opacity: 1; scale: 1; }
+
+.snackbar {
+  position: absolute;
+  left: 50%; top: 50%;
+  translate: -50% -50%;
+  z-index: 60;
+  width: max-content;
+  max-width: 100%;
+  padding: 7px 10px;
+  border-radius: 0;
+  background: var(--board);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 var(--px) var(--cyan), var(--hard);
+  font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s steps(2);
+}
+.snackbar.show { opacity: 1; }
+
+/* --- Spielfeld ------------------------------------------------------------ */
+
+.board-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 8px 8px;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  scroll-padding-block: 12px;
+}
+.board-wrap.scrollable {
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 12px, #000 calc(100% - 16px), transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 12px, #000 calc(100% - 16px), transparent 100%);
+}
+
+.board {
+  /* Anker fuer die Lichterkette; die Pseudoelemente liegen absolut und werden
+     dadurch nicht zu Rasterfeldern. */
+  position: relative;
+  /* Die Flaeche unter den Kacheln bleibt Spielfeld: ein feines 8px-Raster
+     zeigt, dass dort noch Platz ist, statt ein Loch zu lassen. */
+  background-image:
+    repeating-linear-gradient(0deg, rgba(85, 238, 255, .045) 0 1px, transparent 1px 8px),
+    repeating-linear-gradient(90deg, rgba(85, 238, 255, .045) 0 1px, transparent 1px 8px);
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 9), 1fr);
+  gap: var(--gap);
+  width: min(100%, calc(var(--cols, 9) * var(--cell-max) + (var(--cols, 9) - 1) * var(--gap) + 16px));
+  align-content: start;
+  padding: 6px;
+  border-radius: 0;
+  /* halbdurchsichtig, damit das Sternenfeld hinter dem Feld durchzieht */
+  background-color: rgba(17, 0, 34, .74);
+  box-shadow: inset 0 0 0 var(--px) var(--grid);
+}
+
+/* Die Lichterkette am Rand: das Blinken um die Scheibe eines Automaten.
+   Zwei Ebenen laufen gegeneinander, damit es jagt statt nur zu blinken. */
+.board::before, .board::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  pointer-events: none;
+  border-radius: 0;
+}
+/* Die Achsen bleiben getrennt: wer background-position als Ganzes animiert,
+   schiebt die Kanten von "rechts" und "unten" mit an den falschen Platz. Mit
+   den Einzelachsen laeuft jede Kante dort, wo sie hingehoert. */
+.board::before {
+  background-image:
+    repeating-linear-gradient(90deg, var(--magenta) 0 6px, transparent 6px 18px),
+    repeating-linear-gradient(90deg, var(--cyan) 0 6px, transparent 6px 18px);
+  background-size: 100% 4px, 100% 4px;
+  background-repeat: repeat-x, repeat-x;
+  background-position-y: top, bottom;
+  background-position-x: 0, 0;
+  animation: arc-chase-x 1.2s steps(3) infinite;
+  opacity: .9;
+}
+.board::after {
+  background-image:
+    repeating-linear-gradient(180deg, var(--yellow) 0 6px, transparent 6px 18px),
+    repeating-linear-gradient(180deg, var(--green) 0 6px, transparent 6px 18px);
+  background-size: 4px 100%, 4px 100%;
+  background-repeat: repeat-y, repeat-y;
+  background-position-x: left, right;
+  background-position-y: 0, 0;
+  animation: arc-chase-y 1.2s steps(3) infinite;
+  opacity: .9;
+}
+/* Gegenlaeufig: oben nach rechts, unten nach links - dann jagt es wirklich. */
+@keyframes arc-chase-x { to { background-position-x: 18px, -18px; } }
+@keyframes arc-chase-y { to { background-position-y: 18px, -18px; } }
+
+/* Die Kachel definiert sich über ihre Kantenpixel, nicht über den Farbabstand
+   zum Brett – wie ein Sprite auf echter Hardware. */
+.cell {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--tile);
+  color: var(--ink);
+  box-shadow: inset var(--px) var(--px) 0 var(--bevel),
+              inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--bevel-d);
+  font: inherit;
+  /* Kein clamp(): eine stufenlose Groesse landet zwischen den Pixeln und die
+     Ziffer wird unscharf. Darum drei feste Stufen, alle Vielfache von 8 –
+     geschaltet an der Brettbreite, die das Spielfeld als Container meldet. */
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overflow: visible;
+  transition: none;      /* Sprites schalten, sie überblenden nicht */
+}
+
+/* Die Schwellen sind so gelegt, dass die Ziffer nie enger als vier Pixel am
+   Kachelrand steht: Kachelbreite = (Brett - 28) / 9. */
+@container (min-width: 298px) { .cell { font-size: 24px; } }
+@container (min-width: 388px) { .cell { font-size: 32px; } }
+
+/* Leere Fassung: bleibt im Raster stehen, nur unbeleuchtet. */
+.cell.empty {
+  background: var(--black);
+  box-shadow: inset 0 0 0 var(--px) var(--grid);
+  color: transparent;
+  cursor: default;
+  pointer-events: none;
+  scale: 1;
+}
+
+.cell.sel {
+  background: var(--yellow);
+  color: var(--board);
+  scale: 1;
+  z-index: 2;
+  box-shadow: 0 0 0 var(--px) var(--black),
+              0 0 0 4px var(--yellow),
+              0 0 12px color-mix(in srgb, var(--yellow) 70%, transparent);
+  animation: arc-sel-pulse .4s steps(2) infinite;
+}
+/* Der Ring pumpt, wie ein angewaehltes Sprite mit Palettenwechsel. */
+@keyframes arc-sel-pulse {
+  0%, 49% { box-shadow: 0 0 0 var(--px) var(--black), 0 0 0 4px var(--yellow),
+                        0 0 12px color-mix(in srgb, var(--yellow) 70%, transparent); }
+  50%, 100% { box-shadow: 0 0 0 var(--px) var(--black), 0 0 0 6px var(--ink),
+                          0 0 20px var(--yellow); }
+}
+/* Lichtstreifen, der einmal ueber die gewaehlte Kachel wischt. */
+.cell.sel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .75) 50%, transparent 65%);
+  background-size: 300% 100%;
+  animation: arc-sheen .7s steps(6) infinite;
+}
+@keyframes arc-sheen { from { background-position: 150% 0; } to { background-position: -150% 0; } }
+
+.cell.partner {
+  color: var(--green);
+  box-shadow: inset 0 0 0 var(--px) var(--green);
+}
+
+.cell.hinted { color: var(--cyan); animation: arc-hint .5s steps(1) infinite; z-index: 2; }
+@keyframes arc-hint {
+  0%, 49% { box-shadow: inset 0 0 0 var(--px) var(--cyan); }
+  50%, 100% { box-shadow: 0 0 0 3px var(--cyan), 0 0 14px var(--cyan); }
+}
+
+.cell.bad {
+  color: var(--red-t);
+  box-shadow: inset 0 0 0 var(--px) var(--red), 0 0 10px var(--red);
+  animation: arc-jitter .2s steps(2) 2;
+}
+@keyframes arc-jitter {
+  0% { translate: -2px 0; }
+  50% { translate: 2px 0; }
+  100% { translate: 0 0; }
+}
+
+.cell.clearing {
+  background: var(--green);
+  color: var(--board);
+  z-index: 2;
+  pointer-events: none;
+  animation: arc-zap .26s steps(4) forwards;
+}
+@keyframes arc-zap {
+  0% { scale: 1; }
+  50% { scale: 1.2; filter: brightness(2); }
+  100% { scale: 0; opacity: 0; }
+}
+
+.cell.enter { animation: arc-drop .24s steps(4) backwards; }
+@keyframes arc-drop {
+  0% { translate: 0 -12px; opacity: 0; }
+  100% { translate: 0 0; opacity: 1; }
+}
+
+.cell.rowout { animation: arc-rowout .18s steps(3) forwards; pointer-events: none; }
+@keyframes arc-rowout {
+  0% { scale: 1 1; opacity: 1; }
+  100% { scale: 1 0; opacity: 0; }
+}
+
+/* --- Effektebene --------------------------------------------------------- */
+
+.fx { position: absolute; left: 0; top: 0; width: 100%; height: 0; pointer-events: none; z-index: 5; }
+
+.burst {
+  position: absolute;
+  width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 0;
+  border: var(--px) solid var(--green);
+  animation: arc-burst .4s steps(4) forwards;
+}
+@keyframes arc-burst {
+  0% { scale: .6; opacity: 1; }
+  100% { scale: 5; opacity: 0; }
+}
+
+.spark {
+  position: absolute;
+  width: 4px; height: 4px; margin: -2px 0 0 -2px;
+  border-radius: 0;
+  background: var(--yellow);
+  animation: arc-spark .45s steps(5) forwards;
+}
+@keyframes arc-spark {
+  0% { translate: 0 0; opacity: 1; }
+  100% { translate: var(--dx) var(--dy); opacity: 0; }
+}
+
+.floater {
+  position: absolute;
+  translate: -50% -50%;
+  font-size: 8px; letter-spacing: 1px;
+  color: var(--yellow);
+  text-shadow: var(--hard);
+  white-space: nowrap;
+  animation: arc-floatup .8s steps(8) forwards;
+}
+@keyframes arc-floatup {
+  0% { opacity: 0; translate: -50% -30%; }
+  25% { opacity: 1; translate: -50% -70%; }
+  100% { opacity: 0; translate: -50% -180%; }
+}
+
+/* --- Knopfleiste --------------------------------------------------------- */
+
+.bottom-app-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--px);
+  flex: none;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  background: var(--black);
+  box-shadow: inset 0 var(--px) 0 var(--grid);
+}
+.bottom-app-bar__actions { display: contents; }
+
+.bottom-app-bar .icon-button,
+.fab {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas: "icon icon" "label count";
+  justify-content: center;
+  align-content: center;
+  gap: 2px 4px;
+  width: auto;
+  min-height: 48px;
+  height: auto;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 0;
+  background: var(--board);
+  color: var(--cyan);
+  font: inherit;
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: inset var(--px) var(--px) 0 var(--bevel),
+              inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--bevel-d);
+  transition: none;
+}
+/* Die Taste sinkt ein statt zu schrumpfen. */
+.bottom-app-bar .icon-button:active, .fab:active {
+  translate: 0 var(--px);
+  box-shadow: inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--bevel-d);
+}
+.bottom-app-bar .icon-button .icon { grid-area: icon; justify-self: center; width: 32px; height: 32px; color: currentColor; }
+.fab .icon { grid-area: icon; justify-self: center; width: 32px; height: 32px; color: var(--board); }
+.fab__label, .action-label { display: block; grid-area: label; }
+.fab { position: relative; background: var(--amber); color: var(--board); }
+.fab__label + .fab__count { margin-left: 0; }
+.fab__count {
+  grid-area: count; margin: 0;
+  padding: 0 3px;
+  background: var(--board); color: var(--amber);
+  font-variant-numeric: tabular-nums;
+}
+/* Ausgeschaltet heißt: kein Strom auf der Taste – nicht halbdurchsichtig.
+   Gemessen am fertigen Bild lag die Taste mit --grid bei 1,2:1 gegen den
+   Grund, war also schlicht unsichtbar; mit --dim sind es rund 3:1 und man
+   sieht, dass dort eine Taste sitzt. */
+.fab:disabled, .bottom-app-bar .icon-button:disabled {
+  opacity: 1;
+  background: var(--black);
+  color: var(--dim);
+  cursor: default;
+  box-shadow: inset 0 0 0 var(--px) var(--dim);
+}
+.fab:disabled .icon, .bottom-app-bar .icon-button:disabled .icon { color: var(--dim); }
+.fab:disabled .fab__count { background: var(--black); color: var(--dim); }
+.icon-button:disabled { color: var(--dim); }
+.fab.urge { animation: arc-urge .5s steps(1) infinite; }
+@keyframes arc-urge { 0%, 49% { filter: none; } 50%, 100% { filter: brightness(1.5); } }
+.fab--rescue { background: var(--violet); color: var(--board); }
+.fab--rescue .icon { color: var(--board); }
+.fab--rescue .fab__count { color: var(--violet); }
+
+/* Reihenfolge wie im Original: Zurück · Tipp · Auffüllen · Neu */
+#btn-undo { order: 1; }
+#btn-hint { order: 2; }
+.fab { order: 3; }
+#btn-new { order: 4; }
+
+/* --- Blätter und Dialoge ------------------------------------------------- */
+
+/* Doppelrahmen: Neonlinie, schwarze Fuge, Neonlinie – der Bildschirmrahmen
+   aus jedem Optionsmenü der Zeit, ohne ein einziges neues Element. */
+.sheet {
+  position: relative;
+  width: min(100%, 520px);
+  max-width: none;
+  max-height: 92dvh;
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--black);
+  color: var(--ink);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 var(--px) var(--cyan),
+              inset 0 0 0 4px var(--black),
+              inset 0 0 0 6px var(--cyan),
+              0 0 24px color-mix(in srgb, var(--cyan) 30%, transparent);
+}
+.sheet[open] { display: flex; flex-direction: column; animation: arc-wipe .2s steps(5); }
+.sheet.closing { animation: arc-wipe-out .16s steps(4) forwards; }
+@keyframes arc-wipe { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0); } }
+@keyframes arc-wipe-out { from { clip-path: inset(0); } to { clip-path: inset(0 0 100% 0); } }
+@media (min-width: 560px) { .sheet { margin: auto; } }
+
+.sheet::backdrop, .dialog::backdrop { background: rgba(0, 0, 0, .82); backdrop-filter: none; }
+.sheet:focus, .dialog:focus { outline: none; }
+
+.sheet__close { position: absolute; top: 10px; right: 10px; z-index: 2; }
+.sheet > .sheet__close { display: grid; }
+.sheet__body { padding: 16px; overflow-y: auto; }
+.sheet__headline {
+  margin: 0 0 16px;
+  padding-right: 44px;
+  font-size: 16px; font-weight: 400; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--yellow);
+  text-shadow: var(--hard);
+}
+.sheet__subhead {
+  margin: 20px 0 8px;
+  font-size: 8px; font-weight: 400; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--cyan);
+}
+.sheet__body p { margin: 0 0 12px; font-size: 8px; line-height: 2; text-transform: uppercase; color: var(--ink-dim); }
+.sheet__body p b, .bullets b { color: var(--ink); font-weight: 400; }
+.sheet__actions, .dialog__actions {
+  display: flex; gap: var(--px); justify-content: flex-end;
+  flex: none;
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+  box-shadow: inset 0 var(--px) 0 var(--grid);
+}
+
+.bullets { margin: 0 0 12px; padding-left: 16px; font-size: 8px; line-height: 2; text-transform: uppercase; color: var(--ink-dim); }
+.bullets li { margin-bottom: 6px; }
+
+.dialog {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: min(94%, 420px);
+  max-width: none;
+  margin: auto;
+  padding: 24px 16px 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--black);
+  color: var(--ink);
+  text-align: center;
+  box-shadow: inset 0 0 0 var(--px) var(--cyan),
+              inset 0 0 0 4px var(--black),
+              inset 0 0 0 6px var(--cyan),
+              0 0 24px color-mix(in srgb, var(--cyan) 30%, transparent);
+}
+.dialog[open] { animation: arc-wipe .2s steps(5); }
+.dialog.closing { animation: arc-wipe-out .16s steps(4) forwards; }
+
+/* --- Bestwert: Attract-Mode-Strahlen ------------------------------------- */
+
+.dialog__rays {
+  position: absolute;
+  top: -46px; left: 50%;
+  width: 230px; height: 230px;
+  margin-left: -115px;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, var(--violet) 0deg 6deg, transparent 6deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 6%, rgba(0, 0, 0, .45) 26%, transparent 52%);
+  mask-image: radial-gradient(circle, #000 6%, rgba(0, 0, 0, .45) 26%, transparent 52%);
+}
+.dialog.is-record .dialog__rays {
+  animation: rays-in .2s steps(2) forwards,
+             rays-spin 12s steps(60) .2s infinite;
+}
+@keyframes rays-in { from { opacity: 0; scale: .4; } to { opacity: .5; scale: 1; } }
+@keyframes rays-spin { to { rotate: 360deg; } }
+
+.record-ribbon[hidden] { display: none; }   /* schlägt das display der Regel darunter */
+.record-ribbon {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 auto 14px;
+  padding: 5px 10px;
+  border-radius: 0;
+  /* Laufschrift-Streifen wie an einer Kirmesbude */
+  background: repeating-linear-gradient(90deg,
+    var(--magenta) 0 8px, var(--violet) 8px 16px);
+  background-size: 32px 100%;
+  color: var(--board);
+  font-size: 8px; letter-spacing: 2px; text-transform: uppercase;
+  box-shadow: var(--hard), 0 0 16px color-mix(in srgb, var(--magenta) 60%, transparent);
+  animation: arc-band 1.2s linear infinite;
+}
+@keyframes arc-band { to { background-position: 32px 0; } }
+.dialog.is-record .record-ribbon { animation: arc-blink .3s steps(1) 8; }
+
+.dialog__icon {
+  width: 48px; height: 48px;
+  margin: 0 auto 12px;
+  padding: 0;
+  display: block;
+  border-radius: 0;
+  background: none;
+  color: var(--green);
+  shape-rendering: crispEdges;
+  filter: drop-shadow(0 0 8px currentColor);
+  animation: arc-badge-in .2s steps(4);
+}
+@keyframes arc-badge-in { 0% { scale: 0; } 100% { scale: 1; } }
+.dialog__icon.sad { color: var(--red-t); filter: none; }
+.dialog.is-record .dialog__icon {
+  color: var(--yellow);
+  animation: arc-badge-in .2s steps(4), trophy-cheer 1s steps(5) .2s 3;
+}
+@keyframes trophy-cheer {
+  0%, 100% { rotate: 0deg; }
+  20% { rotate: -12deg; }
+  40% { rotate: 10deg; }
+  60% { rotate: -6deg; }
+  80% { rotate: 3deg; }
+}
+
+.dialog__headline {
+  margin: 0 0 8px;
+  font-size: 24px; font-weight: 400; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--yellow);
+  text-shadow: var(--hard);
+}
+.dialog__text { margin: 0; font-size: 8px; line-height: 2; text-transform: uppercase; color: var(--ink-dim); }
+.dialog__actions { margin-top: 18px; padding-inline: 0; }
+
+.end-stats {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--px);
+  margin: 18px 0 0; text-align: left;
+}
+.end-stats div { padding: 8px; border-radius: 0; background: var(--black); box-shadow: inset 0 0 0 var(--px) var(--grid); }
+.end-stats dt { font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-dim); }
+.end-stats dd { margin: 4px 0 0; font-size: 16px; color: var(--yellow); font-variant-numeric: tabular-nums; }
+
+/* --- Knöpfe -------------------------------------------------------------- */
+
+.button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--board);
+  color: var(--cyan);
+  font: inherit; font-size: 8px; letter-spacing: 2px; text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: inset var(--px) var(--px) 0 var(--bevel),
+              inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--bevel-d);
+  transition: none;
+}
+.button:active {
+  translate: 0 var(--px);
+  box-shadow: inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--bevel-d);
+}
+.button--filled { background: var(--amber); color: var(--board); }
+.button--text { background: transparent; box-shadow: none; color: var(--ink-dim); }
+
+/* --- Auswahlgruppen ------------------------------------------------------ */
+
+.chips, .segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--px);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  height: auto;
+}
+.chips .chip, .chip, .segmented button {
+  flex: 1 1 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 32px;
+  height: auto;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--board);
+  color: var(--ink-dim);
+  font: inherit; font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 var(--px) var(--grid);
+  transition: none;
+}
+.segmented + .segmented { margin-top: var(--px); }
+.chips .chip[aria-pressed="true"], .chip[aria-pressed="true"], .segmented button[aria-pressed="true"] {
+  background: var(--black);
+  color: var(--yellow);
+  box-shadow: inset 0 0 0 var(--px) var(--yellow);
+}
+/* Menü-Cursor statt Häkchen – nutzt die vorhandene aria-pressed-Umschaltung. */
+.chips .chip[aria-pressed="true"]::after,
+.chip[aria-pressed="true"]::after,
+.segmented button[aria-pressed="true"]::after {
+  content: "\25C0";      /* der Pfeil steckt in der Pixelschrift */
+  margin-left: 4px;
+  animation: arc-blink .5s steps(1) infinite;
+}
+
+/* --- Schalter ------------------------------------------------------------ */
+
+.switch-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  cursor: pointer;
+  font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+}
+.switch-row__text { color: var(--ink); font-size: 8px; }
+.switch { position: relative; flex: none; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch__track {
+  display: block;
+  position: relative;
+  width: 40px; height: 20px;
+  border: 0;
+  border-radius: 0;
+  background: var(--black);
+  box-shadow: inset 0 0 0 var(--px) var(--grid);
+  transition: none;
+}
+.switch__track::after {
+  content: "";
+  position: absolute; top: 4px; left: 4px;
+  width: 12px; height: 12px;
+  border-radius: 0;
+  background: var(--grid);
+  box-shadow: none;
+  transition: translate .1s steps(3);
+}
+.switch input:checked + .switch__track { background: var(--black); box-shadow: inset 0 0 0 var(--px) var(--green); }
+.switch input:checked + .switch__track::after {
+  transform: none;
+  translate: 20px 0;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+.switch input:focus-visible + .switch__track { outline: var(--px) solid var(--cyan); outline-offset: 2px; }
+
+/* --- Felder und Listen --------------------------------------------------- */
+
+.field { margin: 0 0 20px; }
+.field__title {
+  margin: 0 0 8px;
+  font-size: 8px; font-weight: 400; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--cyan);
+}
+.field__note { margin: 8px 0 0; font-size: 8px; line-height: 2; text-transform: uppercase; color: var(--ink-dim); }
+
+.best-list { margin: 0; padding: 0; list-style: none; font-size: 8px; text-transform: uppercase; }
+.best-list li {
+  display: flex; justify-content: space-between; align-items: center;
+  min-height: 32px;
+  padding: 6px 0;
+  box-shadow: inset 0 calc(-1 * var(--px)) 0 var(--grid);
+}
+.best-list li:last-child { box-shadow: none; }
+.best-list b { color: var(--yellow); font-weight: 400; font-variant-numeric: tabular-nums; }
+
+.version { text-align: center; margin-top: 16px; color: var(--grid); }
+
+/* --- Beispielraster in den Regeln ---------------------------------------- */
+
+.demo {
+  display: flex; align-items: center; gap: 16px;
+  margin: 4px 0 18px; padding: 8px;
+  border-radius: 0;
+  background: var(--board);
+  box-shadow: inset 0 0 0 var(--px) var(--grid);
+}
+.demo__grid { display: grid; grid-template-columns: repeat(3, 40px); gap: var(--gap); flex: none; }
+.demo__cell {
+  display: grid; place-items: center;
+  height: 40px;
+  border: 0;
+  border-radius: 0;
+  background: var(--tile);
+  color: var(--ink);
+  font-size: 16px;
+  box-shadow: inset var(--px) var(--px) 0 var(--bevel),
+              inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--bevel-d);
+}
+.demo__cell--a { background: var(--green); color: var(--board); box-shadow: var(--hard); }
+.demo__cell--b { background: var(--cyan); color: var(--board); box-shadow: var(--hard); }
+.demo__legend {
+  margin: 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 8px;
+  font-size: 8px; line-height: 2; text-transform: uppercase; color: var(--ink-dim);
+}
+.demo__legend li { display: flex; align-items: center; gap: 6px; }
+.demo__swatch { width: 8px; height: 8px; border-radius: 0; display: inline-block; flex: none; }
+.demo__swatch--a { background: var(--green); }
+.demo__swatch--b { background: var(--cyan); }
+
+/* --- Konfetti ------------------------------------------------------------ */
+
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 70; overflow: hidden; }
+.confetti[popover] { width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
+.confetti[popover]::backdrop { background: transparent; }
+.confetti i {
+  position: absolute; top: -14px;
+  width: 6px; height: 6px;
+  border-radius: 0;
+  animation: fall linear forwards;
+  animation-timing-function: steps(20);
+}
+@keyframes fall {
+  0% { translate: 0 -10px; opacity: 1; }
+  100% { translate: 0 105dvh; opacity: 1; }
+}
+
+/* --- Kombo-Level-Up ------------------------------------------------------ */
+
+/* Vorbild: der Sprite-Zoom der Sega-Super-Scaler-Automaten (Space Harrier,
+   OutRun), der Farbzyklus aus dem Palette-RAM von Robotron 2084 und das
+   Bildschirmruckeln der CPS-1-Titel. Was Automaten AUCH taten, der
+   Bildstopp von Pac-Man, bleibt draußen: er würde die Eingabe blockieren.
+   Gefeiert wird nur die Optik, gespielt werden kann immer weiter. */
+
+.combo-pop {
+  position: absolute;
+  left: 50%; top: 40%;
+  z-index: 40;
+  pointer-events: none;          /* der nächste Zug bleibt antippbar */
+  /* Nur layout, kein paint: Paint-Containment klippt auf die Polsterkante und
+     macht das Element zum Bezugsrahmen fuer feste Kinder - der Weissblitz waere
+     dann ein Rechteck hinter dem Text, der Strahlenkranz unsichtbar und der
+     Neonrahmen abgeschnitten. */
+  contain: layout;
+
+  /* Ein Pixel ist ein Achtel der Schriftgröße: nur ganze Achter bleiben
+     rasterscharf, darum die Stufe als Faktor statt als freie Größe. */
+  --pop-px: 2;
+  font: 400 calc(8px * var(--pop-px)) / 1 'ZP Pixel', ui-monospace, monospace;
+  letter-spacing: calc(1px * var(--pop-px));
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-align: center;
+
+  /* Die Palette liegt in Variablen: der Zyklus schaltet sie hart weiter. */
+  --pop-c1: var(--yellow);
+  --pop-c2: var(--magenta-t);
+  --pop-c3: var(--cyan);
+  --pop-c4: var(--green);
+  --pop-c5: var(--ink);
+  --pop-c6: var(--amber);
+  --pop-dur: 220ms;
+  --pop-cycle: 120ms;
+  --pop-out: 3px;                /* harte Kontur wie ein Sprite */
+
+  /* Die Einblendung liegt mitten über dem Feld - genau wie im Automaten. Damit
+     sie sich nicht mit den Ziffern verzahnt, bekommt sie eine dunkle Platte mit
+     Neonrand: das ist die Spruchbandoptik der Vorbilder und macht den Text auf
+     jedem Untergrund lesbar. */
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, .84);
+  outline: var(--px) solid currentColor;
+  box-shadow: 0 0 20px rgba(0, 0, 0, .9);
+
+  color: var(--pop-c1);
+  text-shadow:
+    var(--pop-out) 0 0 var(--black), calc(-1 * var(--pop-out)) 0 0 var(--black),
+    0 var(--pop-out) 0 var(--black), 0 calc(-1 * var(--pop-out)) 0 var(--black),
+    0 calc(2 * var(--pop-out)) 0 rgba(0, 0, 0, .55);
+
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Stufe 2 bis 4: nur der Zoom. */
+.combo-pop.show { animation: pop-zoom var(--pop-dur) steps(3, jump-none) both; }
+@keyframes pop-zoom {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.34); }
+  30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.26); }
+  55%  { opacity: 1; transform: translate(-50%, -50%) scale(.92); }
+  72%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -62%) scale(1); }
+}
+
+/* Der Farbzyklus springt hart weiter statt zu blenden - das war Palette-RAM.
+   Er läuft als zweite Animation und kollidiert deshalb nicht mit dem Zoom. */
+@keyframes pop-cycle {
+  0%   { color: var(--pop-c1); }
+  17%  { color: var(--pop-c2); }
+  34%  { color: var(--pop-c3); }
+  50%  { color: var(--pop-c4); }
+  67%  { color: var(--pop-c5); }
+  84%  { color: var(--pop-c6); }
+  100% { color: var(--pop-c1); }
+}
+
+/* Wackeln nutzt die eigenständige rotate-Eigenschaft: sie komponiert mit
+   transform, statt es zu überschreiben. */
+@keyframes pop-wobble {
+  0%, 100% { rotate: -2.5deg; }
+  50%      { rotate: 2.5deg; }
+}
+
+/* Stufe 5 bis 7: größer, mit Farbzyklus. */
+.combo-pop.show[data-level="5"],
+.combo-pop.show[data-level="6"],
+.combo-pop.show[data-level="7"] {
+  --pop-px: 3;
+  --pop-dur: 300ms;
+  --pop-cycle: 110ms;
+  animation: pop-zoom var(--pop-dur) steps(4, jump-none) both,
+             pop-cycle var(--pop-cycle) steps(1, end) 2;
+}
+.combo-pop.show[data-level="7"] { --pop-dur: 320ms; --pop-cycle: 100ms; }
+
+/* Stufe 8 und 9: dazu das Wackeln. */
+.combo-pop.show[data-level="8"],
+.combo-pop.show[data-level="9"] {
+  --pop-px: 4;
+  --pop-dur: 340ms;
+  --pop-cycle: 90ms;
+  --pop-out: 4px;
+  animation: pop-zoom var(--pop-dur) steps(4, jump-none) both,
+             pop-cycle var(--pop-cycle) steps(1, end) 3,
+             pop-wobble 90ms steps(2, end) 3;
+}
+
+/* Stufe 10: das ganze Programm. Hier springt die Schriftgröße selbst in
+   ganzen Achtern, damit jedes Zwischenbild aufs Pixelraster fällt. */
+.combo-pop.show[data-level="10"] {
+  --pop-px: 4;
+  --pop-dur: 460ms;
+  --pop-cycle: 70ms;
+  --pop-out: 4px;
+  animation: pop-zoom-max var(--pop-dur) steps(1, end) both,
+             pop-cycle var(--pop-cycle) steps(1, end) 6,
+             pop-wobble 80ms steps(2, end) 5;
+}
+/* Der Sprung laeuft ueber scale, nicht ueber font-size: eine Schriftgroesse in
+   den Keyframes schlaegt jede normale Deklaration, damit waere die Regel fuer
+   schmale Geraete wirkungslos und "Maximum ×10" liefe aus dem Bild. */
+@keyframes pop-zoom-max {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.25); }
+  14%  { opacity: 1; transform: translate(-50%, -50%) scale(.75); }
+  28%  { opacity: 1; transform: translate(-50%, -50%) scale(1.5); }
+  42%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  56%  { opacity: 1; transform: translate(-50%, -50%) scale(1.25); }
+  85%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -66%) scale(1); }
+}
+
+/* Weißblitz bei ×10: eine Palette, die zwei Bilder lang auf Weiß steht.
+   Als eigenes Element und NICHT als Kind der Einblendung - ein transformiertes
+   Elternelement wird selbst zum Bezugsrahmen fuer feste Kinder, der Blitz waere
+   dann ein Rechteck in Schriftgroesse statt ein Bildschirmblitz. */
+.max-flash {
+  position: fixed;
+  inset: -8px;
+  /* unter der Einblendung (40), aber ueber allem anderen: der Schriftzug muss
+     im Blitz lesbar bleiben, sonst feiert man ins Weisse. */
+  z-index: 38;
+  pointer-events: none;
+  opacity: 0;
+  background: var(--ink);
+}
+:root.max-flash-on .max-flash { animation: pop-flash 110ms steps(2, end) both; }
+@keyframes pop-flash {
+  0%   { opacity: .6; }
+  50%  { opacity: .25; }
+  100% { opacity: 0; }
+}
+
+/* Strahlenkranz hinter der Schrift, klein gehalten: eine vollflächige
+   conic-Animation kostet auf dem Telefon zu viel. */
+.combo-pop.show[data-level="5"]::after,
+.combo-pop.show[data-level="6"]::after,
+.combo-pop.show[data-level="7"]::after,
+.combo-pop.show[data-level="8"]::after,
+.combo-pop.show[data-level="9"]::after,
+.combo-pop.show[data-level="10"]::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 260px; height: 260px;
+  margin: -130px 0 0 -130px;
+  /* nicht hinter die Platte legen: dort waere er unsichtbar. Er liegt davor
+     und ist dafuer schwach und ausmaskiert. */
+  opacity: .22;
+  background: repeating-conic-gradient(from 0deg, var(--pop-c1) 0deg 9deg, transparent 9deg 18deg);
+  -webkit-mask-image: radial-gradient(closest-side, #000 30%, transparent 78%);
+  mask-image: radial-gradient(closest-side, #000 30%, transparent 78%);
+  animation: pop-rays 460ms steps(8, end) both;
+}
+@keyframes pop-rays {
+  0%   { rotate: 0deg; opacity: 0; }
+  20%  { opacity: .34; }
+  100% { rotate: 30deg; opacity: 0; }
+}
+
+/* --- Bildröhre ----------------------------------------------------------- */
+
+.scanlines {
+  position: fixed;
+  /* Der Ruettler verschiebt den body um bis zu 4px; die Auflagen greifen
+     darum ueber den Rand hinaus, sonst blitzt dort eine unbemalte Kante auf. */
+  inset: -8px;
+  z-index: 90;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  /* Zwei Zahlen, die nachgemessen sind, nicht geschaetzt:
+     - Periode 4px, nicht 3px. Die Schrift ist 8 Pixel hoch; 3 und 8 sind
+       teilerfremd, dann bekommt jede Glyphenzeile eine andere Abdunklung und
+       dieselbe Ziffer sieht je nach Zeile anders aus.
+     - Vignette erst ab 70 % Radius und nur bis 32 %. multiply verschiebt
+       Kontraste NICHT proportional: der Sockel 0.05 in der WCAG-Formel bleibt
+       stehen, also stuerzt das Verhaeltnis mit der Abdunklung. Bei den vorher
+       gesetzten 72 % fiel Weiss auf Schwarz von 21:1 auf 7:1 und die rote
+       Fehlerkachel von 7,6:1 auf 3,4:1. */
+  background-image:
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, .17) 0 1px, transparent 1px 4px),
+    radial-gradient(140% 110% at 50% 50%, transparent 0 70%, rgba(0, 0, 0, .32) 100%);
+}
+/* Ein einzelner Blitz alle sieben Sekunden, kein Dauerpulsieren. */
+.scanlines::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: rgba(85, 238, 255, .03);
+  animation: arc-flicker 7s steps(1) infinite;
+}
+@keyframes arc-flicker { 0%, 92% { opacity: 0; } 93%, 94% { opacity: 1; } 95%, 100% { opacity: 0; } }
+
+/* Der rollende Balken: eine Bildroehre, deren Bildlage leicht daneben liegt.
+   Er nimmt kein Licht weg, er gibt welches dazu - darum eigene Ebene ohne
+   multiply, dafuer sehr schwach. */
+.scanlines::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  height: 22%;
+  background: linear-gradient(180deg,
+    transparent 0%, rgba(255, 255, 255, .045) 40%,
+    rgba(255, 255, 255, .075) 50%, rgba(255, 255, 255, .045) 60%, transparent 100%);
+  mix-blend-mode: screen;
+  animation: arc-roll 7.5s linear infinite;
+}
+@keyframes arc-roll { from { top: -25%; } to { top: 100%; } }
+
+/* Der Einschaltblitz: eine Zeile, die auf Bildhoehe aufreisst - wie eine
+   Roehre, die Strom bekommt. Laeuft einmal beim Wechsel in den Automaten. */
+.crt-boot {
+  position: fixed;
+  inset: -8px;
+  z-index: 95;
+  pointer-events: none;
+  opacity: 0;
+  background: #fff;
+}
+:root.crt-on .crt-boot { animation: arc-boot .55s steps(8) both; }
+/* Die Spitze liegt bei 0.6, nicht bei 1: ein voller Weissblitz ueber den
+   ganzen Bildschirm ist bei jedem Wechsel zu viel. */
+@keyframes arc-boot {
+  0% { opacity: .6; clip-path: inset(49.5% 0 49.5% 0); }
+  35% { opacity: .5; clip-path: inset(48% 0 48% 0); }
+  60% { opacity: .28; clip-path: inset(0 0 0 0); }
+  100% { opacity: 0; clip-path: inset(0 0 0 0); }
+}
+
+/* Vorbild: ein Versatz, der in die Scroll-Register geschrieben wird, wenige
+   Bilder lang. Dauer und Weite setzt das JS je Kombostufe. */
+body.shake { animation: arc-shake var(--shake-dur, 160ms) steps(1, end) both; }
+@keyframes arc-shake {
+  0%   { translate: 0 0; }
+  20%  { translate: var(--shake-amp, 3px) calc(-1 * var(--shake-amp, 3px)); }
+  40%  { translate: calc(-1 * var(--shake-amp, 3px)) 0; }
+  60%  { translate: calc(var(--shake-amp, 3px) * .6) var(--shake-amp, 3px); }
+  80%  { translate: calc(-1 * var(--shake-amp, 3px) * .5) 0; }
+  100% { translate: 0 0; }
+}
+
+/* --- Schmale Geräte ------------------------------------------------------ */
+
+@media (max-width: 359px) {
+  .board-wrap { padding-inline: 4px; }
+  .bottom-app-bar { gap: var(--px); padding-inline: 4px; }
+  .action-label, .fab__label { white-space: nowrap; }
+  .top-app-bar__title { font-size: 8px; letter-spacing: 2px; }
+  .stat-card__value { font-size: 16px; }
+  .dialog__headline { font-size: 16px; }
+  /* Eine Stufe kleiner - Groesse und Sperrung haengen beide an --pop-px,
+     darum reicht die eine Zahl. */
+  .combo-pop { --pop-px: 2; }
+  .combo-pop.show[data-level="5"], .combo-pop.show[data-level="6"],
+  .combo-pop.show[data-level="7"] { --pop-px: 2; }
+  .combo-pop.show[data-level="8"], .combo-pop.show[data-level="9"] { --pop-px: 3; }
+  .combo-pop.show[data-level="10"] { --pop-px: 3; }
+}
+
+@media (max-height: 460px) and (orientation: landscape) {
+  .top-app-bar { padding-block: 2px; }
+  .hud { padding-bottom: 4px; }
+  .stat-card { padding-block: 2px; }
+  .ticker { height: 24px; }
+  .bottom-app-bar .icon-button, .fab { min-height: 40px; }
+}
+
+/* --- Weniger Bewegung ---------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+  /* Was blinkt oder flimmert, bleibt hier ganz aus. */
+  .brand-dot, .stat-card.beaten .stat-card__note { animation: none; opacity: 1; }
+  .chips .chip[aria-pressed="true"]::after,
+  .chip[aria-pressed="true"]::after,
+  .segmented button[aria-pressed="true"]::after { animation: none; }
+  .scanlines::after, .scanlines::before { display: none; }
+  /* Nichts laeuft, nichts jagt, nichts flackert. */
+  .top-app-bar__title { animation: none; -webkit-text-fill-color: var(--yellow); background: none; }
+  .top-app-bar__title::after { animation: none; }
+  .starfield { display: none; }
+  .crt-boot { display: none; }
+  .board::before, .board::after { animation: none; opacity: .5; }
+  .cell.sel { animation: none; }
+  .cell.sel::after { display: none; }
+  .record-ribbon { animation: none; }
+  .scanlines { background-image: radial-gradient(130% 100% at 50% 50%, transparent 0 55%, rgba(0, 0, 0, .45) 100%); }
+  body.shake { animation: none; }
+  .cell.hinted { animation: none; box-shadow: 0 0 0 3px var(--cyan); }
+  .fab.urge { animation: none; box-shadow: inset 0 0 0 var(--px) var(--yellow); }
+  /* Die Einblendung steht lesbar da, statt zu blitzen und zu wackeln; das
+     Aufraeumen uebernimmt der Zeitgeber im JS. */
+  .combo-pop.show,
+  .combo-pop.show[data-level="5"], .combo-pop.show[data-level="6"],
+  .combo-pop.show[data-level="7"], .combo-pop.show[data-level="8"],
+  .combo-pop.show[data-level="9"], .combo-pop.show[data-level="10"] {
+    --pop-px: 3;
+    animation: none;
+    opacity: 1;
+    color: var(--pop-c1);
+    rotate: 0deg;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .combo-pop::before, .combo-pop::after { display: none; }
+}

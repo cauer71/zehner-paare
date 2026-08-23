@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+"""
+Erzeugt den Pixel-Icon-Sprite fuer den Arcade-Stil und setzt ihn in index.html.
+
+Die Symbole sind als ASCII-Raster gezeichnet (# = gesetzt), 16x16. Daraus wird
+je Symbol ein einziger <path> aus achsenparallelen Rechtecken - echte
+Pixelgrafik, die sich wie die weichen Material-Symbole ueber currentColor
+faerbt. Waagerechte Laeufe werden zusammengefasst, damit der Pfad kurz bleibt.
+
+Der Pfad aus dem Raster zu rechnen statt ihn zu tippen ist der ganze Sinn
+dieser Datei: von Hand geschriebene Koordinaten passen fast immer irgendwo
+nicht zur Zeichnung.
+
+Aufruf:  python3 tools/gen-pixelicons.py
+"""
+
+import re
+from pathlib import Path
+
+N = 16   # Rasterkantenlaenge
+
+ICONS = {}
+
+# Zurueck: Pfeil nach links mit Haken nach unten
+ICONS['undo'] = """
+................
+................
+.....##.........
+....###.........
+...####.........
+..#####.........
+.##############.
+.##############.
+..#####.....###.
+...####.....###.
+....###.....###.
+.....##.....###.
+............###.
+....############
+....############
+................
+"""
+
+# Tipp: Gluehbirne
+ICONS['bulb'] = """
+................
+......####......
+.....######.....
+....##....##....
+...##......##...
+...##......##...
+...##......##...
+....##....##....
+.....######.....
+......####......
+......####......
+................
+......####......
+................
+......####......
+................
+"""
+
+# Auffuellen: dickes Plus
+ICONS['plus'] = """
+................
+................
+......####......
+......####......
+......####......
+......####......
+..############..
+..############..
+..############..
+..############..
+......####......
+......####......
+......####......
+......####......
+................
+................
+"""
+
+# Neu: Kreispfeil
+ICONS['new'] = """
+................
+.....#####..##..
+...#########.##.
+..####...#####..
+.###.......###..
+.###........##..
+###.............
+###.............
+###.............
+###.............
+.###........###.
+.####......####.
+..####....####..
+...##########...
+.....######.....
+................
+"""
+
+# Einstellungen: Zahnrad mit vier Zaehnen und quadratischer Nabe
+ICONS['gear'] = """
+................
+.......##.......
+.......##.......
+...##########...
+..############..
+..############..
+..###......###..
+#####......#####
+#####......#####
+..###......###..
+..############..
+..############..
+...##########...
+.......##.......
+.......##.......
+................
+"""
+
+# Regeln: Fragezeichen im Rahmen
+ICONS['help'] = """
+................
+..############..
+..############..
+..##........##..
+..##..####..##..
+..##.##..##.##..
+..##.##..##.##..
+..##.....##.##..
+..##....##..##..
+..##...##...##..
+..##...##...##..
+..##........##..
+..##...##...##..
+..##...##...##..
+..############..
+..############..
+"""
+
+# Schliessen: X
+ICONS['close'] = """
+................
+................
+..##........##..
+..###......###..
+...###....###...
+....###..###....
+.....######.....
+......####......
+......####......
+.....######.....
+....###..###....
+...###....###...
+..###......###..
+..##........##..
+................
+................
+"""
+
+# Haken
+ICONS['check'] = """
+................
+................
+..............##
+.............###
+............###.
+...........###..
+..##......###...
+.####....###....
+..####..###.....
+...#######......
+....#####.......
+.....###........
+................
+................
+................
+................
+"""
+
+# Pokal
+ICONS['trophy'] = """
+................
+..############..
+..############..
+.##..........##.
+.##..########.##
+.##..########.##
+.##..########.##
+.##..######..##.
+..##.######.##..
+...#########....
+.....######.....
+......####......
+......####......
+...##########...
+..############..
+..############..
+"""
+
+# Trauriges Gesicht
+ICONS['sad'] = """
+................
+....########....
+..############..
+.##############.
+###..........###
+##....##..##..##
+##....##..##..##
+##............##
+##............##
+##.....####...##
+##....##..##..##
+###..##....##.##
+.##############.
+..############..
+....########....
+................
+"""
+
+
+
+
+
+
+def raster(text):
+    zeilen = [z for z in text.strip('\n').split('\n') if z.strip('\n')]
+    assert len(zeilen) == N, f'{len(zeilen)} Zeilen statt {N}'
+    for i, z in enumerate(zeilen):
+        assert len(z) == N, f'Zeile {i}: {len(z)} Spalten statt {N} -> {z!r}'
+    return zeilen
+
+
+def pfad(zeilen):
+    """Waagerechte Laeufe zu Rechtecken, jedes als geschlossener Teilpfad."""
+    teile = []
+    for y, z in enumerate(zeilen):
+        x = 0
+        while x < N:
+            if z[x] != '#':
+                x += 1
+                continue
+            start = x
+            while x < N and z[x] == '#':
+                x += 1
+            w = x - start
+            teile.append(f'M{start} {y}h{w}v1h-{w}z')
+    return ''.join(teile)
+
+
+def main():
+    symbole = []
+    for name, art in ICONS.items():
+        z = raster(art)
+        gesetzt = sum(zeile.count('#') for zeile in z)
+        assert gesetzt > 8, f'{name}: nur {gesetzt} Pixel gesetzt'
+        symbole.append(
+            f'  <symbol id="px-{name}" viewBox="0 0 {N} {N}" fill="currentColor">'
+            f'<path d="{pfad(z)}"/></symbol>'
+        )
+        zeilen_belegt = [i for i, zeile in enumerate(z) if '#' in zeile]
+        spalten_belegt = [j for j in range(N) if any(zeile[j] == '#' for zeile in z)]
+        kasten = (zeilen_belegt[0], zeilen_belegt[-1], spalten_belegt[0], spalten_belegt[-1])
+        hoehe = kasten[1] - kasten[0] + 1
+        breite = kasten[3] - kasten[2] + 1
+        print(f'px-{name}: {gesetzt} Pixel · Kasten Zeilen {kasten[0]}-{kasten[1]} '
+              f'({hoehe}) Spalten {kasten[2]}-{kasten[3]} ({breite})')
+        # Ein Haken ist von Natur aus breit und flach, eine Birne schmal und
+        # hoch. Erst wenn BEIDE Kanten klein sind, wirkt das Symbol verloren.
+        if hoehe < 11 and breite < 11:
+            print(f'   ACHTUNG: {name} wirkt neben den anderen zu klein')
+
+    sprite = ('<!-- Pixel-Symbole fuer den Arcade-Stil, erzeugt von '
+              'tools/gen-pixelicons.py -->\n'
+              '<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">\n'
+              + '\n'.join(symbole)
+              + '\n</svg>')
+
+    html_pfad = Path(__file__).resolve().parent.parent / 'index.html'
+    html = html_pfad.read_text(encoding='utf-8')
+    marke_auf = '<!-- Pixel-Symbole fuer den Arcade-Stil'
+    if marke_auf in html:
+        # vorhandenen Sprite ersetzen
+        start = html.index(marke_auf)
+        ende = html.index('</svg>', start) + len('</svg>')
+        html = html[:start] + sprite + html[ende:]
+    else:
+        # hinter den Material-Sprite haengen
+        anker = '</svg>\n\n<div class="app">'
+        assert anker in html, 'Ankerpunkt fuer den Sprite nicht gefunden'
+        html = html.replace(anker, '</svg>\n\n' + sprite + '\n\n<div class="app">')
+    html_pfad.write_text(html, encoding='utf-8')
+    print(f'{len(symbole)} Symbole in index.html geschrieben')
+
+
+if __name__ == '__main__':
+    main()

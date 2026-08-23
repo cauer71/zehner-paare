@@ -38,18 +38,23 @@
 <link rel="stylesheet" href="m3-colors.css" id="css-m3-colors">
 <link rel="stylesheet" href="material3.css" id="css-m3">
 <link rel="stylesheet" href="classic.css" id="css-classic">
+<link rel="stylesheet" href="arcade.css" id="css-arcade">
 <script>
   // Skin und Farbschema vor dem ersten Rendern setzen, sonst blitzt der
   // falsche Stil kurz auf.
   (function () {
     var s = { skin: 'classic', theme: 'auto' };
     try { Object.assign(s, JSON.parse(localStorage.getItem('zp.settings.v1') || '{}')); } catch (e) {}
-    var m3 = s.skin === 'm3';
-    document.documentElement.dataset.skin = m3 ? 'm3' : 'classic';
-    document.getElementById('css-m3').disabled = !m3;
-    document.getElementById('css-m3-colors').disabled = !m3;
-    document.getElementById('css-classic').disabled = m3;
-    if (s.theme === 'light' || s.theme === 'dark') document.documentElement.dataset.theme = s.theme;
+    var skin = s.skin === 'm3' || s.skin === 'arcade' ? s.skin : 'classic';
+    document.documentElement.dataset.skin = skin;
+    document.getElementById('css-m3').disabled = skin !== 'm3';
+    document.getElementById('css-m3-colors').disabled = skin !== 'm3';
+    document.getElementById('css-classic').disabled = skin !== 'classic';
+    document.getElementById('css-arcade').disabled = skin !== 'arcade';
+    // Der Arcade-Stil ist immer dunkel; das Farbschema gilt nur fuer die anderen.
+    if (skin !== 'arcade' && (s.theme === 'light' || s.theme === 'dark')) {
+      document.documentElement.dataset.theme = s.theme;
+    }
   })();
 </script>
 </head>
@@ -67,6 +72,20 @@
   <symbol id="i-check" viewBox="0 -960 960 960" fill="currentColor"><path d="m382-354 339-339q12-12 28-12t28 12q12 12 12 28.5T777-636L410-268q-12 12-28 12t-28-12L182-440q-12-12-11.5-28.5T183-497q12-12 28.5-12t28.5 12l142 143Z"/></symbol>
   <symbol id="i-trophy" viewBox="0 -960 960 960" fill="currentColor"><path d="M440-200v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80q0-33 23.5-56.5T360-840h240q33 0 56.5 23.5T680-760h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h120q17 0 28.5 11.5T680-160q0 17-11.5 28.5T640-120H320q-17 0-28.5-11.5T280-160q0-17 11.5-28.5T320-200h120ZM280-528v-152h-80v40q0 38 22 68.5t58 43.5Zm200 128q50 0 85-35t35-85v-240H360v240q0 50 35 85t85 35Zm200-128q36-13 58-43.5t22-68.5v-40h-80v152Zm-200-52Z"/></symbol>
   <symbol id="i-sad" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-420q-54 0-101.5 23.5T302-328q-11 16-3 32t26 16q8 0 14.5-3.5T351-294q23-31 57-48.5t72-17.5q38 0 72 17.5t57 48.5q4 7 10.5 10.5T634-280q18 0 26-16.5t-3-33.5q-29-44-76.5-67T480-420Zm140-100q25 0 42.5-17.5T680-580q0-25-17.5-42.5T620-640q-25 0-42.5 17.5T560-580q0 25 17.5 42.5T620-520Zm-280 0q25 0 42.5-17.5T400-580q0-25-17.5-42.5T340-640q-25 0-42.5 17.5T280-580q0 25 17.5 42.5T340-520ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-400Zm0 320q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Z"/></symbol>
+</svg>
+
+<!-- Pixel-Symbole fuer den Arcade-Stil, erzeugt von tools/gen-pixelicons.py -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="px-undo" viewBox="0 0 16 16" fill="currentColor"><path d="M5 2h2v1h-2zM4 3h3v1h-3zM3 4h4v1h-4zM2 5h5v1h-5zM1 6h14v1h-14zM1 7h14v1h-14zM2 8h5v1h-5zM12 8h3v1h-3zM3 9h4v1h-4zM12 9h3v1h-3zM4 10h3v1h-3zM12 10h3v1h-3zM5 11h2v1h-2zM12 11h3v1h-3zM12 12h3v1h-3zM4 13h12v1h-12zM4 14h12v1h-12z"/></symbol>
+  <symbol id="px-bulb" viewBox="0 0 16 16" fill="currentColor"><path d="M6 1h4v1h-4zM5 2h6v1h-6zM4 3h2v1h-2zM10 3h2v1h-2zM3 4h2v1h-2zM11 4h2v1h-2zM3 5h2v1h-2zM11 5h2v1h-2zM3 6h2v1h-2zM11 6h2v1h-2zM4 7h2v1h-2zM10 7h2v1h-2zM5 8h6v1h-6zM6 9h4v1h-4zM6 10h4v1h-4zM6 12h4v1h-4zM6 14h4v1h-4z"/></symbol>
+  <symbol id="px-plus" viewBox="0 0 16 16" fill="currentColor"><path d="M6 2h4v1h-4zM6 3h4v1h-4zM6 4h4v1h-4zM6 5h4v1h-4zM2 6h12v1h-12zM2 7h12v1h-12zM2 8h12v1h-12zM2 9h12v1h-12zM6 10h4v1h-4zM6 11h4v1h-4zM6 12h4v1h-4zM6 13h4v1h-4z"/></symbol>
+  <symbol id="px-new" viewBox="0 0 16 16" fill="currentColor"><path d="M5 1h5v1h-5zM12 1h2v1h-2zM3 2h9v1h-9zM13 2h2v1h-2zM2 3h4v1h-4zM9 3h5v1h-5zM1 4h3v1h-3zM11 4h3v1h-3zM1 5h3v1h-3zM12 5h2v1h-2zM0 6h3v1h-3zM0 7h3v1h-3zM0 8h3v1h-3zM0 9h3v1h-3zM1 10h3v1h-3zM12 10h3v1h-3zM1 11h4v1h-4zM11 11h4v1h-4zM2 12h4v1h-4zM10 12h4v1h-4zM3 13h10v1h-10zM5 14h6v1h-6z"/></symbol>
+  <symbol id="px-gear" viewBox="0 0 16 16" fill="currentColor"><path d="M7 1h2v1h-2zM7 2h2v1h-2zM3 3h10v1h-10zM2 4h12v1h-12zM2 5h12v1h-12zM2 6h3v1h-3zM11 6h3v1h-3zM0 7h5v1h-5zM11 7h5v1h-5zM0 8h5v1h-5zM11 8h5v1h-5zM2 9h3v1h-3zM11 9h3v1h-3zM2 10h12v1h-12zM2 11h12v1h-12zM3 12h10v1h-10zM7 13h2v1h-2zM7 14h2v1h-2z"/></symbol>
+  <symbol id="px-help" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1h12v1h-12zM2 2h12v1h-12zM2 3h2v1h-2zM12 3h2v1h-2zM2 4h2v1h-2zM6 4h4v1h-4zM12 4h2v1h-2zM2 5h2v1h-2zM5 5h2v1h-2zM9 5h2v1h-2zM12 5h2v1h-2zM2 6h2v1h-2zM5 6h2v1h-2zM9 6h2v1h-2zM12 6h2v1h-2zM2 7h2v1h-2zM9 7h2v1h-2zM12 7h2v1h-2zM2 8h2v1h-2zM8 8h2v1h-2zM12 8h2v1h-2zM2 9h2v1h-2zM7 9h2v1h-2zM12 9h2v1h-2zM2 10h2v1h-2zM7 10h2v1h-2zM12 10h2v1h-2zM2 11h2v1h-2zM12 11h2v1h-2zM2 12h2v1h-2zM7 12h2v1h-2zM12 12h2v1h-2zM2 13h2v1h-2zM7 13h2v1h-2zM12 13h2v1h-2zM2 14h12v1h-12zM2 15h12v1h-12z"/></symbol>
+  <symbol id="px-close" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h2v1h-2zM12 2h2v1h-2zM2 3h3v1h-3zM11 3h3v1h-3zM3 4h3v1h-3zM10 4h3v1h-3zM4 5h3v1h-3zM9 5h3v1h-3zM5 6h6v1h-6zM6 7h4v1h-4zM6 8h4v1h-4zM5 9h6v1h-6zM4 10h3v1h-3zM9 10h3v1h-3zM3 11h3v1h-3zM10 11h3v1h-3zM2 12h3v1h-3zM11 12h3v1h-3zM2 13h2v1h-2zM12 13h2v1h-2z"/></symbol>
+  <symbol id="px-check" viewBox="0 0 16 16" fill="currentColor"><path d="M14 2h2v1h-2zM13 3h3v1h-3zM12 4h3v1h-3zM11 5h3v1h-3zM2 6h2v1h-2zM10 6h3v1h-3zM1 7h4v1h-4zM9 7h3v1h-3zM2 8h4v1h-4zM8 8h3v1h-3zM3 9h7v1h-7zM4 10h5v1h-5zM5 11h3v1h-3z"/></symbol>
+  <symbol id="px-trophy" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1h12v1h-12zM2 2h12v1h-12zM1 3h2v1h-2zM13 3h2v1h-2zM1 4h2v1h-2zM5 4h8v1h-8zM14 4h2v1h-2zM1 5h2v1h-2zM5 5h8v1h-8zM14 5h2v1h-2zM1 6h2v1h-2zM5 6h8v1h-8zM14 6h2v1h-2zM1 7h2v1h-2zM5 7h6v1h-6zM13 7h2v1h-2zM2 8h2v1h-2zM5 8h6v1h-6zM12 8h2v1h-2zM3 9h9v1h-9zM5 10h6v1h-6zM6 11h4v1h-4zM6 12h4v1h-4zM3 13h10v1h-10zM2 14h12v1h-12zM2 15h12v1h-12z"/></symbol>
+  <symbol id="px-sad" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8v1h-8zM2 2h12v1h-12zM1 3h14v1h-14zM0 4h3v1h-3zM13 4h3v1h-3zM0 5h2v1h-2zM6 5h2v1h-2zM10 5h2v1h-2zM14 5h2v1h-2zM0 6h2v1h-2zM6 6h2v1h-2zM10 6h2v1h-2zM14 6h2v1h-2zM0 7h2v1h-2zM14 7h2v1h-2zM0 8h2v1h-2zM14 8h2v1h-2zM0 9h2v1h-2zM7 9h4v1h-4zM14 9h2v1h-2zM0 10h2v1h-2zM6 10h2v1h-2zM10 10h2v1h-2zM14 10h2v1h-2zM0 11h3v1h-3zM5 11h2v1h-2zM11 11h2v1h-2zM14 11h2v1h-2zM1 12h14v1h-14zM2 13h12v1h-12zM4 14h8v1h-8z"/></symbol>
 </svg>
 
 <div class="app">
@@ -111,6 +130,13 @@
   </main>
 
   <p class="sr-only" id="live" role="status" aria-live="polite"></p>
+
+  <!-- Nur im Arcade-Stil sichtbar: Sternenfeld, Bildroehre, Kombo-Einblendung -->
+  <div class="starfield" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="crt-boot" aria-hidden="true"></div>
+  <div class="max-flash" aria-hidden="true"></div>
+  <div class="combo-pop" id="combo-pop" aria-hidden="true"></div>
 
   <!-- Bottom App Bar mit erweitertem FAB -->
   <nav class="bottom-app-bar" aria-label="Spielaktionen">
@@ -223,7 +249,9 @@
       <div class="segmented" id="seg-skin" role="group" aria-label="Stil">
         <button type="button" data-value="classic"><svg class="segmented__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Original</span></button>
         <button type="button" data-value="m3"><svg class="segmented__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Material 3</span></button>
+        <button type="button" data-value="arcade"><svg class="segmented__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Arcade</span></button>
       </div>
+      <p class="field__note" id="skin-note" hidden>Der Arcade-Stil leuchtet immer im Dunkeln – das Farbschema gilt für die anderen beiden.</p>
       <div class="segmented" id="seg-theme" role="group" aria-label="Farbschema">
         <button type="button" data-value="auto"><svg class="segmented__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Auto</span></button>
         <button type="button" data-value="light"><svg class="segmented__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Hell</span></button>

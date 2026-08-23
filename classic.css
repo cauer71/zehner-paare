@@ -21,6 +21,9 @@
    Komponenten setzen selbst ein display und wuerden es sonst ueberschreiben. */
 [hidden] { display: none !important; }
 
+/* Bildroehre, Sternenfeld und Kombo-Einblendung gehoeren allein dem Arcade-Stil. */
+.scanlines, .combo-pop, .starfield, .crt-boot, .max-flash { display: none; }
+
 :root {
   --bg: #f4f1ea;
   --bg-blob-1: rgba(245, 158, 11, 0.16);

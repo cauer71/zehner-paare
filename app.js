@@ -10,7 +10,7 @@ import {
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.2.0';
+export const VERSION = '1.3.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2', seen: 'zp.seen.v1' };
 
@@ -54,6 +54,15 @@ if (!store.get('zp.migrated.partners.v1')) {
   store.set(KEY.settings, settings);
 }
 let best = store.get(KEY.best) ?? {};
+
+// Die drei Stile liegen als eigene Stylesheets vor. Was sich darueber hinaus
+// unterscheidet, steht hier: Anzeigename, Icon-Satz und Tonstimme.
+const SKINS = {
+  classic: { label: 'Original', icons: 'i', voice: 'soft' },
+  m3:      { label: 'Material 3', icons: 'i', voice: 'soft' },
+  arcade:  { label: 'Arcade', icons: 'px', voice: 'chip' },
+};
+
 
 /* ------------------------------------------------------------------- DOM */
 
@@ -134,6 +143,33 @@ function audio() {
   return actx;
 }
 
+/*
+ * Alle Klaenge laufen ueber einen gemeinsamen Ausgang mit weicher Begrenzung.
+ * Im Spiel fallen regelmaessig drei bis vier Effekte zusammen - Treffer, Zeile
+ * und Kombo-Level-Up sind der Normalfall, nicht die Ausnahme. Die tanh-Kennlinie
+ * ist unter 0.3 praktisch geradlinig und faengt nur die Spitzen darueber ab.
+ */
+let bus = null;
+function master() {
+  const ctx = audio();
+  if (!ctx) return null;
+  if (!bus || bus.context !== ctx) {
+    const clip = ctx.createWaveShaper();
+    const n = 1025, k = 1.6;
+    const kurve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * 2 - 1;
+      kurve[i] = Math.tanh(k * x) / Math.tanh(k);
+    }
+    clip.curve = kurve;
+    clip.oversample = '2x';
+    bus = ctx.createGain();
+    bus.gain.value = 1;
+    bus.connect(clip).connect(ctx.destination);
+  }
+  return bus;
+}
+
 function tone({ freq = 440, dur = 0.12, type = 'sine', gain = 0.05, delay = 0, slideTo = null }) {
   const ctx = audio();
   if (!ctx) return;
@@ -146,48 +182,285 @@ function tone({ freq = 440, dur = 0.12, type = 'sine', gain = 0.05, delay = 0, s
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(gain, t0 + 0.014);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  osc.connect(g).connect(ctx.destination);
+  osc.connect(g).connect(master());
   osc.start(t0);
   osc.stop(t0 + dur + 0.03);
 }
 
+/* --- Chiptune: die Stimme des Arcade-Stils -------------------------------- */
+
+/*
+ * Ein Soundchip von 1988 kannte drei Dinge: Pulswellen mit einstellbarem
+ * Tastverhaeltnis, Rauschen fuer die Perkussion und harte Tonstufen. Genau das
+ * wird hier nachgebaut - kein Gleiten, keine weichen Huellkurven.
+ */
+
+// Am Kontext haengen, nicht global: eine Welle gehoert immer zu ihrem Kontext.
+const waveCache = new WeakMap();
+/**
+ * Pulswelle mit Tastverhaeltnis d (0.125 = duenn, 0.25 = mittel, 0.5 = voll) -
+ * die drei Stellungen, die die Chips der Zeit kannten. Die Reihe eines
+ * Rechtecks mit Tastverhaeltnis d hat die Oberwellen (2/nπ)·sin(nπd); der
+ * Gleichanteil bleibt null. Neu erzeugen kostet bei fuenf Toenen je Sekunde
+ * hoerbar, darum der Speicher.
+ */
+function pulseWave(ctx, d) {
+  let je = waveCache.get(ctx);
+  if (!je) { je = new Map(); waveCache.set(ctx, je); }
+  if (je.has(d)) return je.get(d);
+  const teil = 64;
+  const real = new Float32Array(teil + 1);
+  const imag = new Float32Array(teil + 1);
+  for (let n = 1; n <= teil; n++) real[n] = (2 / (n * Math.PI)) * Math.sin(n * Math.PI * d);
+  const w = ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+  je.set(d, w);
+  return w;
+}
+
+/**
+ * Ein Chipton. Die Huellkurve rastet ein: kurzer Anschlag, dann harter Abfall
+ * - so klingt ein Kanal, den die Hardware auf null schreibt.
+ */
+function chip({ freq = 440, dur = 0.08, duty = 0.5, gain = 0.04, delay = 0, drop = 0, vibrato = 0 }) {
+  const ctx = audio();
+  if (!ctx) return;
+  const t0 = ctx.currentTime + delay;
+  const osc = ctx.createOscillator();
+  osc.setPeriodicWave(pulseWave(ctx, duty));
+  osc.frequency.setValueAtTime(freq, t0);
+  // Tonhoehenabfall in Stufen statt als Rutsch - der Chip kannte nur Sprünge.
+  if (drop) {
+    const stufen = 6;
+    for (let i = 1; i <= stufen; i++) {
+      osc.frequency.setValueAtTime(freq * (1 - (drop * i) / stufen), t0 + (dur * i) / stufen);
+    }
+  }
+  if (vibrato) {
+    const lfo = ctx.createOscillator();
+    const tiefe = ctx.createGain();
+    lfo.frequency.value = 14;
+    tiefe.gain.value = freq * vibrato;
+    lfo.connect(tiefe).connect(osc.frequency);
+    lfo.start(t0); lfo.stop(t0 + dur + 0.02);
+  }
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0 + 0.006);
+  g.gain.setValueAtTime(gain, t0 + dur * 0.6);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g).connect(master());
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.02);
+}
+
+const noiseCache = new WeakMap();
+/** Rauschen fuer Klicks und Schlaege - die Perkussion des Chips. */
+function noise({ dur = 0.06, gain = 0.03, delay = 0, freq = 1800, q = 1 }) {
+  const ctx = audio();
+  if (!ctx) return;
+  let noiseBuf = noiseCache.get(ctx);
+  if (!noiseBuf) {
+    noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    noiseCache.set(ctx, noiseBuf);
+  }
+  const t0 = ctx.currentTime + delay;
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuf;
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(gain, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(bp).connect(g).connect(master());
+  src.start(t0);
+  src.stop(t0 + dur + 0.02);
+}
+
+/** Tonfolge im festen Raster – ein Arpeggio, wie es der Chip abspulte. */
+function arp(freqs, { step = 0.045, dur = 0.05, duty = 0.5, gain = 0.035, delay = 0 } = {}) {
+  freqs.forEach((f, i) => chip({ freq: f, dur, duty, gain, delay: delay + i * step }));
+}
+
+/*
+ * Zwei Stimmen, eine Auswahl. Die weiche Stimme gehoert zu Original und
+ * Material 3, die Chipstimme zum Automaten. Die Lautstaerken sind so gewaehlt,
+ * dass Treffer + Zeile + Level-Up gleichzeitig zusammen unter 0.12 bleiben -
+ * das ist der Normalfall, nicht die Ausnahme.
+ */
+const VOICES = {
+  soft: {
+    select: () => tone({ freq: 620, dur: 0.05, gain: 0.028, type: 'triangle' }),
+    match: (combo = 1) => {
+      const base = 540 * Math.pow(2, Math.min(combo - 1, 7) / 12);
+      tone({ freq: base, dur: 0.1, type: 'triangle', gain: 0.05, slideTo: base * 1.5 });
+    },
+    error: () => tone({ freq: 165, dur: 0.16, type: 'square', gain: 0.035, slideTo: 120 }),
+    row: () => [0, 1, 2].forEach((i) => tone({ freq: 520 + i * 180, dur: 0.11, delay: i * 0.06, gain: 0.045 })),
+    refill: () => tone({ freq: 380, dur: 0.22, type: 'sawtooth', gain: 0.03, slideTo: 240 }),
+    win: () => [523, 659, 784, 1046, 1318].forEach((f, i) => tone({ freq: f, dur: 0.28, delay: i * 0.1, gain: 0.05 })),
+    record: () => {
+      [659, 880, 1109, 1319, 1760].forEach((f, i) => tone({ freq: f, dur: 0.34, delay: 0.5 + i * 0.09, gain: 0.05, type: 'triangle' }));
+      [2093, 2637].forEach((f, i) => tone({ freq: f, dur: 0.5, delay: 0.95 + i * 0.12, gain: 0.022 }));
+    },
+    lose: () => [400, 320, 240].forEach((f, i) => tone({ freq: f, dur: 0.24, delay: i * 0.12, gain: 0.04, type: 'triangle' })),
+    recordLive: () => {
+      tone({ freq: 1046, dur: 0.16, gain: 0.04 });
+      tone({ freq: 1568, dur: 0.22, delay: 0.12, gain: 0.035 });
+    },
+    hint: () => tone({ freq: 880, dur: 0.09, gain: 0.03 }),
+    undo: () => tone({ freq: 300, dur: 0.1, gain: 0.03, type: 'triangle' }),
+    comboUp: () => {},        // die Feier gehoert dem Automaten
+  },
+
+  chip: {
+    // Kurzer Klick beim Anwaehlen, duennes Tastverhaeltnis: sehr "8 Bit".
+    select: () => chip({ freq: 880, dur: 0.03, duty: 0.125, gain: 0.03 }),
+    // Treffer: eine Sprosse je Kombostufe, wie der Kettenzaehler in Puyo Puyo.
+    match: (combo = 1) => {
+      const stufe = Math.min(combo, POINTS.maxCombo) - 1;
+      const f = 523 * Math.pow(2, stufe / 7);
+      chip({ freq: f, dur: 0.05, duty: 0.25, gain: 0.038 });
+      chip({ freq: f * 2, dur: 0.04, duty: 0.125, gain: 0.02, delay: 0.03 });
+    },
+    // Fehlgriff: tiefer Ton, der in Stufen abstuerzt, dazu ein Rauschklick.
+    error: () => {
+      chip({ freq: 220, dur: 0.16, duty: 0.5, gain: 0.035, drop: 0.6 });
+      noise({ dur: 0.05, gain: 0.02, freq: 500, q: .8 });
+    },
+    // Zeile geraeumt: aufsteigendes Arpeggio, hart gerastert.
+    row: () => arp([523, 659, 784, 1046], { step: 0.04, dur: 0.05, duty: 0.25, gain: 0.034 }),
+    // Auffuellen: das Klacken eines Muenzeinwurfs, dann ein Zwischenton.
+    refill: () => {
+      noise({ dur: 0.04, gain: 0.028, freq: 2600, q: 2 });
+      chip({ freq: 1046, dur: 0.05, duty: 0.5, gain: 0.03, delay: 0.04 });
+      chip({ freq: 1568, dur: 0.07, duty: 0.5, gain: 0.028, delay: 0.09 });
+    },
+    // Stage Clear: kurze Fanfare in Terzen.
+    win: () => {
+      arp([523, 659, 784], { step: 0.08, dur: 0.09, duty: 0.5, gain: 0.04 });
+      arp([1046, 1046], { step: 0.14, dur: 0.18, duty: 0.25, gain: 0.038, delay: 0.26 });
+    },
+    // Rekord: die Extend-Fanfare, oben mit Vibrato ausgehalten.
+    record: () => {
+      arp([659, 880, 1046, 1319], { step: 0.09, dur: 0.09, duty: 0.25, gain: 0.036, delay: 0.45 });
+      chip({ freq: 1760, dur: 0.4, duty: 0.5, gain: 0.032, delay: 0.82, vibrato: 0.012 });
+      noise({ dur: 0.12, gain: 0.016, freq: 6000, q: 1, delay: 0.82 });
+    },
+    // Game Over: drei Stufen abwaerts, das letzte mit Absturz.
+    lose: () => {
+      chip({ freq: 392, dur: 0.12, duty: 0.5, gain: 0.036 });
+      chip({ freq: 311, dur: 0.12, duty: 0.5, gain: 0.036, delay: 0.13 });
+      chip({ freq: 233, dur: 0.28, duty: 0.5, gain: 0.036, delay: 0.26, drop: 0.5 });
+    },
+    /*
+     * Kombo-Level-Up: eine Sprosse hoeher je Stufe, ab 5 ein zweiter Ton, ab 8
+     * ein Arpeggio, bei 10 die grosse Fanfare mit Rauschschlag.
+     */
+    // Tipp: zwei kurze Blips, wie ein Automat, der auf etwas zeigt.
+    hint: () => {
+      chip({ freq: 1318, dur: 0.04, duty: 0.125, gain: 0.026 });
+      chip({ freq: 1760, dur: 0.05, duty: 0.125, gain: 0.024, delay: 0.05 });
+    },
+    // Zurueck: ein Ton, der in Stufen nach unten faellt - Bandruecklauf.
+    undo: () => chip({ freq: 523, dur: 0.12, duty: 0.25, gain: 0.028, drop: 0.55 }),
+    // Rekord mitten im Spiel: ein kurzes Extend-Signal, kein ganzer Jingle.
+    recordLive: () => {
+      chip({ freq: 1046, dur: 0.09, duty: 0.5, gain: 0.03 });
+      chip({ freq: 1568, dur: 0.12, duty: 0.25, gain: 0.028, delay: 0.09 });
+      noise({ dur: 0.06, gain: 0.014, freq: 5000, q: 1, delay: 0.09 });
+    },
+    comboUp: (level) => {
+      const stufe = Math.min(level, POINTS.maxCombo) - 2;     // 0 .. 8
+      const base = 392 * Math.pow(2, stufe / 6);
+      const duty = level >= 5 ? 0.5 : 0.25;
+      chip({ freq: base, dur: 0.06, duty, gain: 0.034 });
+      if (level >= 5) chip({ freq: base * 1.5, dur: 0.07, duty, gain: 0.03, delay: 0.055 });
+      if (level >= 8) {
+        chip({ freq: base * 2, dur: 0.09, duty, gain: 0.028, delay: 0.11 });
+        noise({ dur: 0.05, gain: 0.018, freq: 3200, q: 1.5, delay: 0.11 });
+      }
+      if (level >= 10) {
+        arp([1046, 1319, 1568, 2093], { step: 0.05, dur: 0.1, duty: 0.5, gain: 0.026, delay: 0.16 });
+        noise({ dur: 0.18, gain: 0.02, freq: 900, q: 0.7, delay: 0.16 });
+      }
+    },
+  },
+};
+
+function voice() { return VOICES[SKINS[settings.skin]?.voice] ?? VOICES.soft; }
+
+// Die Aufrufstellen bleiben unveraendert; welche Stimme spielt, entscheidet der Stil.
 const sfx = {
-  select: () => tone({ freq: 620, dur: 0.05, gain: 0.028, type: 'triangle' }),
-  match: (combo = 1) => {
-    const base = 540 * Math.pow(2, Math.min(combo - 1, 7) / 12);
-    tone({ freq: base, dur: 0.1, type: 'triangle', gain: 0.05, slideTo: base * 1.5 });
-  },
-  error: () => tone({ freq: 165, dur: 0.16, type: 'square', gain: 0.035, slideTo: 120 }),
-  row: () => [0, 1, 2].forEach((i) => tone({ freq: 520 + i * 180, dur: 0.11, delay: i * 0.06, gain: 0.045 })),
-  refill: () => tone({ freq: 380, dur: 0.22, type: 'sawtooth', gain: 0.03, slideTo: 240 }),
-  win: () => [523, 659, 784, 1046, 1318].forEach((f, i) => tone({ freq: f, dur: 0.28, delay: i * 0.1, gain: 0.05 })),
-  record: () => {
-    [659, 880, 1109, 1319, 1760].forEach((f, i) => tone({ freq: f, dur: 0.34, delay: 0.5 + i * 0.09, gain: 0.05, type: 'triangle' }));
-    [2093, 2637].forEach((f, i) => tone({ freq: f, dur: 0.5, delay: 0.95 + i * 0.12, gain: 0.022 }));
-  },
-  lose: () => [400, 320, 240].forEach((f, i) => tone({ freq: f, dur: 0.24, delay: i * 0.12, gain: 0.04, type: 'triangle' })),
+  select: () => voice().select(),
+  match: (combo) => voice().match(combo),
+  error: () => voice().error(),
+  row: () => voice().row(),
+  refill: () => voice().refill(),
+  win: () => voice().win(),
+  record: () => voice().record(),
+  lose: () => voice().lose(),
+  recordLive: () => voice().recordLive(),
+  hint: () => voice().hint(),
+  undo: () => voice().undo(),
+  comboUp: (level) => voice().comboUp(level),
 };
 
 /* ------------------------------------------------------------- Darstellung */
 
 /**
+ * Tauscht die Symbole. Die weichen Material-Symbole passen nicht in einen
+ * Automaten, darum gibt es einen zweiten Sprite mit Pixelformen; die href-Ziele
+ * unterscheiden sich nur im Vorsatz (#i-undo <-> #px-undo).
+ */
+function applyIconSet(skin) {
+  const want = SKINS[skin]?.icons ?? 'i';
+  for (const use of document.querySelectorAll('use[href^="#i-"], use[href^="#px-"]')) {
+    const name = use.getAttribute('href').replace(/^#(?:i|px)-/, '');
+    // Fehlt eine Pixelform, bleibt das weiche Symbol stehen - lieber ein
+    // stilfremdes Zeichen als ein leeres Kaestchen.
+    const next = document.getElementById(`${want}-${name}`) ? `#${want}-${name}` : `#i-${name}`;
+    if (use.getAttribute('href') !== next) use.setAttribute('href', next);
+  }
+}
+
+
+/**
  * Setzt Skin und Farbschema. Die beiden Stilvarianten liegen als eigene
  * Stylesheets vor; umgeschaltet wird über deren disabled-Eigenschaft.
  */
+let bootTimer = null;
+let letzterSkin = null;
 function applyAppearance() {
   const root = document.documentElement;
-  if (settings.theme === 'auto') root.removeAttribute('data-theme');
+  if (settings.theme === 'auto' || settings.skin === 'arcade') root.removeAttribute('data-theme');
   else root.setAttribute('data-theme', settings.theme);
 
-  const m3 = settings.skin === 'm3';
-  root.dataset.skin = m3 ? 'm3' : 'classic';
+  const skin = SKINS[settings.skin] ? settings.skin : 'classic';
+  root.dataset.skin = skin;
   const toggle = (id, active) => {
     const el = document.getElementById(id);
     if (el) el.disabled = !active;
   };
-  toggle('css-m3', m3);
-  toggle('css-m3-colors', m3);
-  toggle('css-classic', !m3);
+  toggle('css-classic', skin === 'classic');
+  toggle('css-m3', skin === 'm3');
+  toggle('css-m3-colors', skin === 'm3');
+  toggle('css-arcade', skin === 'arcade');
+  applyIconSet(skin);
+  // Der Automat geht an: einmal die Roehre aufreissen lassen. Nur beim echten
+  // Wechsel - beim Laden liefe der Blitz sonst bei jedem Start.
+  const wechsel = letzterSkin !== null && letzterSkin !== skin;
+  letzterSkin = skin;
+  if (skin === 'arcade' && wechsel && !reduceMotion.matches) {
+    root.classList.remove('crt-on');
+    void root.offsetWidth;
+    root.classList.add('crt-on');
+    clearTimeout(bootTimer);
+    bootTimer = setTimeout(() => root.classList.remove('crt-on'), 700);
+  } else {
+    root.classList.remove('crt-on');
+  }
   updateThemeColor();
 }
 
@@ -299,9 +572,14 @@ function renderBoard({ enterFrom = -1 } = {}) {
   }
 }
 
+/** Am Automaten hat der Zaehler feste Stellen: 000450 statt 450. */
+function zahl(n, stellen = 6) {
+  return settings.skin === 'arcade' ? String(n).padStart(stellen, '0') : String(n);
+}
+
 function updateStats({ bumpScore = false } = {}) {
-  elScore.textContent = String(state.score);
-  elLeft.textContent = String(remaining(state));
+  elScore.textContent = zahl(state.score);
+  elLeft.textContent = zahl(remaining(state), 3);
   // In der Sackgasse wird aus dem Auffuell-Knopf der Rettungsknopf. Der
   // Enddialog laesst sich wegtippen - ohne das hier waere die Rettung dann
   // nicht mehr erreichbar.
@@ -331,17 +609,18 @@ function updateStats({ bumpScore = false } = {}) {
       note.textContent = 'noch kein Rekord';
       card?.classList.remove('beaten');
     } else if (state.score > record.score) {
-      note.textContent = `Rekord ${record.score} geknackt`;
+      note.textContent = settings.skin === 'arcade'
+        ? `HI ${zahl(record.score)} geknackt`
+        : `Rekord ${record.score} geknackt`;
       card?.classList.add('beaten');
       if (!recordHit && state.status === 'playing') {
         recordHit = true;
         toast(`Rekord! ${record.score} Punkte übertroffen`);
-        tone({ freq: 1046, dur: 0.16, gain: 0.04 });
-        tone({ freq: 1568, dur: 0.22, delay: 0.12, gain: 0.035 });
+        sfx.recordLive();
         buzz([15, 40, 15]);
       }
     } else {
-      note.textContent = `Rekord ${record.score}`;
+      note.textContent = settings.skin === 'arcade' ? `HI ${zahl(record.score)}` : `Rekord ${record.score}`;
       card?.classList.remove('beaten');
     }
   }
@@ -353,7 +632,18 @@ function updateStats({ bumpScore = false } = {}) {
   }
 
   const pf = document.getElementById('progress-fill');
-  if (pf) pf.style.width = `${Math.round(progress(state) * 100)}%`;
+  if (pf) {
+    let anteil = progress(state);
+    // Im Automaten sitzt der Balken in 10px-Fassungen. steps() in der
+    // Ueberblendung teilt nur den Sprung, nicht die Skala - die Kanten laegen
+    // also beliebig. Darum hier auf ganze Fassungen runden.
+    if (settings.skin === 'arcade') {
+      const breite = pf.parentElement?.clientWidth ?? 0;
+      const fassungen = Math.max(1, Math.round(breite / 10));
+      anteil = Math.round(anteil * fassungen) / fassungen;
+    }
+    pf.style.width = `${(anteil * 100).toFixed(2)}%`;
+  }
   if (state.combo >= 2) {
     elCombo.textContent = `Kombo ×${Math.min(state.combo, POINTS.maxCombo)}`;
     elCombo.classList.add('show');
@@ -409,13 +699,108 @@ function floaterAt(el, text) {
   f.addEventListener('animationend', () => f.remove(), { once: true });
 }
 
+/* ------------------------------------------- Kombo-Level-Up (Coin-Op) --- */
+
+/*
+ * Der Wunsch war die Feier aus den Automaten. Was die wirklich taten:
+ * Sprite-Zoom in ganzen Stufen (Space Harrier, OutRun), Farbzyklus im
+ * Palette-RAM (Robotron 2084), ein Versatz in den Scroll-Registern fuers
+ * Ruckeln (CPS-1) und bei der Hoechststufe die Palette kurz auf Weiss.
+ * Was sie ausserdem taten - den Bildstopp von Pac-Man - bleibt draussen: er
+ * wuerde die Eingabe blockieren, und genau das darf hier nie passieren.
+ */
+
+const comboPop = $('#combo-pop');
+
+let comboLevel = 1;    // Stufe, die schon gefeiert wurde; 0 oder 1 = keine Kombo
+let popToken = 0;      // laufende Nummer, entwertet Nachlaeufer eines abgeloesten Pops
+const fxLog = [];      // nur fuer die automatische Pruefung
+
+const POP_WORT = {
+  2: 'Kombo ×2', 3: 'Kombo ×3', 4: 'Kombo ×4',
+  5: 'Stark! ×5', 6: 'Kombo ×6', 7: 'Heiß! ×7',
+  8: 'Irre! ×8', 9: 'Kombo ×9', 10: 'Maximum ×10',
+};
+const POP_MS = { 2: 220, 3: 220, 4: 240, 5: 300, 6: 300, 7: 320, 8: 340, 9: 340, 10: 460 };
+// Stufe -> [Dauer, Weite] des Ruettlers. Unter 5 wird nicht geruettelt.
+const POP_SHAKE = { 5: [120, 2], 6: [120, 2], 7: [140, 3], 8: [160, 3], 9: [160, 3], 10: [200, 4] };
+
+/** Feiert genau eine Stufe. Blockiert nichts: kein locked, keine Wartezeit. */
+function playComboPop(level) {
+  fxLog.push({ art: 'combo-pop', level, t: Math.round(performance.now()) });
+  sfx.comboUp(level);
+  buzz(level >= 10 ? [18, 30, 18, 30, 40] : level >= 5 ? [10, 25, 14] : 8);
+  if (!comboPop) return;
+
+  const meine = ++popToken;
+  comboPop.textContent = POP_WORT[level] ?? `Kombo ×${level}`;
+  comboPop.dataset.level = String(level);
+  // Abloesen statt stapeln: Klasse weg, Umbruch erzwingen, Klasse neu. Ohne
+  // das Erzwingen fasst der Browser beides zusammen und nichts passiert.
+  comboPop.classList.remove('show');
+  void comboPop.offsetWidth;
+  comboPop.classList.add('show');
+  setTimeout(() => { if (meine === popToken) comboPop.classList.remove('show'); }, (POP_MS[level] ?? 240) + 40);
+
+  // Der Hoechststand blitzt den ganzen Bildschirm weiss.
+  if (level >= POINTS.maxCombo && !reduceMotion.matches) {
+    const root = document.documentElement;
+    root.classList.remove('max-flash-on');
+    void root.offsetWidth;
+    root.classList.add('max-flash-on');
+    setTimeout(() => { if (meine === popToken) root.classList.remove('max-flash-on'); }, 160);
+  }
+
+  const ruettler = POP_SHAKE[level];
+  if (ruettler && !reduceMotion.matches) {
+    const [ms, weite] = ruettler;
+    document.body.style.setProperty('--shake-dur', `${ms}ms`);
+    document.body.style.setProperty('--shake-amp', `${weite}px`);
+    document.body.classList.remove('shake');
+    void document.body.offsetWidth;
+    document.body.classList.add('shake');
+    setTimeout(() => { if (meine === popToken) document.body.classList.remove('shake'); }, ms + 20);
+  }
+}
+
+/**
+ * Nach einem Treffer aufrufen. Feuert nur bei einem echten Stufenanstieg –
+ * ab Kombo 11 steht der Faktor bei 10 still, dann kommt also nichts mehr.
+ */
+function comboStep(level) {
+  if (level > comboLevel && level >= 2 && settings.skin === 'arcade') playComboPop(level);
+  comboLevel = level;
+}
+
+/**
+ * Kombo von aussen gesetzt: Fehlgriff, Auffuellen, Rettung, Zurueck, neues
+ * Spiel, Spielende, Laden. Kein Effekt, nur den Stand nachziehen – und alles
+ * Laufende abraeumen.
+ *
+ * Warum das noetig ist: refill() nullt die Kombo, der Schnappschuss davor
+ * traegt aber den alten Wert. Ein Zurueck hebt die Kombo also wieder an. Ein
+ * Haken in updateStats() wuerde daraus einen Level-Up aus dem Nichts machen.
+ */
+function syncComboLevel() {
+  comboLevel = Math.min(state?.combo ?? 0, POINTS.maxCombo);
+  popToken += 1;
+  comboPop?.classList.remove('show');
+  document.body.classList.remove('shake');
+  document.documentElement.classList.remove('max-flash-on');
+}
+
 function confetti({ gold = false } = {}) {
   if (reduceMotion.matches) return;
   const wrap = document.createElement('div');
   wrap.className = 'confetti';
+  // Die Farben stecken im Inline-Stil und sind darum per CSS nicht erreichbar –
+  // der Automat bekommt hier seine Neonpalette.
+  const arcade = settings.skin === 'arcade';
   const colors = gold
-    ? ['#f5c451', '#ffd97a', '#e8a33d', '#fff0c2', '#ef7d31']
-    : ['#ef7d31', '#f5c451', '#16a37b', '#2b8fd6'];
+    ? (arcade ? ['#ffdd00', '#ffaa00', '#ff55aa', '#ffffff']
+              : ['#f5c451', '#ffd97a', '#e8a33d', '#fff0c2', '#ef7d31'])
+    : (arcade ? ['#55eeff', '#55ff55', '#ffdd00', '#ff55aa']
+              : ['#ef7d31', '#f5c451', '#16a37b', '#2b8fd6']);
   for (let i = 0; i < (gold ? 80 : 46); i++) {
     const p = document.createElement('i');
     p.style.left = `${Math.random() * 100}vw`;
@@ -467,6 +852,7 @@ function rejectPair(i, j) {
   flash(elAt(j), 'bad', 360);
   breakCombo(state);
   sfx.error();
+  syncComboLevel();
   buzz([12, 40, 12]);
   if (tipsShown < 3) {
     tipsShown += 1;
@@ -492,6 +878,7 @@ function doMatch(i, j) {
   burstAt(elJ);
   floaterAt(elJ, `+${res.points}`);
   sfx.match(res.multiplier);
+  comboStep(res.multiplier);      // der einzige Ort, an dem die Kombo steigt
   buzz(14);
   announce(`${values[0]} und ${values[1]} gestrichen, ${res.points} Punkte`);
   updateStats({ bumpScore: true });
@@ -570,7 +957,7 @@ function doHint() {
   }
   const el = elAt(pair[0]);
   el?.scrollIntoView({ block: 'nearest', behavior: reduceMotion.matches ? 'auto' : 'smooth' });
-  tone({ freq: 880, dur: 0.09, gain: 0.03 });
+  sfx.hint();
   announce(`Tipp: ${state.cells[pair[0]].v} und ${state.cells[pair[1]].v}`);
   save();
 }
@@ -580,6 +967,7 @@ function doRefill() {
   const res = refill(state);
   if (!res.ok) { toast('Kein Auffüllen mehr übrig.'); return; }
   clearSelection();
+  syncComboLevel();
   btnRefill.classList.remove('urge');
   renderBoard({ enterFrom: res.from });
   updateStats();
@@ -603,6 +991,7 @@ function doRescue() {
   closeSheet(dlgEnd);
   clearSelection();
   endHandled = false;
+  syncComboLevel();
   btnRefill.classList.remove('urge');
   renderBoard({ enterFrom: res.from });
   updateStats();
@@ -623,10 +1012,11 @@ function doUndo() {
   undo(state);
   state.status = 'playing';
   endHandled = false;
+  syncComboLevel();
   renderBoard();
   updateStats();
   btnRefill.classList.remove('urge');
-  tone({ freq: 300, dur: 0.1, gain: 0.03, type: 'triangle' });
+  sfx.undo();
   announce('Zug zurückgenommen');
   save();
 }
@@ -646,6 +1036,7 @@ function newGame(difficulty = settings.difficulty) {
   btnRefill.classList.remove('urge');
   renderBoard();
   updateStats();
+  syncComboLevel();
   startTimer(true);
   save();
   announce(`Neues Spiel: ${DIFFICULTIES[difficulty].label}`);
@@ -654,14 +1045,14 @@ function newGame(difficulty = settings.difficulty) {
 /** Laesst eine Zahl hochlaufen – der kleine Trommelwirbel am Spielende. */
 function countUp(el, to, ms = 900) {
   if (!el) return;
-  if (reduceMotion.matches || to <= 0) { el.textContent = String(to); return; }
+  if (reduceMotion.matches || to <= 0) { el.textContent = zahl(to); return; }
   const start = performance.now();
   const tick = (now) => {
     const t = Math.min(1, (now - start) / ms);
-    el.textContent = String(Math.round(to * (1 - Math.pow(1 - t, 3))));
+    el.textContent = zahl(Math.round(to * (1 - Math.pow(1 - t, 3))));
     if (t < 1) requestAnimationFrame(tick);
   };
-  el.textContent = '0';
+  el.textContent = zahl(0);
   requestAnimationFrame(tick);
 }
 
@@ -677,6 +1068,7 @@ function endGame(won) {
   stopTimer();
   state.combo = 0;
   elCombo.classList.remove('show');
+  syncComboLevel();
   const label = DIFFICULTIES[state.difficulty]?.label ?? state.difficulty;
   const key = state.difficulty;
   const previous = best[key];
@@ -712,7 +1104,7 @@ function endGame(won) {
           ? `Bis Runde ${state.round} gekommen. Ein Zug zurück hält den Lauf am Leben.`
           : 'Kein Paar mehr übrig und kein Auffüllen mehr. Nimm einen Zug zurück oder starte neu.');
   $('#end-stats').innerHTML = [
-    ['Punkte', state.score, ' id="end-score"'],
+    ['Punkte', zahl(state.score), ' id="end-score"'],
     state.endless ? ['Runden', state.round] : ['Zeit', fmtTime(state.elapsed)],
     ['Züge', state.matches],
     ['Beste Kombo', `×${Math.min(state.bestCombo, POINTS.maxCombo)}`],
@@ -836,6 +1228,9 @@ function renderSettings() {
   for (const btn of document.querySelectorAll('#seg-skin button')) {
     btn.setAttribute('aria-pressed', String(btn.dataset.value === settings.skin));
   }
+  const arcade = settings.skin === 'arcade';
+  $('#seg-theme').hidden = arcade;
+  $('#skin-note').hidden = !arcade;
   $('#opt-diagonal').checked = settings.diagonal;
   $('#opt-wrap').checked = settings.wrap;
   $('#opt-partners').checked = settings.partners;
@@ -855,7 +1250,7 @@ function renderSettings() {
 function renderBest() {
   $('#best-list').innerHTML = Object.entries(DIFFICULTIES).map(([key, d]) => {
     const b = best[key];
-    return `<li><span>${d.label}</span><b>${b ? `${b.score} · ${fmtTime(b.time)}` : '–'}</b></li>`;
+    return `<li><span>${d.label}</span><b>${b ? `${zahl(b.score)} · ${fmtTime(b.time)}` : '–'}</b></li>`;
   }).join('');
 }
 
@@ -882,7 +1277,7 @@ $('#seg-skin').addEventListener('click', (e) => {
   saveSettings();
   renderSettings();
   renderBoard();
-  toast(settings.skin === 'm3' ? 'Stil: Material 3' : 'Stil: Original');
+  toast(`Stil: ${SKINS[settings.skin]?.label ?? 'Original'}`);
 });
 
 $('#seg-theme').addEventListener('click', (e) => {
@@ -1103,6 +1498,7 @@ if (requested || !load()) {
 renderBoard();
 updateStats();
 renderSettings();
+syncComboLevel();     // ein geladener Spielstand kann mitten in einer Kombo stehen
 startTimer();
 
 if (state.status === 'stuck') {
@@ -1127,6 +1523,8 @@ if ('serviceWorker' in navigator) {
 // Fuer Tests aus dem Browser heraus
 window.__zp = {
   get state() { return state; },
-  onCellActivate, doHint, doRefill, doUndo, doRescue, newGame, toast, renderBoard,
+  get comboLevel() { return comboLevel; },
+  fx: fxLog,
+  onCellActivate, doHint, doRefill, doUndo, doRescue, newGame, toast, renderBoard, sfx,
   findPair, canMatch, remaining, VERSION,
 };

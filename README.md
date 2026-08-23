@@ -106,6 +106,7 @@ npm test           # oder: node --test game.test.js
 | `index.html` | Markup inkl. Regel-, Einstellungs- und Enddialog |
 | `classic.css`, `material3.css`, `m3-colors.css` | die beiden Stile und die erzeugten M3-Farbrollen |
 | `sw.js` | Offline-Cache |
+| `tools/` | Erzeuger: M3-Farbrollen, Pixelschrift, Pixel-Icons, App-Icons |
 
 Die Logik in `game.js` kennt kein DOM: `createGame`, `canMatch`, `applyMatch`, `refill`,
 `rescue`, `nextRound`, `findPair`, `undo`. Wer eine andere Oberfläche bauen will, braucht nur
@@ -115,19 +116,23 @@ Kombo-Plakette und Hinweise haben eine eigene, feste Zeile zwischen Fortschritts
 Brett (`.ticker`). Vorher schwebten beide über dem Feld und verdeckten je nach Bildschirmhöhe
 bis zu 14 Kacheln – ausgerechnet die eben angehängten.
 
-## Zwei Stile
+## Drei Stile
 
-Unter **Einstellungen → Darstellung** lässt sich zwischen zwei Oberflächen umschalten:
+Unter **Einstellungen → Darstellung** lässt sich zwischen drei Oberflächen umschalten:
 
 * **Original** (Voreinstellung) – warmes Papierweiß, runde weiße Spielsteine, beschriftete
   Knopfleiste, Schrift Nunito.
 * **Material 3** – Farbrollen nach Material You, Top App Bar, Bottom App Bar mit erweitertem
   FAB, modale Bottom Sheets mit Griff, Chips, Switches, Snackbar, Zustandsebenen und Ripple,
   Schrift Roboto, Icons aus den Material Symbols (Rounded).
+* **Arcade** – ein Spielautomat von 1989: Neon auf Schwarz, eigene Pixelschrift, Pixel-Icons,
+  Bildröhren-Raster, laufende Lichterkette, Sternenfeld, Chiptune. Siehe unten.
 
-Beide Stile laufen auf demselben Markup; umgeschaltet wird über `disabled` an den beiden
+Alle drei Stile laufen auf demselben Markup; umgeschaltet wird über `disabled` an den
 Stylesheets, ein kleines Skript im `<head>` setzt die Wahl noch vor dem ersten Rendern, damit
-nichts aufblitzt. Die Wahl liegt wie alle Einstellungen im `localStorage`.
+nichts aufblitzt. Die Wahl liegt wie alle Einstellungen im `localStorage`. Was sich über das
+Stylesheet hinaus unterscheidet – Icon-Satz und Tonstimme – steht in einer Tabelle `SKINS`
+in `app.js`, nicht verstreut in Abfragen.
 
 Die Material-3-Farbtokens in `m3-colors.css` sind nicht von Hand gepflegt, sondern aus dem
 Quellton `#EF7D31` berechnet (Schema *Vibrant*, wie es Material You tut) – siehe
@@ -138,6 +143,40 @@ Quellton `#EF7D31` berechnet (Schema *Vibrant*, wie es Material You tut) – sie
 | `classic.css` | Skin „Original" |
 | `material3.css` | Skin „Material 3" |
 | `m3-colors.css` | erzeugte Farbrollen (hell und dunkel) |
+| `arcade.css` | Skin „Arcade" |
+
+## Der Arcade-Stil
+
+Absichtlich dick aufgetragen: Kitsch mit Regeln.
+
+* **Palette in Automatenfarbtiefe.** Jeder Kanal ein Vielfaches von `0x11` (4 Bit, wie CPS-1),
+  Neon nur auf Schwarz, kein Grauwert als Fläche. Zustände unterscheiden sich über die
+  Neonrolle und die Rahmenform, nie über eine Aufhellung – dadurch bleiben sie auch ohne
+  Farbunterscheidung auseinanderzuhalten: `.sel` = Ring außen, `.partner` = Ring innen,
+  `.hinted` = blinkend, `.bad` = Ring plus Ruckeln.
+* **Eigene Pixelschrift** `ZP Pixel` (1,8 kB), erzeugt von
+  [`tools/gen-pixelfont.py`](tools/gen-pixelfont.py) aus 5×7-Bitmustern. Das Em-Quadrat
+  umfasst genau 8 Pixelzeilen, ein Schriftpixel ist also ein Achtel der Schriftgröße – darum
+  sind **alle** Größen im Stylesheet Vielfache von 8 px, sonst zerfließt das Raster. Für die
+  Kachelziffern gibt es deshalb kein `clamp()`, sondern drei Stufen über Container-Abfragen.
+* **Eigene Pixel-Icons**, erzeugt von
+  [`tools/gen-pixelicons.py`](tools/gen-pixelicons.py) aus ASCII-Rastern; der Pfad wird
+  gerechnet, nicht getippt. Bei aktivem Arcade tauscht `applyIconSet()` alle `<use href="#i-…">`
+  auf `#px-…`; fehlt eine Pixelform, bleibt das weiche Symbol stehen.
+* **Bewegung springt.** `steps()` überall statt weicher Kurven – ein Sprite wird getauscht, es
+  interpoliert nicht. Kombo-Level-Up: Sprite-Zoom wie in den Sega-Super-Scaler-Automaten,
+  Farbzyklus wie im Palette-RAM von Robotron 2084, Bildschirmruckeln wie in den CPS-1-Titeln,
+  bei ×10 der Weißblitz. Der Bildstopp von Pac-Man ist bewusst *nicht* dabei: er würde die
+  Eingabe blockieren.
+* **Chiptune** als zweite Tonstimme: Pulswellen mit 12,5/25/50 % Tastverhältnis über
+  `PeriodicWave`, gefiltertes Rauschen für die Perkussion, Tonhöhenabfall in Stufen statt als
+  Rutsch. Alles läuft über einen Sammelausgang mit weicher Begrenzung, weil Treffer + Zeile +
+  Level-Up regelmäßig zusammenfallen.
+* **Immer dunkel.** Eine Röhre in einem dunklen Raum hat keine Hell-Variante; die
+  Hell/Dunkel-Umschaltung wird bei aktivem Arcade ausgeblendet.
+* **`prefers-reduced-motion` schaltet jede Dauerbewegung ab** – Sternenfeld, Lichterkette,
+  Laufschrift, Flackern, Ruckeln, Einschaltblitz. Der Stil bleibt vollständig lesbar, er steht
+  dann nur still.
 
 ## Schriften und Lizenzen
 
@@ -146,6 +185,8 @@ Quellton `#EF7D31` berechnet (Schema *Vibrant*, wie es Material You tut) – sie
 * **Roboto** (`fonts/roboto-latin-var.woff2`, 43 kB) und die **Material Symbols** im
   Icon-Sprite der `index.html` – Apache License 2.0, Volltext in
   [`fonts/APACHE-2.0.txt`](fonts/APACHE-2.0.txt).
+* **ZP Pixel** (`fonts/zp-pixel.woff2`, 1,8 kB) und die Pixel-Icons – für dieses Projekt
+  gezeichnet, gemeinfrei (CC0). Kein Nachladen von fremden Servern, keine Lizenzfrage.
 
 ## Herkunft
 
