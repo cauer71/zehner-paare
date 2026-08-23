@@ -82,22 +82,28 @@
   </header>
 
   <section class="hud">
-    <div class="stat-card">
+    <div class="stat-card" id="card-score">
       <span class="stat-card__label">Punkte</span>
       <span class="stat-card__value" id="stat-score">0</span>
+      <span class="stat-card__note" id="stat-best"></span>
     </div>
     <div class="stat-card">
       <span class="stat-card__label">Übrig</span>
       <span class="stat-card__value" id="stat-left">0</span>
     </div>
     <div class="stat-card">
-      <span class="stat-card__label">Zeit</span>
+      <span class="stat-card__label" id="label-time">Zeit</span>
       <span class="stat-card__value" id="stat-time">0:00</span>
     </div>
-    <div class="combo-badge" id="combo" aria-hidden="true"></div>
   </section>
 
   <div class="progress" aria-hidden="true"><div class="progress__indicator" id="progress-fill"></div></div>
+
+  <!-- Feste Zeile fuer Kombo und Hinweise: liegt nie auf dem Spielfeld -->
+  <div class="ticker" id="ticker">
+    <div class="combo-badge" id="combo" aria-hidden="true"></div>
+    <div class="snackbar" id="toast" role="status" aria-live="polite" hidden></div>
+  </div>
 
   <main class="board-wrap" id="board-wrap">
     <div class="board" id="board" role="group" aria-label="Zahlenfeld"></div>
@@ -130,7 +136,6 @@
   </nav>
 </div>
 
-<div class="snackbar" id="toast" role="status" aria-live="polite" hidden></div>
 
 <!-- Modales Bottom Sheet: Regeln -->
 <dialog class="sheet" tabindex="-1" id="dlg-rules" aria-labelledby="rules-title">
@@ -164,6 +169,11 @@
 
     <h3 class="sheet__subhead">Und wenn nichts mehr geht?</h3>
     <p class="body-medium">Mit <b>Auffüllen</b> werden alle übrigen Zahlen hinten noch einmal angehängt. Das Guthaben dafür ist begrenzt. Eine komplett leere Zeile verschwindet. Wer das ganze Feld leer räumt, gewinnt.</p>
+    <p class="body-medium">Geht gar nichts mehr und ist das Guthaben leer, gibt es einmal pro Partie die <b>Rettung</b>: die letzten Zahlen kommen noch einmal aufs Feld.</p>
+
+    <h3 class="sheet__subhead">Punkte und Endlos</h3>
+    <p class="body-medium">Ein Paar bringt 10 Punkte, mal <b>Kombofaktor</b>: jeder Treffer in Folge erhöht ihn um eins, bis ×10. Ein Fehlgriff oder ein Auffüllen setzt ihn zurück – sauber gespielt ist also gut doppelt so viel wert. Zwei Zeilen in einem Zug geben einen Zuschlag. Am Ende zählt jedes gesparte Auffüllen 150 Punkte.</p>
+    <p class="body-medium">Im Modus <b>Endlos</b> ist ein leeres Feld nicht das Ende: es kommen drei frische Zeilen, ein Auffüllen zurück ins Guthaben und 200 Punkte. Der Lauf endet erst, wenn nichts mehr geht – wie weit kommst du?</p>
     <p class="body-small">Diagonale und Zeilenumbruch lassen sich in den Einstellungen abschalten.</p>
   </div>
   <div class="sheet__actions">
@@ -187,6 +197,7 @@
         <button class="chip" type="button" data-value="mittel"><svg class="chip__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Mittel</span></button>
         <button class="chip" type="button" data-value="schwer"><svg class="chip__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Schwer</span></button>
         <button class="chip" type="button" data-value="klassisch"><svg class="chip__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Klassisch</span></button>
+        <button class="chip" type="button" data-value="endlos"><svg class="chip__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Endlos</span></button>
       </div>
       <p class="field__note" id="difficulty-note"></p>
     </section>
@@ -240,6 +251,7 @@
     </section>
 
     <p class="field__note">Ein Regelwechsel gilt sofort für die laufende Partie. Ein Wechsel der Schwierigkeit startet ein neues Spiel.</p>
+    <p class="field__note version" id="version">Zehner-Paare</p>
   </div>
   <div class="sheet__actions">
     <button class="button button--text" type="button" id="btn-rules-2">Regeln</button>
@@ -256,8 +268,9 @@
   <p class="dialog__text body-medium" id="end-text"></p>
   <dl class="end-stats" id="end-stats"></dl>
   <div class="dialog__actions">
-    <button class="button button--text" type="button" id="btn-end-undo">Zug zurück</button>
-    <button class="button button--text" type="button" id="btn-end-new">Neues Spiel</button>
+    <button class="button" type="button" id="btn-end-undo">Zug zurück</button>
+    <button class="button" type="button" id="btn-end-rescue" hidden>Rettung</button>
+    <button class="button button--filled" type="button" id="btn-end-new">Nochmal</button>
   </div>
 </dialog>
 

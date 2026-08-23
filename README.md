@@ -32,7 +32,8 @@ Guthaben dafür ist begrenzt. Wer das Feld leer räumt, gewinnt.
 | Leicht | 6 × 9 | 5× | paarweise aufgebaut, geht immer auf |
 | Mittel | 8 × 9 | 4× | paarweise aufgebaut |
 | Schwer | 10 × 9 | 3× | gleichverteilt zufällig |
-| Klassisch | 3 × 9 | 5× | Papier-Original: Ziffern von 1 bis 19 ohne 10 |
+| Klassisch | 3 × 9 | 5× | Papier-Original: Ziffern von 1 bis 19 ohne 10 – immer dasselbe Feld |
+| Endlos | 6 × 9 | 3× | leeres Feld heißt neue Runde: 3 frische Zeilen, ein Auffüllen zurück, +200 Punkte |
 
 Diagonale und Zeilenumbruch lassen sich in den Einstellungen abschalten – das Video, das die
 Vorlage war, zeigt nur waagrecht und senkrecht.
@@ -43,9 +44,14 @@ Vorlage war, zeigt nur waagrecht und senkrecht.
 * **Tipp** hebt ein spielbares Paar hervor, **Zurück** nimmt Züge zurück.
 * Tastatur: Pfeiltasten bewegen den Fokus, Leertaste/Enter wählt aus, `h` = Tipp, `u` = zurück,
   `Esc` = Auswahl aufheben.
-* Punkte: 10 pro Paar, mal Kombofaktor (bis ×5) für Treffer in Folge, +25 je geräumter Zeile,
-  +100 fürs Leerräumen und +50 je ungenutztem Auffüllen. Ein Fehlversuch oder ein Auffüllen
-  setzt den Kombofaktor zurück; ein Tipp kostet nichts.
+* Geht nichts mehr und ist das Auffüll-Guthaben leer, gibt es einmal pro Partie die
+  **Rettung**: die übrigen Zahlen kommen noch einmal aufs Feld.
+* Punkte: 10 pro Paar, mal Kombofaktor (bis **×10**) für Treffer in Folge, +25 je geräumter
+  Zeile und +50 Zuschlag je zusätzlicher Zeile im selben Zug, +100 fürs Leerräumen, +150 je
+  ungenutztem Auffüllen, +200 je Endlos-Runde. Ein Fehlversuch oder ein Auffüllen setzt den
+  Kombofaktor zurück; ein Tipp kostet nichts.
+* Der Bestwert der Stufe steht während des Spiels in der Punktekarte – und wird gefeiert,
+  sobald er fällt.
 * Wer seinen Bestwert einer Stufe schlägt, bekommt am Ende eine eigene kleine Feier:
   Strahlenkranz hinter dem Pokal, goldenes Konfetti, hochlaufende Punktzahl.
 
@@ -102,7 +108,12 @@ npm test           # oder: node --test game.test.js
 | `sw.js` | Offline-Cache |
 
 Die Logik in `game.js` kennt kein DOM: `createGame`, `canMatch`, `applyMatch`, `refill`,
-`findPair`, `undo`. Wer eine andere Oberfläche bauen will, braucht nur diese Datei.
+`rescue`, `nextRound`, `findPair`, `undo`. Wer eine andere Oberfläche bauen will, braucht nur
+diese Datei.
+
+Kombo-Plakette und Hinweise haben eine eigene, feste Zeile zwischen Fortschrittsbalken und
+Brett (`.ticker`). Vorher schwebten beide über dem Feld und verdeckten je nach Bildschirmhöhe
+bis zu 14 Kacheln – ausgerechnet die eben angehängten.
 
 ## Zwei Stile
 
@@ -141,3 +152,29 @@ Quellton `#EF7D31` berechnet (Schema *Vibrant*, wie es Material You tut) – sie
 Das Spiel entstand als Nachbau eines Videos und lag anfangs im Repo
 [`cauer71/Mathe-Kreuz`](https://github.com/cauer71/Mathe-Kreuz); dort liegt weiterhin das
 ältere Mathe-Kreuz-Projekt (Vite + React). Die Historie ist vollständig mit umgezogen.
+
+## Wie die Balance zustande kam
+
+Die Zahlen sind nicht geraten, sondern gemessen: eine Simulation spielt die echte Logik
+(`game.js`) über hunderte Partien pro Stufe, mit mehreren Spielweisen – von „erstes Paar
+nehmen" bis „einen Zug vorausdenken" – und mit einer einstellbaren Fehlerrate als Ersatz für
+menschliche Fehlgriffe. Daraus stammen unter anderem diese Entscheidungen:
+
+* **Kombofaktor bis ×10 statt ×5.** Bei ×5 lag ein fehlerfreier Lauf nur 42–54 % über einem
+  schlampigen, bei ×10 sind es 105–136 %. Erst dadurch schlägt Können auf die Punktzahl durch.
+* **Endlos-Modus.** Auf den festen Feldern ist die Punktzahl fast determiniert (Median 1750 bei
+  Leicht, Spanne nur ±3 %) – ein Bestwert ist da kein Ziel. Ein Endlos-Lauf hält im Mittel
+  6 Runden, streut aber von 1 bis 26 und von 1180 bis 30370 Punkten.
+* **Zuschlag für Doppelzeilen.** Zwei Zeilen in einem Zug kommen 1,5–2× pro Partie vor und sind
+  planbar – der einzige rein strategische Hebel auf die Punktzahl.
+* **Die Rettung.** Wer verliert, verliert fast immer knapp: über 600 Partien pro Stufe lagen
+  bei einer Niederlage im Median noch **4** Zahlen auf dem Feld, in 83 % der Fälle sechs oder
+  weniger. Das war reine Pechsache, kein Spielfehler. Eine einzige Rettung pro Partie – die
+  letzten Zahlen kommen noch einmal aufs Feld – hebt die Siegquote von 86/76/62 % auf
+  88/82/71 % (Leicht/Mittel/Schwer) und greift in 12–27 % der Partien.
+* **150 statt 50 Punkte je gespartem Auffüllen.** Roh sammelt ein durchgefülltes Spiel sogar
+  etwas *mehr* Punkte als ein sauberes – mehr Zahlen heißt mehr Züge. Mit 50 Punkten war beides
+  gleichauf, mit 150 liegt sauberes Spiel rund 18 % vorn. Erst damit knackt man den Bestwert
+  durch Können statt durch ein schlechtes Feld.
+* **Verworfen: das Mischen beim Auffüllen.** Klang plausibel, brachte messbar nichts
+  (Siegquote 77 → 81 % bei Schwer, sonst identisch).

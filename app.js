@@ -5,12 +5,14 @@
 import {
   DIFFICULTIES, createGame, canMatch, applyMatch, refill, hint, undo, canUndo,
   breakCombo, remaining, serialize, deserialize, valuesMatch, findPair, progress,
-  partnersOf, refreshStatus,
+  partnersOf, refreshStatus, POINTS, rescue,
 } from './game.js';
 
 /* ---------------------------------------------------------------- Speicher */
 
-const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v1', seen: 'zp.seen.v1' };
+export const VERSION = '1.2.0';
+
+const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2', seen: 'zp.seen.v1' };
 
 const store = {
   get(key, fallback = null) {
@@ -37,11 +39,20 @@ const DEFAULT_SETTINGS = {
   wrap: true,
   sound: true,
   vibrate: true,
-  partners: true,
+  partners: false,
   theme: 'auto',
 };
 
 let settings = { ...DEFAULT_SETTINGS, ...(store.get(KEY.settings) ?? {}) };
+
+// Die Partner-Markierung war in Version 1.0 voreingestellt an. Sie nimmt dem
+// Spiel aber den Reiz, das Paar selbst zu finden – deshalb einmalig abschalten.
+// Wer sie danach wieder einschaltet, behaelt seine Wahl.
+if (!store.get('zp.migrated.partners.v1')) {
+  settings.partners = false;
+  store.set('zp.migrated.partners.v1', true);
+  store.set(KEY.settings, settings);
+}
 let best = store.get(KEY.best) ?? {};
 
 /* ------------------------------------------------------------------- DOM */
@@ -52,6 +63,7 @@ const boardWrap = $('#board-wrap');
 const fx = $('#fx');
 const live = $('#live');
 const toastEl = $('#toast');
+const tickerEl = $('#ticker');
 const elScore = $('#stat-score');
 const elLeft = $('#stat-left');
 const elTime = $('#stat-time');
@@ -78,6 +90,7 @@ let tipsShown = 0;
 let timerId = null;
 let tickBase = 0;
 let endHandled = false;    // Spielende nur einmal auswerten
+let recordHit = false;     // Rekord waehrend der Partie schon gefeiert?
 
 /* ----------------------------------------------------------------- Helfer */
 
@@ -91,10 +104,12 @@ let toastTimer = null;
 function toast(text, ms = 2400) {
   toastEl.textContent = text;
   toastEl.hidden = false;
+  tickerEl.classList.add('hint');          // Kombo-Plakette weicht dem Hinweis
   requestAnimationFrame(() => toastEl.classList.add('show'));
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
     toastEl.classList.remove('show');
+    tickerEl.classList.remove('hint');
     setTimeout(() => { toastEl.hidden = true; }, 220);
   }, ms);
 }
@@ -295,10 +310,39 @@ function updateStats({ bumpScore = false } = {}) {
     void elScore.offsetWidth;
     elScore.classList.add('bump');
   }
+  const record = best[state.difficulty];
+  const note = $('#stat-best');
+  const card = $('#card-score');
+  if (note) {
+    if (!record) {
+      note.textContent = 'noch kein Rekord';
+      card?.classList.remove('beaten');
+    } else if (state.score > record.score) {
+      note.textContent = `Rekord ${record.score} geknackt`;
+      card?.classList.add('beaten');
+      if (!recordHit && state.status === 'playing') {
+        recordHit = true;
+        toast(`Rekord! ${record.score} Punkte übertroffen`);
+        tone({ freq: 1046, dur: 0.16, gain: 0.04 });
+        tone({ freq: 1568, dur: 0.22, delay: 0.12, gain: 0.035 });
+        buzz([15, 40, 15]);
+      }
+    } else {
+      note.textContent = `Rekord ${record.score}`;
+      card?.classList.remove('beaten');
+    }
+  }
+
+  const labelTime = $('#label-time');
+  if (labelTime) {
+    labelTime.textContent = state.endless ? 'Runde' : 'Zeit';
+    if (state.endless) elTime.textContent = String(state.round);
+  }
+
   const pf = document.getElementById('progress-fill');
   if (pf) pf.style.width = `${Math.round(progress(state) * 100)}%`;
   if (state.combo >= 2) {
-    elCombo.textContent = `Kombo ×${Math.min(state.combo, 5)}`;
+    elCombo.textContent = `Kombo ×${Math.min(state.combo, POINTS.maxCombo)}`;
     elCombo.classList.add('show');
   } else {
     elCombo.classList.remove('show');
@@ -317,7 +361,7 @@ function centerOf(el) {
 }
 
 function burstAt(el) {
-  if (reduceMotion.matches) return;
+  if (reduceMotion.matches || !el) return;
   const { x, y } = centerOf(el);
   const ring = document.createElement('span');
   ring.className = 'burst';
@@ -414,8 +458,8 @@ function rejectPair(i, j) {
   if (tipsShown < 3) {
     tipsShown += 1;
     toast(valuesMatch(a.v, b.v)
-      ? `${a.v} und ${b.v} passen – aber sie sind nicht benachbart.`
-      : `${a.v} und ${b.v} sind weder gleich noch zusammen 10.`);
+      ? `${a.v} und ${b.v} passen – nur nicht benachbart.`
+      : `${a.v} und ${b.v} – weder gleich noch Summe 10.`);
   }
   clearSelection();
   updateStats();
@@ -439,7 +483,7 @@ function doMatch(i, j) {
   announce(`${values[0]} und ${values[1]} gestrichen, ${res.points} Punkte`);
   updateStats({ bumpScore: true });
 
-  const structural = res.removedRows.length > 0;
+  const structural = res.removedRows.length > 0 || !!res.round;
   if (structural) {
     locked = true;
     sfx.row();
@@ -450,9 +494,15 @@ function doMatch(i, j) {
   const orphans = [...cellEls].filter(([id]) => !liveIds.has(id)).map(([, el]) => el);
 
   const finish = () => {
-    renderBoard();
+    renderBoard(res.round ? { enterFrom: 0 } : {});
     locked = false;
     updateStats();
+    if (res.round) {
+      toast(`Runde ${res.round.round} · +${res.round.bonus} · ein Auffüllen zurück`, 3000);
+      sfx.row();
+      buzz([20, 50, 20]);
+      announce(`Runde ${res.round.round}`);
+    }
     afterMove();
   };
 
@@ -470,7 +520,7 @@ function afterMove() {
   if (state.status === 'stuck') { endGame(false); return; }
   if (!findPair(state)) {
     btnRefill.classList.add('urge');
-    toast('Kein Zug mehr möglich – füll das Feld auf.', 3200);
+    toast('Kein Zug mehr – bitte auffüllen.', 3200);
   } else {
     btnRefill.classList.remove('urge');
   }
@@ -529,6 +579,31 @@ function doRefill() {
   if (state.status === 'stuck') endGame(false);
 }
 
+/**
+ * Rettung: In der Sackgasse kommen die letzten Zahlen noch einmal aufs Feld.
+ * Fast jede verlorene Partie endet mit einer Handvoll Zahlen kurz vor dem Ziel –
+ * das war der frustrierendste Moment im Spiel.
+ */
+function doRescue() {
+  const res = rescue(state);
+  if (!res.ok) return;
+  closeSheet(dlgEnd);
+  clearSelection();
+  endHandled = false;
+  btnRefill.classList.remove('urge');
+  renderBoard({ enterFrom: res.from });
+  updateStats();
+  startTimer();
+  sfx.refill();
+  buzz([12, 30, 12]);
+  announce(`Rettung: ${res.added} Zahlen noch einmal auf dem Feld`);
+  toast('Rettung! Noch eine Chance.', 2800);
+  elAt(res.from)?.scrollIntoView({ block: 'nearest', behavior: reduceMotion.matches ? 'auto' : 'smooth' });
+  save();
+  // Auch nach der Rettung kann es sofort wieder aus sein
+  if (state.status === 'stuck') endGame(false);
+}
+
 function doUndo() {
   if (locked || !canUndo(state)) return;
   clearSelection();
@@ -554,6 +629,7 @@ function newGame(difficulty = settings.difficulty) {
   tipsShown = 0;
   locked = false;
   endHandled = false;
+  recordHit = false;
   btnRefill.classList.remove('urge');
   renderBoard();
   updateStats();
@@ -591,28 +667,55 @@ function endGame(won) {
   const label = DIFFICULTIES[state.difficulty]?.label ?? state.difficulty;
   const key = state.difficulty;
   const previous = best[key];
-  const isRecord = won && (!previous || state.score > previous.score);
-  if (won) {
-    if (isRecord) best[key] = { score: state.score, time: Math.round(state.elapsed), at: Date.now() };
+  // Im Endlos-Modus endet jeder Lauf in der Sackgasse – dort zaehlt der
+  // erreichte Punktestand trotzdem als Bestwert.
+  const zaehlt = won || state.endless;
+  const isRecord = zaehlt && (!previous || state.score > previous.score);
+  if (zaehlt) {
+    if (isRecord) {
+      best[key] = { score: state.score, time: Math.round(state.elapsed), at: Date.now(),
+                    round: state.endless ? state.round : undefined };
+    }
     store.set(KEY.best, best);
   }
 
   $('#end-badge').querySelector('use').setAttribute('href', won ? '#i-trophy' : '#i-sad');
   $('#end-badge').classList.toggle('sad', !won);
-  $('#end-title').textContent = won ? 'Feld leer geräumt!' : 'Keine Züge mehr';
+  $('#end-title').textContent = won ? 'Feld leer geräumt!'
+    : (state.endless ? `Lauf beendet · Runde ${state.round}` : 'Keine Züge mehr');
+  // Der Bonus fuers Sparen ist die einzige Stellschraube, mit der man den
+  // Bestwert durch Koennen statt durch Glueck knackt – also benennen.
+  const gespart = state.refillsLeft > 0
+    ? ` ${state.refillsLeft}× Auffüllen gespart: +${state.refillsLeft * POINTS.refillLeft}.`
+    : '';
   $('#end-text').textContent = won
     ? (isRecord
         ? (previous ? `${label} · dein bisher bester Lauf, vorher ${previous.score}.`
                     : `${label} · dein erster Sieg auf dieser Stufe.`)
-        : `Sauber gespielt bei ${label}.`)
-    : 'Kein Paar mehr übrig und kein Auffüllen mehr. Nimm einen Zug zurück oder starte neu.';
+        : `Sauber gespielt bei ${label}.`) + gespart
+    : (state.status === 'stuck' && state.rescuesLeft > 0
+        ? `Nur noch ${remaining(state)} Zahlen – die Rettung legt sie dir noch einmal aufs Feld.`
+        : state.endless
+          ? `Bis Runde ${state.round} gekommen. Ein Zug zurück hält den Lauf am Leben.`
+          : 'Kein Paar mehr übrig und kein Auffüllen mehr. Nimm einen Zug zurück oder starte neu.');
   $('#end-stats').innerHTML = [
     ['Punkte', state.score, ' id="end-score"'],
-    ['Zeit', fmtTime(state.elapsed)],
+    state.endless ? ['Runden', state.round] : ['Zeit', fmtTime(state.elapsed)],
     ['Züge', state.matches],
-    ['Beste Kombo', `×${Math.min(state.bestCombo, 5)}`],
+    ['Beste Kombo', `×${Math.min(state.bestCombo, POINTS.maxCombo)}`],
   ].map(([k, v, attr = '']) => `<div><dt>${k}</dt><dd${attr}>${v}</dd></div>`).join('');
-  $('#btn-end-undo').hidden = won || !canUndo(state);
+  // Nach einem Sieg lockt "Nochmal", in der Sackgasse ist Weiterspielen das
+  // bessere Angebot – der jeweils sinnvollere Knopf wird der gefuellte.
+  const btnUndoEnd = $('#btn-end-undo');
+  const btnNewEnd = $('#btn-end-new');
+  const btnRescueEnd = $('#btn-end-rescue');
+  const rettungDa = !won && state.status === 'stuck' && state.rescuesLeft > 0;
+  btnRescueEnd.hidden = !rettungDa;
+  btnRescueEnd.classList.toggle('button--filled', rettungDa);
+  btnUndoEnd.hidden = won || !canUndo(state);
+  btnUndoEnd.classList.toggle('button--filled', !won && !rettungDa);
+  btnNewEnd.classList.toggle('button--filled', won);
+  btnNewEnd.textContent = won ? 'Nochmal' : 'Neues Spiel';
 
   // Bestwert: eigenes Band, Strahlenkranz, goldenes Konfetti, hochlaufende Punktzahl
   const ribbon = $('#end-record');
@@ -623,7 +726,7 @@ function endGame(won) {
     ribbon.textContent = plus > 0 ? `★ Neuer Bestwert · +${plus}` : '★ Neuer Bestwert';
   }
 
-  if (won) {
+  if (won || (state.endless && isRecord)) {
     confetti({ gold: isRecord });
     sfx.win();
     buzz([20, 60, 20, 60, 40]);
@@ -650,9 +753,9 @@ function startTimer(reset = false) {
     if (document.hidden || state.status !== 'playing') return;
     state.elapsed += (Date.now() - tickBase) / 1000;
     tickBase = Date.now();
-    elTime.textContent = fmtTime(state.elapsed);
+    if (!state.endless) elTime.textContent = fmtTime(state.elapsed);
   }, 500);
-  elTime.textContent = fmtTime(state.elapsed);
+  elTime.textContent = state.endless ? String(state.round) : fmtTime(state.elapsed);
 }
 
 function stopTimer() {
@@ -726,10 +829,13 @@ function renderSettings() {
   $('#opt-sound').checked = settings.sound;
   $('#opt-vibrate').checked = settings.vibrate;
   refreshInstallUi();
+  const stamp = $('#version');
+  if (stamp) stamp.textContent = `Zehner-Paare ${VERSION}`;
   const d = DIFFICULTIES[settings.difficulty];
   $('#difficulty-note').textContent =
-    `${d.rows} × ${d.cols} Felder · ${d.refills}× Auffüllen` +
-    (settings.difficulty === 'klassisch' ? ' · Startfeld wie beim Papier-Original (1–19 ohne 10)' : '');
+    `${d.rows} × ${d.cols} Felder · ${d.refills}× Auffüllen`
+    + (settings.difficulty === 'klassisch' ? ' · immer dasselbe Startfeld, das Papier-Original (1–19 ohne 10)' : '')
+    + (settings.difficulty === 'endlos' ? ` · je Runde ${d.newRows} neue Zeilen, +${d.refillPerRound}× Auffüllen, kein Ende` : '');
   renderBest();
 }
 
@@ -866,6 +972,7 @@ $('#btn-rules-2').addEventListener('click', () => { closeSheet(dlgSettings); set
 $('#btn-settings').addEventListener('click', () => { renderSettings(); openSheet(dlgSettings); });
 $('#btn-end-new').addEventListener('click', () => { closeSheet(dlgEnd); newGame(); });
 $('#btn-end-undo').addEventListener('click', () => { closeSheet(dlgEnd); doUndo(); startTimer(); });
+$('#btn-end-rescue').addEventListener('click', doRescue);
 
 document.addEventListener('keydown', (e) => {
   if (e.target.closest('dialog') || e.target.matches('input, textarea')) return;
@@ -944,7 +1051,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 window.addEventListener('appinstalled', () => {
   installPrompt = null;
   refreshInstallUi();
-  toast('Zehner-Paare liegt jetzt auf dem Startbildschirm.');
+  toast('Liegt jetzt auf dem Startbildschirm.');
 });
 
 $('#btn-install')?.addEventListener('click', async () => {
@@ -983,8 +1090,9 @@ renderSettings();
 startTimer();
 
 if (state.status === 'stuck') {
-  btnRefill.classList.add('urge');
-  toast('Kein Zug mehr möglich – nimm einen Zug zurück oder starte neu.', 4000);
+  // Wer in der Sackgasse aufgehoert hat, bekommt beim Wiederkommen dieselben
+  // Auswege angeboten wie im Moment des Steckenbleibens – Rettung inklusive.
+  endGame(false);
 } else if (state.status === 'playing' && !findPair(state)) {
   btnRefill.classList.add('urge');
 }
@@ -1003,6 +1111,6 @@ if ('serviceWorker' in navigator) {
 // Fuer Tests aus dem Browser heraus
 window.__zp = {
   get state() { return state; },
-  onCellActivate, doHint, doRefill, doUndo, newGame,
-  findPair, canMatch, remaining,
+  onCellActivate, doHint, doRefill, doUndo, doRescue, newGame, toast, renderBoard,
+  findPair, canMatch, remaining, VERSION,
 };

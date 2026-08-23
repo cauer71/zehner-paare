@@ -4,9 +4,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  POINTS, nextRound,
   createGame, canMatch, findPair, allPairs, applyMatch, refill, undo,
   valuesMatch, remaining, rowCount, serialize, deserialize, forwardNeighbours,
-  neighboursOf, partnersOf, refreshStatus,
+  neighboursOf, partnersOf, refreshStatus, rescue,
 } from './game.js';
 
 /** Testfeld aus Zeilen bauen; 0 bedeutet "bereits gestrichen". */
@@ -266,4 +267,133 @@ test('refreshStatus bewertet nach Regelwechsel neu', () => {
   s.diagonal = true;
   refreshStatus(s);
   assert.equal(s.status, 'playing');
+});
+
+test('Kombofaktor laeuft bis zum Deckel und macht sauberes Spiel sichtbar', () => {
+  const s = board([[3, 7, 4, 6, 2, 8, 1, 9, 5, 5, 3, 7, 4, 6, 2, 8, 1, 9, 6, 4, 2, 8]],
+                  { diagonal: false, wrap: false });
+  const faktoren = [];
+  for (let i = 0; i < 11; i++) {
+    const res = applyMatch(s, i * 2, i * 2 + 1);
+    if (!res.ok) break;
+    faktoren.push(res.multiplier);
+  }
+  assert.deepEqual(faktoren.slice(0, 10), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.equal(faktoren[10], POINTS.maxCombo, 'danach bleibt es beim Deckel');
+});
+
+test('zwei Zeilen in einem Zug bringen einen Zuschlag', () => {
+  // Ein Zug raeumt die letzten Zahlen zweier Zeilen gleichzeitig (senkrechtes Paar)
+  const s = board([
+    [0, 0, 3],
+    [0, 0, 7],
+  ], { cols: 3, diagonal: false, wrap: false });
+  const res = applyMatch(s, 2, 5);
+  assert.ok(res.ok);
+  assert.equal(res.removedRows.length, 2);
+  assert.equal(res.points, POINTS.pair * 1 + 2 * POINTS.row + POINTS.multiRow);
+});
+
+test('eine einzelne Zeile bekommt keinen Zuschlag', () => {
+  const s = board([[3, 7], [1, 2]], { diagonal: false, wrap: false });
+  const res = applyMatch(s, 0, 1);
+  assert.equal(res.removedRows.length, 1);
+  assert.equal(res.points, POINTS.pair + POINTS.row);
+});
+
+test('Endlos: ein leeres Feld beendet nichts, es beginnt eine Runde', () => {
+  const s = createGame({ difficulty: 'endlos', seed: 3 });
+  assert.equal(s.endless, true);
+  assert.equal(s.round, 1);
+  s.cells = [{ id: 0, v: 3, cleared: false }, { id: 1, v: 7, cleared: false }];
+  s.cols = 2;
+  s.refillsLeft = 1;
+  const punkteVorher = s.score;
+
+  const res = applyMatch(s, 0, 1);
+  assert.equal(res.status, 'playing', 'der Lauf geht weiter');
+  assert.ok(res.round, 'der Zug meldet die neue Runde');
+  assert.equal(s.round, 2);
+  assert.ok(s.cells.length > 0 && s.cells.every((c) => !c.cleared), 'frisches Feld');
+  assert.equal(s.refillsLeft, 2, 'ein Auffüllen kommt zurück');
+  assert.equal(s.score, punkteVorher + POINTS.pair + POINTS.row + POINTS.round);
+});
+
+test('Endlos: das Auffuell-Guthaben laeuft nicht ueber', () => {
+  const s = createGame({ difficulty: 'endlos', seed: 4 });
+  s.refillsLeft = s.refillMax;
+  nextRound(s, 11);
+  assert.equal(s.refillsLeft, s.refillMax);
+});
+
+test('Endlos: Zurueck holt die alte Runde wieder', () => {
+  const s = createGame({ difficulty: 'endlos', seed: 7 });
+  s.cells = [{ id: 0, v: 4, cleared: false }, { id: 1, v: 6, cleared: false }];
+  s.cols = 2;
+  applyMatch(s, 0, 1);
+  assert.equal(s.round, 2);
+  assert.ok(undo(s));
+  assert.equal(s.round, 1);
+  assert.deepEqual(s.cells.map((c) => c.v), [4, 6]);
+});
+
+test('nextRound greift nur im Endlos-Modus', () => {
+  const s = createGame({ difficulty: 'leicht', seed: 2 });
+  assert.equal(nextRound(s, 1), null);
+});
+
+test('Rettung greift nur in der Sackgasse und nur einmal', () => {
+  const s = createGame({ difficulty: 'leicht', seed: 3 });
+  assert.equal(rescue(s).ok, false, 'im laufenden Spiel gibt es keine Rettung');
+
+  // Sackgasse herstellen: zwei Zahlen, die nicht zusammenpassen
+  s.cells = [{ id: 0, v: 2, cleared: false }, { id: 1, v: 3, cleared: false },
+             { id: 2, v: 4, cleared: false }, { id: 3, v: 6, cleared: false }];
+  s.cols = 4;
+  s.refillsLeft = 0;
+  refreshStatus(s);
+  assert.equal(s.status, 'playing', '4 und 6 liegen noch nebeneinander');
+  applyMatch(s, 2, 3);
+  assert.equal(s.status, 'stuck', 'jetzt geht nichts mehr');
+
+  const res = rescue(s);
+  assert.equal(res.ok, true);
+  assert.equal(res.added, 2, 'die zwei Übriggebliebenen kommen erneut aufs Feld');
+  assert.equal(s.status, 'playing', '2 und 2 sowie 3 und 3 sind jetzt zu haben');
+  assert.equal(s.rescuesLeft, 0);
+  assert.equal(s.rescuesUsed, 1);
+
+  s.status = 'stuck';
+  assert.equal(rescue(s).ok, false, 'eine Rettung pro Partie');
+});
+
+test('Zurueck dreht die Rettung sauber zurueck', () => {
+  const s = createGame({ difficulty: 'leicht', seed: 3 });
+  s.cells = [{ id: 0, v: 2, cleared: false }, { id: 1, v: 3, cleared: false }];
+  s.cols = 2;
+  s.refillsLeft = 0;
+  refreshStatus(s);
+  assert.equal(s.status, 'stuck');
+  assert.equal(rescue(s).ok, true);
+  assert.equal(s.cells.length, 4);
+
+  assert.ok(undo(s));
+  assert.equal(s.cells.length, 2, 'die angehängten Zahlen sind wieder weg');
+  assert.equal(s.rescuesLeft, 1, 'und die Rettung steht wieder zur Verfügung');
+  assert.equal(s.refillsLeft, 0, 'ohne dass ein Auffüllen dazukommt');
+});
+
+test('Endlos: jede Runde bringt eine neue Rettung', () => {
+  const s = createGame({ difficulty: 'endlos', seed: 5 });
+  s.rescuesLeft = 0;
+  nextRound(s, 12);
+  assert.equal(s.rescuesLeft, 1);
+});
+
+test('Rettung uebersteht Speichern und Laden', () => {
+  const s = createGame({ difficulty: 'mittel', seed: 8 });
+  s.rescuesLeft = 0; s.rescuesUsed = 1;
+  const wieder = deserialize(serialize(s));
+  assert.equal(wieder.rescuesLeft, 0);
+  assert.equal(wieder.rescuesUsed, 1);
 });

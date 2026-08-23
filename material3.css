@@ -17,6 +17,10 @@
                  U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* Das hidden-Attribut muss immer stechen: .button, .snackbar und andere
+   Komponenten setzen selbst ein display und wuerden es sonst ueberschreiben. */
+[hidden] { display: none !important; }
+
 :root {
   /* --- Form ------------------------------------------------------------ */
   --md-sys-shape-corner-extra-small: 4px;
@@ -238,8 +242,8 @@ body {
 
 .combo-badge {
   position: absolute;
-  left: 50%; bottom: -44px;          /* unterhalb des Fortschrittsbalkens */
-  transform: translate(-50%, -6px) scale(.85);
+  left: 50%; top: 50%;
+  transform: translate(-50%, calc(-50% - 6px)) scale(.85);
   padding: 6px 16px;
   border-radius: var(--md-sys-shape-corner-full);
   background: var(--md-sys-color-primary);
@@ -254,7 +258,7 @@ body {
   transition: opacity var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard),
               transform var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized-decelerate);
 }
-.combo-badge.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.combo-badge.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 .combo-badge { box-shadow: var(--md-sys-elevation-2); }
 
 /* --- Linearer Fortschritt ----------------------------------------------- */
@@ -262,7 +266,7 @@ body {
 .progress {
   flex: none;
   height: 4px;
-  margin: 0 16px 8px;
+  margin: 0 16px 0;
   border-radius: var(--md-sys-shape-corner-full);
   background: var(--md-sys-color-surface-container-highest);
   overflow: hidden;
@@ -277,6 +281,16 @@ body {
 
 /* --- Spielfeld ---------------------------------------------------------- */
 
+/* --- Feste Zeile fuer Kombo und Hinweise --------------------------------- */
+
+.ticker {
+  position: relative;
+  flex: none;
+  height: 44px;
+  margin: 0 16px;
+}
+.ticker.hint .combo-badge { opacity: 0; }
+
 .board-wrap {
   position: relative;
   flex: 1;
@@ -287,7 +301,7 @@ body {
   padding: 4px 8px 8px;
   display: flex;
   justify-content: center;
-  align-items: safe center;
+  align-items: stretch;
   scroll-padding-block: 12px;
 }
 .board-wrap.scrollable {
@@ -504,17 +518,16 @@ body {
 /* --- Snackbar ----------------------------------------------------------- */
 
 .snackbar {
-  position: fixed;
-  left: 50%;
-  bottom: calc(96px + env(safe-area-inset-bottom));
-  transform: translate(-50%, 8px);
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, calc(-50% + 8px));
   z-index: 60;
   width: max-content;
-  max-width: min(90vw, 480px);
-  min-height: 48px;
+  max-width: 100%;
+  min-height: 40px;
   display: flex;
   align-items: center;
-  padding: 14px 16px;
+  padding: 9px 16px;
   border-radius: var(--md-sys-shape-corner-extra-small);
   background: var(--md-sys-color-inverse-surface);
   color: var(--md-sys-color-inverse-on-surface);
@@ -527,7 +540,7 @@ body {
   transition: opacity var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard),
               transform var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized-decelerate);
 }
-.snackbar.show { opacity: 1; transform: translate(-50%, 0); }
+.snackbar.show { opacity: 1; transform: translate(-50%, -50%); }
 
 /* --- Modales Bottom Sheet ----------------------------------------------- */
 
@@ -637,6 +650,7 @@ body {
 @keyframes rays-in { from { opacity: 0; scale: .35; } to { opacity: .28; scale: 1; } }
 @keyframes rays-spin { to { rotate: 360deg; } }
 
+.record-ribbon[hidden] { display: none; }   /* schlaegt das display der Regel darunter */
 .record-ribbon {
   display: inline-flex;
   align-items: center;
@@ -955,3 +969,14 @@ body {
   }
   .cell.sel { scale: 1; box-shadow: inset 0 0 0 3px var(--md-sys-color-on-primary); }
 }
+.stat-card__note {
+  /* Label Small */
+  font: 500 11px/14px var(--font);
+  letter-spacing: .5px;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-top: 1px;
+}
+.stat-card.beaten .stat-card__note { color: var(--md-sys-color-primary); }
+.stat-card.beaten { outline: 2px solid var(--md-sys-color-primary); outline-offset: -2px; }
+
+.version { text-align: center; opacity: .7; margin-top: 16px; }
