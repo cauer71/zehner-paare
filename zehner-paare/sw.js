@@ -1,9 +1,10 @@
 /* Einfacher Offline-Cache: beim Aktivieren alles Noetige ablegen,
    danach Netz zuerst, Cache als Rueckfalloption. */
-const CACHE = 'zehner-paare-v1';
+const CACHE = 'zehner-paare-v3';
 const ASSETS = [
-  './', 'index.html', 'styles.css', 'app.js', 'game.js',
-  'manifest.webmanifest', 'icon.svg', 'fonts/nunito-latin-var.woff2',
+  './', 'index.html', 'classic.css', 'material3.css', 'm3-colors.css',
+  'app.js', 'game.js', 'manifest.webmanifest', 'icon.svg',
+  'fonts/nunito-latin-var.woff2', 'fonts/roboto-latin-var.woff2',
 ];
 
 self.addEventListener('install', (e) => {

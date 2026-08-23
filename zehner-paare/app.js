@@ -31,6 +31,7 @@ const store = {
 };
 
 const DEFAULT_SETTINGS = {
+  skin: 'classic',          // 'classic' oder 'm3'
   difficulty: 'mittel',
   diagonal: true,
   wrap: true,
@@ -148,10 +149,36 @@ const sfx = {
 
 /* ------------------------------------------------------------- Darstellung */
 
-function applyTheme() {
+/**
+ * Setzt Skin und Farbschema. Die beiden Stilvarianten liegen als eigene
+ * Stylesheets vor; umgeschaltet wird über deren disabled-Eigenschaft.
+ */
+function applyAppearance() {
   const root = document.documentElement;
   if (settings.theme === 'auto') root.removeAttribute('data-theme');
   else root.setAttribute('data-theme', settings.theme);
+
+  const m3 = settings.skin === 'm3';
+  root.dataset.skin = m3 ? 'm3' : 'classic';
+  const toggle = (id, active) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !active;
+  };
+  toggle('css-m3', m3);
+  toggle('css-m3-colors', m3);
+  toggle('css-classic', !m3);
+  updateThemeColor();
+}
+
+/** Die Farbe der Browserleiste folgt dem tatsächlichen Seitenhintergrund. */
+function updateThemeColor() {
+  // Zwei Bilder warten: direkt nach dem Umschalten ist das neue Stylesheet
+  // noch nicht angewandt und der Hintergrund käme durchsichtig zurück.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const bg = getComputedStyle(document.body).backgroundColor;
+    if (meta && bg && !/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) meta.setAttribute('content', bg);
+  }));
 }
 
 function createCellEl() {
@@ -539,7 +566,7 @@ function endGame(won) {
     store.set(KEY.best, best);
   }
 
-  $('#end-badge').textContent = won ? '★' : '☹';
+  $('#end-badge').querySelector('use').setAttribute('href', won ? '#i-trophy' : '#i-sad');
   $('#end-badge').classList.toggle('sad', !won);
   $('#end-title').textContent = won ? 'Feld leer geräumt!' : 'Keine Züge mehr';
   $('#end-text').textContent = won
@@ -610,7 +637,7 @@ function openSheet(dlg) {
   dlg.showModal();
   // Ohne das landet der Fokus auf dem Schliessen-Kreuz und malt dort einen Ring.
   dlg.focus({ preventScroll: true });
-  dlg.querySelector('.sheet-body')?.scrollTo({ top: 0 });
+  dlg.querySelector('.sheet__body')?.scrollTo({ top: 0 });
 }
 
 function closeSheet(dlg) {
@@ -636,6 +663,9 @@ function renderSettings() {
   }
   for (const btn of document.querySelectorAll('#seg-theme button')) {
     btn.setAttribute('aria-pressed', String(btn.dataset.value === settings.theme));
+  }
+  for (const btn of document.querySelectorAll('#seg-skin button')) {
+    btn.setAttribute('aria-pressed', String(btn.dataset.value === settings.skin));
   }
   $('#opt-diagonal').checked = settings.diagonal;
   $('#opt-wrap').checked = settings.wrap;
@@ -671,11 +701,22 @@ $('#seg-difficulty').addEventListener('click', (e) => {
   renderSettings();
 });
 
+$('#seg-skin').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn || btn.dataset.value === settings.skin) return;
+  settings.skin = btn.dataset.value;
+  applyAppearance();
+  saveSettings();
+  renderSettings();
+  renderBoard();
+  toast(settings.skin === 'm3' ? 'Stil: Material 3' : 'Stil: Original');
+});
+
 $('#seg-theme').addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;
   settings.theme = btn.dataset.value;
-  applyTheme();
+  applyAppearance();
   saveSettings();
   renderSettings();
 });
@@ -781,9 +822,27 @@ document.addEventListener('keydown', (e) => {
 // Ton erst nach der ersten Nutzergeste anlegen (Autoplay-Regeln der Browser).
 window.addEventListener('pointerdown', () => audio(), { once: true });
 
+/* Ripple: die Zustandsebene aus Material 3 bekommt ihren Anschlag am Beruehrpunkt. */
+const RIPPLE_TARGETS = '.icon-button, .button, .fab, .chip, .segmented button, .cell';
+document.addEventListener('pointerdown', (e) => {
+  if (reduceMotion.matches) return;
+  const el = e.target.closest(RIPPLE_TARGETS);
+  if (!el || el.disabled) return;
+  const box = el.getBoundingClientRect();
+  const size = Math.max(box.width, box.height) * 2;
+  const ripple = document.createElement('span');
+  ripple.className = 'ripple';
+  ripple.style.width = `${size}px`;
+  ripple.style.height = `${size}px`;
+  ripple.style.left = `${e.clientX - box.left - size / 2}px`;
+  ripple.style.top = `${e.clientY - box.top - size / 2}px`;
+  el.appendChild(ripple);
+  ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
+}, { passive: true });
+
 /* ------------------------------------------------------------------ Start */
 
-applyTheme();
+applyAppearance();
 if (!load()) {
   state = createGame({
     difficulty: settings.difficulty,
