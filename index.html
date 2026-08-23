@@ -249,7 +249,9 @@
 
 <!-- Basisdialog: Spielende -->
 <dialog class="dialog" tabindex="-1" id="dlg-end" aria-labelledby="end-title">
+  <div class="dialog__rays" aria-hidden="true"></div>
   <svg class="dialog__icon" id="end-badge" aria-hidden="true"><use href="#i-trophy"></use></svg>
+  <p class="record-ribbon" id="end-record" hidden></p>
   <h2 class="dialog__headline" id="end-title">Geschafft!</h2>
   <p class="dialog__text body-medium" id="end-text"></p>
   <dl class="end-stats" id="end-stats"></dl>

@@ -44,7 +44,10 @@ Vorlage war, zeigt nur waagrecht und senkrecht.
 * Tastatur: Pfeiltasten bewegen den Fokus, Leertaste/Enter wählt aus, `h` = Tipp, `u` = zurück,
   `Esc` = Auswahl aufheben.
 * Punkte: 10 pro Paar, mal Kombofaktor (bis ×5) für Treffer in Folge, +25 je geräumter Zeile,
-  Bonus fürs Leerräumen und für ungenutztes Auffüllen.
+  +100 fürs Leerräumen und +50 je ungenutztem Auffüllen. Ein Fehlversuch oder ein Auffüllen
+  setzt den Kombofaktor zurück; ein Tipp kostet nichts.
+* Wer seinen Bestwert einer Stufe schlägt, bekommt am Ende eine eigene kleine Feier:
+  Strahlenkranz hinter dem Pokal, goldenes Konfetti, hochlaufende Punktzahl.
 
 Spielstand, Einstellungen und Bestwerte liegen im `localStorage` des Geräts. Die Seite lässt
 sich als App zum Startbildschirm hinzufügen und läuft dank Service Worker auch offline.

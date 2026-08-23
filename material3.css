@@ -55,8 +55,9 @@
   --tile: var(--md-sys-color-surface-container-highest);
   --tile: light-dark(var(--md-sys-color-surface-container-lowest),
                      var(--md-sys-color-surface-container-high));
-  --board: var(--md-sys-color-surface-container-low);
-  --board: light-dark(var(--md-sys-color-surface-container-high),
+  /* Stufung: Seite < Statuskarten < Spielfläche < Steine */
+  --board: var(--md-sys-color-surface-container-highest);
+  --board: light-dark(var(--md-sys-color-surface-container-highest),
                       var(--md-sys-color-surface-container-lowest));
   --hole: rgba(0, 0, 0, .10);
   --hole: light-dark(rgba(0, 0, 0, .09), rgba(0, 0, 0, .38));
@@ -223,8 +224,8 @@ body {
   color: var(--md-sys-color-on-surface-variant);
 }
 .stat-card__value {
-  /* Title Large */
-  font: 400 22px/28px var(--font);
+  /* Headline Small, etwas kräftiger gesetzt */
+  font: 500 24px/30px var(--font);
   font-variant-numeric: tabular-nums;
   color: var(--md-sys-color-on-surface);
 }
@@ -237,12 +238,12 @@ body {
 
 .combo-badge {
   position: absolute;
-  left: 50%; bottom: -12px;
-  transform: translate(-50%, 6px) scale(.85);
-  padding: 4px 12px;
+  left: 50%; bottom: -44px;          /* unterhalb des Fortschrittsbalkens */
+  transform: translate(-50%, -6px) scale(.85);
+  padding: 6px 16px;
   border-radius: var(--md-sys-shape-corner-full);
-  background: var(--md-sys-color-tertiary-container);
-  color: var(--md-sys-color-on-tertiary-container);
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
   /* Label Large */
   font: 500 14px/20px var(--font);
   letter-spacing: .1px;
@@ -254,6 +255,7 @@ body {
               transform var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized-decelerate);
 }
 .combo-badge.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.combo-badge { box-shadow: var(--md-sys-elevation-2); }
 
 /* --- Linearer Fortschritt ----------------------------------------------- */
 
@@ -609,14 +611,74 @@ body {
 @keyframes dialog-in { from { transform: scale(.85); opacity: 0; } }
 @keyframes dialog-out { to { transform: scale(.92); opacity: 0; } }
 
+/* --- Belohnung fuer einen Bestwert --------------------------------------- */
+
+.dialog { isolation: isolate; overflow: hidden; }
+
+.dialog__rays {
+  position: absolute;
+  top: -46px; left: 50%;
+  width: 230px; height: 230px;
+  margin-left: -115px;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  background: repeating-conic-gradient(from 0deg,
+    var(--md-sys-color-tertiary) 0deg 4deg, transparent 4deg 20deg);
+  -webkit-mask-image: radial-gradient(circle, #000 6%, rgba(0, 0, 0, .45) 26%, transparent 52%);
+  mask-image: radial-gradient(circle, #000 6%, rgba(0, 0, 0, .45) 26%, transparent 52%);
+}
+/* scale, rotate und opacity sind eigenstaendige Eigenschaften – die beiden
+   Animationen kommen sich dadurch nicht in die Quere. */
+.dialog.is-record .dialog__rays {
+  animation: rays-in var(--md-sys-motion-duration-long2) var(--md-sys-motion-easing-emphasized-decelerate) forwards,
+             rays-spin 26s linear var(--md-sys-motion-duration-long2) infinite;
+}
+@keyframes rays-in { from { opacity: 0; scale: .35; } to { opacity: .28; scale: 1; } }
+@keyframes rays-spin { to { rotate: 360deg; } }
+
+.record-ribbon {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 auto 14px;
+  padding: 6px 16px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
+  /* Label Large */
+  font: 500 14px/20px var(--font);
+  letter-spacing: .1px;
+  box-shadow: var(--md-sys-elevation-1);
+}
+.dialog.is-record .record-ribbon {
+  animation: ribbon-pop var(--md-sys-motion-duration-long2) var(--md-sys-motion-easing-emphasized-decelerate) 200ms backwards;
+}
+@keyframes ribbon-pop {
+  0% { opacity: 0; scale: .4; }
+  65% { opacity: 1; scale: 1.14; }
+  100% { opacity: 1; scale: 1; }
+}
+.dialog.is-record .dialog__icon {
+  color: var(--md-sys-color-tertiary);
+  animation: badge-in var(--md-sys-motion-duration-long2) var(--md-sys-motion-easing-emphasized-decelerate),
+             trophy-cheer 1.4s var(--md-sys-motion-easing-standard) 500ms 2;
+}
+@keyframes trophy-cheer {
+  0%, 100% { rotate: 0deg; }
+  20% { rotate: -12deg; }
+  40% { rotate: 10deg; }
+  60% { rotate: -6deg; }
+  80% { rotate: 3deg; }
+}
+
 .dialog__icon {
   width: 32px; height: 32px;
   margin: 0 auto 16px;
   display: block;
-  fill: var(--md-sys-color-secondary);
+  color: var(--md-sys-color-secondary);
   animation: badge-in var(--md-sys-motion-duration-long2) var(--md-sys-motion-easing-emphasized-decelerate);
 }
-.dialog__icon.sad { fill: var(--md-sys-color-error); }
+.dialog__icon.sad { color: var(--md-sys-color-error); }
 @keyframes badge-in { 0% { transform: scale(0) rotate(-30deg); } 100% { transform: none; } }
 .dialog__headline {
   margin: 0 0 12px;

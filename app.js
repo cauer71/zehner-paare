@@ -77,6 +77,7 @@ let focusIndex = 0;        // fuer Tastaturbedienung
 let tipsShown = 0;
 let timerId = null;
 let tickBase = 0;
+let endHandled = false;    // Spielende nur einmal auswerten
 
 /* ----------------------------------------------------------------- Helfer */
 
@@ -144,6 +145,10 @@ const sfx = {
   row: () => [0, 1, 2].forEach((i) => tone({ freq: 520 + i * 180, dur: 0.11, delay: i * 0.06, gain: 0.045 })),
   refill: () => tone({ freq: 380, dur: 0.22, type: 'sawtooth', gain: 0.03, slideTo: 240 }),
   win: () => [523, 659, 784, 1046, 1318].forEach((f, i) => tone({ freq: f, dur: 0.28, delay: i * 0.1, gain: 0.05 })),
+  record: () => {
+    [659, 880, 1109, 1319, 1760].forEach((f, i) => tone({ freq: f, dur: 0.34, delay: 0.5 + i * 0.09, gain: 0.05, type: 'triangle' }));
+    [2093, 2637].forEach((f, i) => tone({ freq: f, dur: 0.5, delay: 0.95 + i * 0.12, gain: 0.022 }));
+  },
   lose: () => [400, 320, 240].forEach((f, i) => tone({ freq: f, dur: 0.24, delay: i * 0.12, gain: 0.04, type: 'triangle' })),
 };
 
@@ -347,12 +352,14 @@ function floaterAt(el, text) {
   f.addEventListener('animationend', () => f.remove(), { once: true });
 }
 
-function confetti() {
+function confetti({ gold = false } = {}) {
   if (reduceMotion.matches) return;
   const wrap = document.createElement('div');
   wrap.className = 'confetti';
-  const colors = ['#ef7d31', '#f5c451', '#16a37b', '#2b8fd6'];
-  for (let i = 0; i < 46; i++) {
+  const colors = gold
+    ? ['#f5c451', '#ffd97a', '#e8a33d', '#fff0c2', '#ef7d31']
+    : ['#ef7d31', '#f5c451', '#16a37b', '#2b8fd6'];
+  for (let i = 0; i < (gold ? 80 : 46); i++) {
     const p = document.createElement('i');
     p.style.left = `${Math.random() * 100}vw`;
     p.style.background = colors[i % colors.length];
@@ -527,6 +534,7 @@ function doUndo() {
   clearSelection();
   undo(state);
   state.status = 'playing';
+  endHandled = false;
   renderBoard();
   updateStats();
   btnRefill.classList.remove('urge');
@@ -545,6 +553,7 @@ function newGame(difficulty = settings.difficulty) {
   focusIndex = 0;
   tipsShown = 0;
   locked = false;
+  endHandled = false;
   btnRefill.classList.remove('urge');
   renderBoard();
   updateStats();
@@ -553,10 +562,32 @@ function newGame(difficulty = settings.difficulty) {
   announce(`Neues Spiel: ${DIFFICULTIES[difficulty].label}`);
 }
 
+/** Laesst eine Zahl hochlaufen – der kleine Trommelwirbel am Spielende. */
+function countUp(el, to, ms = 900) {
+  if (!el) return;
+  if (reduceMotion.matches || to <= 0) { el.textContent = String(to); return; }
+  const start = performance.now();
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / ms);
+    el.textContent = String(Math.round(to * (1 - Math.pow(1 - t, 3))));
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  el.textContent = '0';
+  requestAnimationFrame(tick);
+}
+
 /* ------------------------------------------------------------------- Ende */
 
 function endGame(won) {
+  // Bei schnellen Zuegen sind mehrere Treffer gleichzeitig in der Animation und
+  // jeder meldet sich am Ende. Ohne diese Sperre liefe die Auswertung mehrfach:
+  // der zweite Durchlauf saehe den gerade geschriebenen Bestwert und wuerde die
+  // Feier wieder zuruecknehmen, dazu doppeltes Konfetti und doppelter Klang.
+  if (endHandled) return;
+  endHandled = true;
   stopTimer();
+  state.combo = 0;
+  elCombo.classList.remove('show');
   const label = DIFFICULTIES[state.difficulty]?.label ?? state.difficulty;
   const key = state.difficulty;
   const previous = best[key];
@@ -570,19 +601,41 @@ function endGame(won) {
   $('#end-badge').classList.toggle('sad', !won);
   $('#end-title').textContent = won ? 'Feld leer geräumt!' : 'Keine Züge mehr';
   $('#end-text').textContent = won
-    ? (isRecord ? `Neuer Bestwert bei ${label}!` : `Sauber gespielt bei ${label}.`)
+    ? (isRecord
+        ? (previous ? `${label} · dein bisher bester Lauf, vorher ${previous.score}.`
+                    : `${label} · dein erster Sieg auf dieser Stufe.`)
+        : `Sauber gespielt bei ${label}.`)
     : 'Kein Paar mehr übrig und kein Auffüllen mehr. Nimm einen Zug zurück oder starte neu.';
   $('#end-stats').innerHTML = [
-    ['Punkte', state.score],
+    ['Punkte', state.score, ' id="end-score"'],
     ['Zeit', fmtTime(state.elapsed)],
     ['Züge', state.matches],
     ['Beste Kombo', `×${Math.min(state.bestCombo, 5)}`],
-  ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+  ].map(([k, v, attr = '']) => `<div><dt>${k}</dt><dd${attr}>${v}</dd></div>`).join('');
   $('#btn-end-undo').hidden = won || !canUndo(state);
 
-  if (won) { confetti(); sfx.win(); buzz([20, 60, 20, 60, 40]); }
-  else { sfx.lose(); buzz([40, 80, 40]); }
-  setTimeout(() => openSheet(dlgEnd), won && !reduceMotion.matches ? 620 : 0);
+  // Bestwert: eigenes Band, Strahlenkranz, goldenes Konfetti, hochlaufende Punktzahl
+  const ribbon = $('#end-record');
+  ribbon.hidden = !isRecord;
+  dlgEnd.classList.toggle('is-record', isRecord);
+  if (isRecord) {
+    const plus = previous ? state.score - previous.score : 0;
+    ribbon.textContent = plus > 0 ? `★ Neuer Bestwert · +${plus}` : '★ Neuer Bestwert';
+  }
+
+  if (won) {
+    confetti({ gold: isRecord });
+    sfx.win();
+    buzz([20, 60, 20, 60, 40]);
+    if (isRecord) { sfx.record(); buzz([20, 50, 20, 50, 20, 50, 90]); }
+  } else {
+    sfx.lose();
+    buzz([40, 80, 40]);
+  }
+  setTimeout(() => {
+    openSheet(dlgEnd);
+    if (won) countUp($('#end-score'), state.score, isRecord ? 1100 : 700);
+  }, won && !reduceMotion.matches ? 620 : 0);
   save();
   renderBest();
 }
@@ -727,6 +780,7 @@ function applyRuleChange(message) {
   clearSelection();
   const before = state.status;
   if (state.status !== 'won') refreshStatus(state);
+  if (state.status === 'playing') endHandled = false;
   saveSettings();
   updateStats();
   save();

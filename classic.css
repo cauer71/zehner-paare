@@ -236,8 +236,8 @@ body::before {
 
 .combo-badge {
   position: absolute;
-  bottom: -4px; left: 50%;
-  transform: translate(-50%, 4px) scale(.8);
+  bottom: -40px; left: 50%;          /* unterhalb des Fortschrittsbalkens */
+  transform: translate(-50%, -6px) scale(.8);
   padding: 3px 12px;
   border-radius: 999px;
   background: var(--accent);
@@ -248,7 +248,7 @@ body::before {
   z-index: 3;
   transition: opacity .18s, transform .28s cubic-bezier(.2, 1.4, .4, 1);
 }
-.combo-badge.show { opacity: 1; transform: translate(-50%, 16px) scale(1); }
+.combo-badge.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
 
 .progress {
   flex: none;
@@ -588,6 +588,63 @@ body::before {
 .dialog[open] { animation: sheetin .3s cubic-bezier(.2, .9, .3, 1); }
 .dialog.closing { animation: sheetout .2s ease-in forwards; }
 
+/* --- Belohnung fuer einen Bestwert --------------------------------------- */
+
+.dialog { position: relative; isolation: isolate; overflow: hidden; }
+
+.dialog__rays {
+  position: absolute;
+  top: -46px; left: 50%;
+  width: 230px; height: 230px;
+  margin-left: -115px;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, #f5c451 0deg 4deg, transparent 4deg 20deg);
+  -webkit-mask-image: radial-gradient(circle, #000 6%, rgba(0, 0, 0, .45) 26%, transparent 52%);
+  mask-image: radial-gradient(circle, #000 6%, rgba(0, 0, 0, .45) 26%, transparent 52%);
+}
+.dialog.is-record .dialog__rays {
+  animation: rays-in .5s cubic-bezier(.2, .9, .3, 1) forwards,
+             rays-spin 26s linear .5s infinite;
+}
+@keyframes rays-in { from { opacity: 0; scale: .35; } to { opacity: .32; scale: 1; } }
+@keyframes rays-spin { to { rotate: 360deg; } }
+
+.record-ribbon {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 auto 14px;
+  padding: 5px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f8b64c, #ef7d31);
+  color: #2b1103;
+  font-size: .84rem;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(239, 125, 49, .35);
+}
+.dialog.is-record .record-ribbon {
+  animation: ribbon-pop .5s cubic-bezier(.2, 1.5, .4, 1) 200ms backwards;
+}
+@keyframes ribbon-pop {
+  0% { opacity: 0; scale: .4; }
+  65% { opacity: 1; scale: 1.14; }
+  100% { opacity: 1; scale: 1; }
+}
+.dialog.is-record .dialog__icon {
+  background: linear-gradient(135deg, rgba(248, 182, 76, .3), rgba(239, 125, 49, .25));
+  color: #e0902a;
+  animation: badgein .55s cubic-bezier(.2, 1.5, .4, 1),
+             trophy-cheer 1.4s ease-in-out 500ms 2;
+}
+@keyframes trophy-cheer {
+  0%, 100% { rotate: 0deg; }
+  20% { rotate: -12deg; }
+  40% { rotate: 10deg; }
+  60% { rotate: -6deg; }
+  80% { rotate: 3deg; }
+}
+
 .dialog__icon {
   width: 74px; height: 74px;
   margin: 0 auto 12px;
@@ -595,10 +652,10 @@ body::before {
   display: block;
   border-radius: 50%;
   background: var(--good-soft);
-  fill: var(--good);
+  color: var(--good);
   animation: badgein .55s cubic-bezier(.2, 1.5, .4, 1);
 }
-.dialog__icon.sad { background: var(--bad-soft); fill: var(--bad); }
+.dialog__icon.sad { background: var(--bad-soft); color: var(--bad); }
 @keyframes badgein { 0% { transform: scale(0) rotate(-40deg); } 100% { transform: none; } }
 .dialog__headline { margin: 0 0 6px; font-size: 1.5rem; font-weight: 800; }
 .dialog__text { margin: 0; color: var(--ink-soft); line-height: 1.5; }
