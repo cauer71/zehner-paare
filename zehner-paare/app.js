@@ -5,6 +5,7 @@
 import {
   DIFFICULTIES, createGame, canMatch, applyMatch, refill, hint, undo, canUndo,
   breakCombo, remaining, serialize, deserialize, valuesMatch, findPair, progress,
+  partnersOf, refreshStatus,
 } from './game.js';
 
 /* ---------------------------------------------------------------- Speicher */
@@ -35,6 +36,7 @@ const DEFAULT_SETTINGS = {
   wrap: true,
   sound: true,
   vibrate: true,
+  partners: true,
   theme: 'auto',
 };
 
@@ -184,6 +186,8 @@ function normalizeFocus() {
 
 function renderBoard({ enterFrom = -1 } = {}) {
   board.style.setProperty('--cols', state.cols);
+  // Lag der Fokus im Feld? Nach dem Entfernen von Zellen faellt er sonst auf <body>.
+  const hadFocus = board.contains(document.activeElement);
   normalizeFocus();
 
   const before = new Map();
@@ -221,6 +225,14 @@ function renderBoard({ enterFrom = -1 } = {}) {
     el.tabIndex = i === focusIndex ? 0 : -1;
     if (board.children[i] !== el) board.insertBefore(el, board.children[i] ?? null);
   });
+
+  // Kantenverlauf nur zeigen, wenn das Feld tatsaechlich ueberlaeuft
+  boardWrap.classList.toggle('scrollable', board.scrollHeight > boardWrap.clientHeight + 2);
+
+  if (hadFocus && !document.querySelector('dialog[open]')) {
+    const el = elAt(focusIndex);
+    if (el && !board.contains(document.activeElement)) el.focus({ preventScroll: true });
+  }
 
   if (!reduceMotion.matches) {
     for (const [id, el] of cellEls) {
@@ -312,13 +324,13 @@ function confetti() {
   if (reduceMotion.matches) return;
   const wrap = document.createElement('div');
   wrap.className = 'confetti';
-  const colors = ['#ef7d31', '#16a37b', '#2b8fd6', '#f5c451', '#e2483d'];
-  for (let i = 0; i < 70; i++) {
+  const colors = ['#ef7d31', '#f5c451', '#16a37b', '#2b8fd6'];
+  for (let i = 0; i < 46; i++) {
     const p = document.createElement('i');
     p.style.left = `${Math.random() * 100}vw`;
     p.style.background = colors[i % colors.length];
-    p.style.animationDuration = `${1.6 + Math.random() * 1.6}s`;
-    p.style.animationDelay = `${Math.random() * 0.5}s`;
+    p.style.animationDuration = `${1.1 + Math.random() * 1.1}s`;
+    p.style.animationDelay = `${Math.random() * 0.35}s`;
     p.style.transform = `rotate(${Math.random() * 360}deg)`;
     wrap.appendChild(p);
   }
@@ -326,15 +338,16 @@ function confetti() {
   try {
     if (typeof wrap.showPopover === 'function') { wrap.popover = 'manual'; wrap.showPopover(); }
   } catch { /* aeltere Browser zeigen es einfach darunter */ }
-  setTimeout(() => wrap.remove(), 4200);
+  setTimeout(() => wrap.remove(), 2800);
 }
 
 /* ------------------------------------------------------------ Spielablauf */
 
 function clearSelection() {
-  if (selected !== null) elAt(selected)?.classList.remove('sel');
   selected = null;
-  for (const el of cellEls.values()) el.classList.remove('partner');
+  // Ueber die Elemente statt ueber Indizes: nach einer entfernten Zeile zeigen
+  // alte Indizes auf fremde Zellen.
+  for (const el of cellEls.values()) el.classList.remove('sel', 'partner');
 }
 
 function select(i) {
@@ -342,6 +355,9 @@ function select(i) {
   selected = i;
   const el = elAt(i);
   el?.classList.add('sel');
+  if (settings.partners) {
+    for (const j of partnersOf(state, i)) elAt(j)?.classList.add('partner');
+  }
   sfx.select();
   buzz(8);
   announce(`${state.cells[i].v} ausgewählt`);
@@ -623,6 +639,7 @@ function renderSettings() {
   }
   $('#opt-diagonal').checked = settings.diagonal;
   $('#opt-wrap').checked = settings.wrap;
+  $('#opt-partners').checked = settings.partners;
   $('#opt-sound').checked = settings.sound;
   $('#opt-vibrate').checked = settings.vibrate;
   const d = DIFFICULTIES[settings.difficulty];
@@ -663,20 +680,40 @@ $('#seg-theme').addEventListener('click', (e) => {
   renderSettings();
 });
 
+/** Nach einer Regelaenderung kann aus einer Sackgasse wieder ein Spiel werden – und umgekehrt. */
+function applyRuleChange(message) {
+  clearSelection();
+  const before = state.status;
+  if (state.status !== 'won') refreshStatus(state);
+  saveSettings();
+  updateStats();
+  save();
+  toast(message);
+  if (before !== 'playing' && state.status === 'playing') {
+    btnRefill.classList.remove('urge');
+    startTimer();
+  } else if (state.status === 'stuck' && before === 'playing') {
+    btnRefill.classList.add('urge');
+    stopTimer();
+  }
+}
+
 $('#opt-diagonal').addEventListener('change', (e) => {
   settings.diagonal = e.target.checked;
   state.diagonal = settings.diagonal;
-  saveSettings();
-  save();
-  toast(settings.diagonal ? 'Diagonale Paare erlaubt.' : 'Diagonale Paare aus.');
+  applyRuleChange(settings.diagonal ? 'Diagonale Paare erlaubt.' : 'Diagonale Paare aus.');
 });
 
 $('#opt-wrap').addEventListener('change', (e) => {
   settings.wrap = e.target.checked;
   state.wrap = settings.wrap;
+  applyRuleChange(settings.wrap ? 'Zeilenumbruch zählt als Nachbarschaft.' : 'Zeilenumbruch aus.');
+});
+
+$('#opt-partners').addEventListener('change', (e) => {
+  settings.partners = e.target.checked;
   saveSettings();
-  save();
-  toast(settings.wrap ? 'Zeilenumbruch zählt als Nachbarschaft.' : 'Zeilenumbruch aus.');
+  if (selected !== null) select(selected);
 });
 
 $('#opt-sound').addEventListener('change', (e) => {
@@ -704,14 +741,10 @@ board.addEventListener('keydown', (e) => {
   if (!(e.key in steps)) return;
   e.preventDefault();
   const step = steps[e.key];
-  const horizontal = Math.abs(step) === 1;
   let next = focusIndex;
   // Bis zum naechsten spielbaren Feld weitergehen, leere ueberspringen.
+  // Links/rechts folgen der Leserichtung, also auch ueber das Zeilenende hinaus.
   for (let guard = 0; guard < state.cells.length; guard++) {
-    if (horizontal) {
-      const col = next % state.cols;
-      if ((step === -1 && col === 0) || (step === 1 && col === state.cols - 1)) return;
-    }
     next += step;
     if (next < 0 || next >= state.cells.length) return;
     if (!state.cells[next].cleared) break;

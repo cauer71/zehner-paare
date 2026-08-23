@@ -1,7 +1,10 @@
 /* Einfacher Offline-Cache: beim Aktivieren alles Noetige ablegen,
    danach Netz zuerst, Cache als Rueckfalloption. */
 const CACHE = 'zehner-paare-v1';
-const ASSETS = ['./', 'index.html', 'styles.css', 'app.js', 'game.js', 'manifest.webmanifest', 'icon.svg'];
+const ASSETS = [
+  './', 'index.html', 'styles.css', 'app.js', 'game.js',
+  'manifest.webmanifest', 'icon.svg', 'fonts/nunito-latin-var.woff2',
+];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

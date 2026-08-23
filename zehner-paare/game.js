@@ -173,6 +173,50 @@ export function forwardNeighbours(state, i) {
   return out;
 }
 
+/**
+ * Alle Nachbarn in beide Richtungen. Spiegelbild von forwardNeighbours:
+ * dieselben Wege, nur rueckwaerts gelaufen.
+ */
+export function neighboursOf(state, i) {
+  const { cells, cols } = state;
+  const out = new Set(forwardNeighbours(state, i));
+  const r0 = Math.floor(i / cols);
+  const c0 = i % cols;
+
+  const start = state.wrap ? 0 : r0 * cols;
+  for (let k = i - 1; k >= start; k--) {
+    if (cells[k].cleared) continue;
+    out.add(k);
+    break;
+  }
+  for (let r = r0 - 1; r >= 0; r--) {
+    const k = indexAt(state, r, c0);
+    if (k < 0 || cells[k].cleared) continue;
+    out.add(k);
+    break;
+  }
+  if (state.diagonal) {
+    for (const dc of [1, -1]) {
+      let r = r0 - 1;
+      let c = c0 + dc;
+      while (r >= 0 && c >= 0 && c < cols) {
+        const k = indexAt(state, r, c);
+        if (k >= 0 && !cells[k].cleared) { out.add(k); break; }
+        r -= 1;
+        c += dc;
+      }
+    }
+  }
+  return [...out];
+}
+
+/** Spielbare Partner der Zelle i. */
+export function partnersOf(state, i) {
+  const cell = state.cells[i];
+  if (!cell || cell.cleared) return [];
+  return neighboursOf(state, i).filter((j) => !state.cells[j].cleared && valuesMatch(cell.v, state.cells[j].v));
+}
+
 /** Duerfen die Zellen i und j gestrichen werden? */
 export function canMatch(state, i, j) {
   if (i === j) return false;
@@ -255,7 +299,7 @@ function dropEmptyRows(state) {
   return removed;
 }
 
-function refreshStatus(state) {
+export function refreshStatus(state) {
   if (remaining(state) === 0) {
     state.status = 'won';
     return;

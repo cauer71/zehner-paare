@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import {
   createGame, canMatch, findPair, allPairs, applyMatch, refill, undo,
   valuesMatch, remaining, rowCount, serialize, deserialize, forwardNeighbours,
+  neighboursOf, partnersOf, refreshStatus,
 } from './game.js';
 
 /** Testfeld aus Zeilen bauen; 0 bedeutet "bereits gestrichen". */
@@ -220,4 +221,49 @@ test('jede Schwierigkeit startet spielbar', () => {
       assert.ok(findPair(s), `${d}/${seed} hat einen Eroeffnungszug`);
     }
   }
+});
+
+test('neighboursOf ist genau die Umkehrung von canMatch', () => {
+  for (const [diagonal, wrap] of [[true, true], [true, false], [false, true], [false, false]]) {
+    const s = createGame({ difficulty: 'mittel', seed: 5, diagonal, wrap });
+    // ein paar Zellen leeren, damit auch das Durchsehen geprueft wird
+    for (const i of [3, 4, 11, 20, 21, 22, 30]) s.cells[i].cleared = true;
+    for (let i = 0; i < s.cells.length; i++) {
+      if (s.cells[i].cleared) continue;
+      const n = new Set(neighboursOf(s, i));
+      for (let j = 0; j < s.cells.length; j++) {
+        if (i === j || s.cells[j].cleared) continue;
+        const reachable = n.has(j);
+        const back = new Set(neighboursOf(s, j)).has(i);
+        assert.equal(reachable, back, `Nachbarschaft ${i}/${j} muss symmetrisch sein`);
+        if (reachable && valuesMatch(s.cells[i].v, s.cells[j].v)) {
+          assert.ok(canMatch(s, i, j), `${i}/${j} sollte spielbar sein`);
+        }
+      }
+    }
+  }
+});
+
+test('partnersOf liefert genau die spielbaren Partner', () => {
+  const s = createGame({ difficulty: 'leicht', seed: 11 });
+  for (let i = 0; i < s.cells.length; i += 7) {
+    const expected = [];
+    for (let j = 0; j < s.cells.length; j++) if (canMatch(s, i, j)) expected.push(j);
+    assert.deepEqual(partnersOf(s, i).sort((a, b) => a - b), expected.sort((a, b) => a - b));
+  }
+});
+
+test('refreshStatus bewertet nach Regelwechsel neu', () => {
+  // 3 und 7 liegen nur diagonal beieinander
+  const s = createGame({ difficulty: 'leicht', seed: 3 });
+  s.cells = [
+    { id: 0, v: 3, cleared: false }, { id: 1, v: 1, cleared: false },
+    { id: 2, v: 2, cleared: false }, { id: 3, v: 7, cleared: false },
+  ];
+  s.cols = 2; s.refillsLeft = 0; s.diagonal = false; s.wrap = false;
+  refreshStatus(s);
+  assert.equal(s.status, 'stuck');
+  s.diagonal = true;
+  refreshStatus(s);
+  assert.equal(s.status, 'playing');
 });

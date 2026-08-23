@@ -75,3 +75,9 @@ node --test zehner-paare/game.test.js
 
 Die Logik in `game.js` kennt kein DOM: `createGame`, `canMatch`, `applyMatch`, `refill`,
 `findPair`, `undo`. Wer eine andere Oberfläche bauen will, braucht nur diese Datei.
+
+## Schrift
+
+Die Ziffern laufen in **Nunito** (`fonts/nunito-latin-var.woff2`, auf Latin beschnittene
+Variable-Font-Datei, 39 kB). Lizenz: SIL Open Font License 1.1, Volltext in
+[`fonts/OFL.txt`](fonts/OFL.txt).
