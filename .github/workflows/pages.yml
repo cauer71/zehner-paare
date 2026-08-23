@@ -3,9 +3,6 @@ name: Zehner-Paare auf GitHub Pages veröffentlichen
 on:
   push:
     branches: [main]
-    paths:
-      - 'zehner-paare/**'
-      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -27,7 +24,7 @@ jobs:
         with:
           node-version: '22'
       - name: Spiellogik testen
-        run: node --test zehner-paare/game.test.js
+        run: node --test game.test.js
 
   deploy:
     name: Veröffentlichen

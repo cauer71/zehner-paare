@@ -1,9 +1,10 @@
 /* Einfacher Offline-Cache: beim Aktivieren alles Noetige ablegen,
    danach Netz zuerst, Cache als Rueckfalloption. */
-const CACHE = 'zehner-paare-v3';
+const CACHE = 'zehner-paare-v4';
 const ASSETS = [
   './', 'index.html', 'classic.css', 'material3.css', 'm3-colors.css',
-  'app.js', 'game.js', 'manifest.webmanifest', 'icon.svg',
+  'app.js', 'game.js', 'manifest.webmanifest',
+  'icons/icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png',
   'fonts/nunito-latin-var.woff2', 'fonts/roboto-latin-var.woff2',
 ];
 
