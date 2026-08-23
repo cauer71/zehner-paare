@@ -176,10 +176,16 @@ Absichtlich dick aufgetragen: Kitsch mit Regeln.
 * **Kleine Melodien für die besonderen Momente.** Notiert als lesbare Tonfolge
   (`'G4:1 C5:1 E5:1 G5:1 …'`, gleichstufig mit A4 = 440 Hz), gespielt mit Pulswelle und
   Bassgang: *Stage Clear* nach dem Leerräumen, *Extend* wenn der Bestwert fällt (setzt erst nach
-  der Siegfanfare ein, damit sich beide nicht ins Gehege kommen), *Maximum* bei Kombo ×10,
-  *Game Over* mit abstürzendem Schlusston, dazu je ein Stück für die Rettung und für eine neue
-  Endlos-Runde. Die Töne haben absichtlich eine Lücke zwischen sich – so klingt ein Chip, der
-  den Kanal kurz auf null schreibt.
+  der Siegfanfare ein, damit sich beide nicht ins Gehege kommen), *Game Over* mit abstürzendem
+  Schlusston, dazu je ein Stück für die Rettung und für eine neue Endlos-Runde. Die Töne haben
+  absichtlich eine Lücke zwischen sich – so klingt ein Chip, der den Kanal kurz auf null
+  schreibt.
+* **Jede Kombostufe hat ihr eigenes Motiv.** Drei Noten ab ×2, vier ab ×5, fünf ab ×8, bei ×10
+  die große Fanfare. Dasselbe Motiv rückt je Stufe eine Sprosse höher, und zwar entlang einer
+  Durtonleiter (0 2 4 5 7 9 11 12 Halbtöne) – dadurch klingt die Reihe wie ein Aufstieg und
+  nicht wie ein Sirenenlauf. Steigt die Kombo, spielt die Melodie **statt** des Trefferklangs:
+  beides zusammen wären zwei Tonfolgen übereinander. Kurz gehalten, weil bei schnellem Spiel
+  alle 300 ms der nächste Treffer kommt.
 * **Chiptune** als zweite Tonstimme: Pulswellen mit 12,5/25/50 % Tastverhältnis über
   `PeriodicWave`, gefiltertes Rauschen für die Perkussion, Tonhöhenabfall in Stufen statt als
   Rutsch. Alles läuft über einen Sammelausgang mit weicher Begrenzung, weil Treffer + Zeile +

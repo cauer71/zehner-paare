@@ -10,7 +10,7 @@ import {
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.4.0';
+export const VERSION = '1.5.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2', seen: 'zp.seen.v1' };
 
@@ -304,13 +304,15 @@ function hz(name) {
  * klingt ein Chip, der den Kanal zwischen zwei Noten kurz auf null schreibt.
  * Ohne die Luecke verschmiert die Tonfolge zu einem Geleier.
  */
-function melodie(satz, { schritt = 0.1, duty = 0.5, gain = 0.032, delay = 0, drop = 0 } = {}) {
+function melodie(satz, { schritt = 0.1, duty = 0.5, gain = 0.032, delay = 0, drop = 0, halbton = 0 } = {}) {
   let t = delay;
   for (const stueck of satz.trim().split(/\s+/)) {
     const [name, len = '1'] = stueck.split(':');
     const laenge = Number(len) * schritt;
     if (name !== 'r') {
-      chip({ freq: hz(name), dur: laenge * 0.82, duty, gain, delay: t, drop });
+      // halbton versetzt das ganze Motiv - so klingt dasselbe Stueck je
+      // Kombostufe eine Sprosse hoeher, ohne dass man es neu schreiben muss.
+      chip({ freq: hz(name) * Math.pow(2, halbton / 12), dur: laenge * 0.82, duty, gain, delay: t, drop });
     }
     t += laenge;
   }
@@ -420,21 +422,32 @@ const VOICES = {
       chip({ freq: 1568, dur: 0.12, duty: 0.25, gain: 0.028, delay: 0.09 });
       noise({ dur: 0.06, gain: 0.014, freq: 5000, q: 1, delay: 0.09 });
     },
+    /*
+     * Kombo: ein kurzes Motiv, das mit der Stufe eine Sprosse hoeher rueckt.
+     * Die Versetzung folgt einer Durtonleiter (0 2 4 5 7 9 11 12 Halbtoene),
+     * darum klingt die Reihe wie ein Aufstieg und nicht wie ein Sirenenlauf.
+     * Kurz gehalten: bei schnellem Spiel kommt alle 300 ms der naechste
+     * Treffer, ein laengeres Stueck wuerde sich stapeln.
+     */
     comboUp: (level) => {
-      const stufe = Math.min(level, POINTS.maxCombo) - 2;     // 0 .. 8
-      const base = 392 * Math.pow(2, stufe / 6);
-      const duty = level >= 5 ? 0.5 : 0.25;
-      chip({ freq: base, dur: 0.06, duty, gain: 0.034 });
-      if (level >= 5) chip({ freq: base * 1.5, dur: 0.07, duty, gain: 0.03, delay: 0.055 });
-      if (level >= 8) {
-        chip({ freq: base * 2, dur: 0.09, duty, gain: 0.028, delay: 0.11 });
-        noise({ dur: 0.05, gain: 0.018, freq: 3200, q: 1.5, delay: 0.11 });
-      }
-      if (level >= POINTS.maxCombo) {
+      const stufe = Math.min(level, POINTS.maxCombo);
+      const LEITER = [0, 2, 4, 5, 7, 9, 11, 12];              // Stufe 2 .. 9
+      const halbton = LEITER[Math.min(stufe, 9) - 2] ?? 0;
+
+      if (stufe >= POINTS.maxCombo) {
         // MAXIMUM: acht Noten hinauf, oben zwei Akzente, dazu ein Beckenschlag.
-        melodie('C5:1 G5:1 C6:1 G5:1 C6:1 E6:1 G6:2 C7:2', { schritt: 0.062, duty: 0.5, gain: 0.026, delay: 0.16 });
-        noise({ dur: 0.2, gain: 0.018, freq: 900, q: 0.7, delay: 0.16 });
-        noise({ dur: 0.16, gain: 0.014, freq: 5200, q: 1, delay: 0.16 + 0.062 * 6 });
+        melodie('C5:1 G5:1 C6:1 G5:1 C6:1 E6:1 G6:2 C7:2', { schritt: 0.062, duty: 0.5, gain: 0.026 });
+        noise({ dur: 0.2, gain: 0.018, freq: 900, q: 0.7 });
+        noise({ dur: 0.16, gain: 0.014, freq: 5200, q: 1, delay: 0.062 * 6 });
+        return;
+      }
+      if (stufe >= 8) {
+        melodie('C5:1 E5:1 G5:1 C6:1 E6:2', { schritt: 0.05, duty: 0.5, gain: 0.03, halbton });
+        noise({ dur: 0.05, gain: 0.016, freq: 3200, q: 1.5, delay: 0.2 });
+      } else if (stufe >= 5) {
+        melodie('C5:1 E5:1 G5:1 C6:2', { schritt: 0.055, duty: 0.5, gain: 0.032, halbton });
+      } else {
+        melodie('C5:1 E5:1 G5:2', { schritt: 0.055, duty: 0.25, gain: 0.032, halbton });
       }
     },
   },
@@ -826,9 +839,12 @@ function playComboPop(level) {
  * Nach einem Treffer aufrufen. Feuert nur bei einem echten Stufenanstieg –
  * ab Kombo 11 steht der Faktor bei 10 still, dann kommt also nichts mehr.
  */
+/** Meldet zurueck, ob die Stufe wirklich gestiegen ist und gefeiert wurde. */
 function comboStep(level) {
-  if (level > comboLevel && level >= 2 && settings.skin === 'arcade') playComboPop(level);
+  const gestiegen = level > comboLevel && level >= 2 && settings.skin === 'arcade';
+  if (gestiegen) playComboPop(level);
   comboLevel = level;
+  return gestiegen;
 }
 
 /**
@@ -936,8 +952,9 @@ function doMatch(i, j) {
   burstAt(elI);
   burstAt(elJ);
   floaterAt(elJ, `+${res.points}`);
-  sfx.match(res.multiplier);
-  comboStep(res.multiplier);      // der einzige Ort, an dem die Kombo steigt
+  // Steigt die Kombo, uebernimmt ihre Melodie; sonst der schlichte Treffer.
+  // Beides gleichzeitig waeren zwei Tonfolgen uebereinander - Matsch.
+  if (!comboStep(res.multiplier)) sfx.match(res.multiplier);
   buzz(14);
   announce(`${values[0]} und ${values[1]} gestrichen, ${res.points} Punkte`);
   updateStats({ bumpScore: true });
