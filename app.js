@@ -10,7 +10,7 @@ import {
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.5.0';
+export const VERSION = '1.5.1';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2', seen: 'zp.seen.v1' };
 
@@ -807,12 +807,17 @@ function playComboPop(level) {
   const meine = ++popToken;
   comboPop.textContent = POP_WORT[level] ?? `Kombo ×${level}`;
   comboPop.dataset.level = String(level);
+  tickerEl.classList.add('pop');      // die kleine Plakette weicht
   // Abloesen statt stapeln: Klasse weg, Umbruch erzwingen, Klasse neu. Ohne
   // das Erzwingen fasst der Browser beides zusammen und nichts passiert.
   comboPop.classList.remove('show');
   void comboPop.offsetWidth;
   comboPop.classList.add('show');
-  setTimeout(() => { if (meine === popToken) comboPop.classList.remove('show'); }, (POP_MS[level] ?? 240) + 40);
+  setTimeout(() => {
+    if (meine !== popToken) return;
+    comboPop.classList.remove('show');
+    tickerEl.classList.remove('pop');
+  }, (POP_MS[level] ?? 240) + 40);
 
   // Der Hoechststand blitzt den ganzen Bildschirm weiss.
   if (level >= POINTS.maxCombo && !reduceMotion.matches) {
@@ -860,6 +865,7 @@ function syncComboLevel() {
   comboLevel = Math.min(state?.combo ?? 0, POINTS.maxCombo);
   popToken += 1;
   comboPop?.classList.remove('show');
+  tickerEl.classList.remove('pop');
   document.body.classList.remove('shake');
   document.documentElement.classList.remove('max-flash-on');
 }

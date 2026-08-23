@@ -362,7 +362,8 @@ body::before {
   height: 40px;
   margin: 0 8px;
 }
-.ticker.hint .combo-badge { opacity: 0; }
+.ticker.hint .combo-badge,
+.ticker.pop .combo-badge { opacity: 0; }
 
 .combo-badge {
   position: absolute;
@@ -1076,9 +1077,15 @@ body::before {
    Bildstopp von Pac-Man, bleibt draußen: er würde die Eingabe blockieren.
    Gefeiert wird nur die Optik, gespielt werden kann immer weiter. */
 
+/*
+ * Die Einblendung sitzt in der Meldungszeile ueber dem Brett - dort ist nichts
+ * anzutippen und nichts abzulesen. Mitten im Spielfeld stand sie einem
+ * schnellen Spieler im Weg: sie verdeckt zwar keine Tipper (pointer-events),
+ * aber die Kacheln darunter, und genau die will man ja sehen.
+ */
 .combo-pop {
   position: absolute;
-  left: 50%; top: 40%;
+  left: 50%; top: 50%;
   z-index: 40;
   pointer-events: none;          /* der nächste Zug bleibt antippbar */
   /* Nur layout, kein paint: Paint-Containment klippt auf die Polsterkante und
@@ -1091,6 +1098,7 @@ body::before {
      rasterscharf, darum die Stufe als Faktor statt als freie Größe. */
   --pop-px: 2;
   font: 400 calc(8px * var(--pop-px)) / 1 'ZP Pixel', ui-monospace, monospace;
+  max-width: 100%;
   letter-spacing: calc(1px * var(--pop-px));
   text-transform: uppercase;
   white-space: nowrap;
@@ -1112,8 +1120,8 @@ body::before {
      sie sich nicht mit den Ziffern verzahnt, bekommt sie eine dunkle Platte mit
      Neonrand: das ist die Spruchbandoptik der Vorbilder und macht den Text auf
      jedem Untergrund lesbar. */
-  padding: 6px 12px;
-  background: rgba(0, 0, 0, .84);
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, .9);
   outline: var(--px) solid currentColor;
   box-shadow: 0 0 20px rgba(0, 0, 0, .9);
 
@@ -1176,7 +1184,7 @@ body::before {
 .combo-pop.show[data-level="5"],
 .combo-pop.show[data-level="6"],
 .combo-pop.show[data-level="7"] {
-  --pop-px: 3;
+  --pop-px: 2;
   animation: pop-zoom var(--pop-dur) steps(4, jump-none) both,
              pop-cycle var(--pop-cycle) steps(1, end) 3;
 }
@@ -1184,8 +1192,8 @@ body::before {
 /* Stufe 8 und 9: dazu das Wackeln, ebenfalls nur im Anschlag. */
 .combo-pop.show[data-level="8"],
 .combo-pop.show[data-level="9"] {
-  --pop-px: 4;
-  --pop-out: 4px;
+  --pop-px: 3;
+  --pop-out: 3px;
   animation: pop-zoom var(--pop-dur) steps(4, jump-none) both,
              pop-cycle var(--pop-cycle) steps(1, end) 4,
              pop-wobble 90ms steps(2, end) 3;
@@ -1194,7 +1202,7 @@ body::before {
 /* Stufe 10: das ganze Programm. Hier springt die Schriftgröße selbst in
    ganzen Achtern, damit jedes Zwischenbild aufs Pixelraster fällt. */
 .combo-pop.show[data-level="10"] {
-  --pop-px: 4;
+  --pop-px: 3;
   --pop-dur: 2000ms;     /* der Hoechststand darf am laengsten stehen */
   --pop-cycle: 70ms;
   --pop-out: 4px;
@@ -1248,8 +1256,10 @@ body::before {
   content: "";
   position: absolute;
   left: 50%; top: 50%;
-  width: 260px; height: 260px;
-  margin: -130px 0 0 -130px;
+  /* Klein gehalten: der Kranz sass fuer die Bildmitte, in der Meldungszeile
+     wuerde er sonst ueber das Brett fahren. */
+  width: 96px; height: 96px;
+  margin: -48px 0 0 -48px;
   /* nicht hinter die Platte legen: dort waere er unsichtbar. Er liegt davor
      und ist dafuer schwach und ausmaskiert. */
   opacity: .22;
@@ -1355,11 +1365,11 @@ body.shake { animation: arc-shake var(--shake-dur, 160ms) steps(1, end) both; }
   .dialog__headline { font-size: 16px; }
   /* Eine Stufe kleiner - Groesse und Sperrung haengen beide an --pop-px,
      darum reicht die eine Zahl. */
-  .combo-pop { --pop-px: 2; }
+  .combo-pop,
   .combo-pop.show[data-level="5"], .combo-pop.show[data-level="6"],
-  .combo-pop.show[data-level="7"] { --pop-px: 2; }
-  .combo-pop.show[data-level="8"], .combo-pop.show[data-level="9"] { --pop-px: 3; }
-  .combo-pop.show[data-level="10"] { --pop-px: 3; }
+  .combo-pop.show[data-level="7"],
+  .combo-pop.show[data-level="8"], .combo-pop.show[data-level="9"],
+  .combo-pop.show[data-level="10"] { --pop-px: 2; }
 }
 
 @media (max-height: 460px) and (orientation: landscape) {

@@ -168,6 +168,12 @@ Absichtlich dick aufgetragen: Kitsch mit Regeln.
   Farbzyklus wie im Palette-RAM von Robotron 2084, Bildschirmruckeln wie in den CPS-1-Titeln,
   bei ×10 der Weißblitz. Der Bildstopp von Pac-Man ist bewusst *nicht* dabei: er würde die
   Eingabe blockieren.
+* **Die Einblendung sitzt nicht im Spielfeld.** Sie steht in der Meldungszeile zwischen
+  Fortschrittsbalken und Brett – dort ist nichts anzutippen und nichts abzulesen. Mitten im Feld
+  stand sie einem schnellen Spieler im Weg: Tipper hat sie nie abgefangen, aber sie verdeckte
+  die Kacheln, und genau die will man sehen. Gemessen über drei Bildschirmbreiten, zwei
+  Schwierigkeiten und vier Kombostufen: **keine einzige verdeckte Kachel**. Solange sie steht,
+  weicht die kleine Kombo-Plakette – dieselbe Zahl doppelt wäre nur Unruhe.
 * **Der Anschlag knallt, gelesen wird im Stehen.** Die Einblendung zoomt in rund 220 ms herein
   und bleibt dann **unbewegt und voll deckend stehen** – gemessen 1,27 s (bei ×10 1,9 s), davon
   über eine Sekunde völlig still. Alles Flackernde, Wackelnde und der Farbzyklus laufen nur im
