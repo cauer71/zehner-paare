@@ -46,6 +46,13 @@ Vorlage war, zeigt nur waagrecht und senkrecht.
   `Esc` = Auswahl aufheben.
 * Geht nichts mehr und ist das Auffüll-Guthaben leer, gibt es einmal pro Partie die
   **Rettung**: die übrigen Zahlen kommen noch einmal aufs Feld.
+* **Auffüllen führt nie in eine sofortige Sackgasse.** Normalerweise werden die übrigen Zahlen
+  in Leserichtung angehängt – man kann also vorausplanen, was wo landet. Nur wenn genau das ein
+  Feld ohne einen einzigen Zug ergäbe, werden sie paarweise angeordnet: ein Auffüllen, das
+  sofort tot ist, kostet ein Guthaben und fühlt sich wie ein Fehler des Spiels an.
+* Wer mehr Abwechslung will, schaltet unter **Einstellungen → Regeln** „Auffüllen mischt die
+  Zahlen" ein. Gemessen über 500 Partien je Stufe hebt das die Siegquote von 85/79/58 % auf
+  91/84/67 % – dafür kann man nicht mehr vorausplanen. Darum aus als Voreinstellung.
 * Punkte: 10 pro Paar, mal Kombofaktor (bis **×10**) für Treffer in Folge, +25 je geräumter
   Zeile und +50 Zuschlag je zusätzlicher Zeile im selben Zug, +100 fürs Leerräumen, +150 je
   ungenutztem Auffüllen, +200 je Endlos-Runde. Ein Fehlversuch oder ein Auffüllen setzt den
@@ -241,5 +248,12 @@ menschliche Fehlgriffe. Daraus stammen unter anderem diese Entscheidungen:
   etwas *mehr* Punkte als ein sauberes – mehr Zahlen heißt mehr Züge. Mit 50 Punkten war beides
   gleichauf, mit 150 liegt sauberes Spiel rund 18 % vorn. Erst damit knackt man den Bestwert
   durch Können statt durch ein schlechtes Feld.
-* **Verworfen: das Mischen beim Auffüllen.** Klang plausibel, brachte messbar nichts
-  (Siegquote 77 → 81 % bei Schwer, sonst identisch).
+* **Das Mischen beim Auffüllen ist eine Einstellung, kein Standard.** Über 500 Partien je Stufe
+  hebt es die Siegquote von 85/79/58 % auf 91/84/67 % – das ist keine Kleinigkeit, und es nimmt
+  dem Spiel das Vorausplanen: in Leserichtung weiß man, welche Zahl nach dem Auffüllen wo liegt.
+* **Warum am Ende immer dieselben Ziffern kommen.** Auffüllen hängt genau das an, was noch
+  liegt. Wer nur noch 7en und 8en hat, bekommt 7en und 8en – die beiden passen nur zu sich
+  selbst (7+8 = 15), ihre Partner 3 und 2 sind dann längst weg. Über 400 Partien je Stufe blieb
+  bei jeder zweiten Niederlage nur noch **eine oder zwei verschiedene Ziffern** übrig. Nicht ein
+  einziges Mal war der Rest rechnerisch unpaarbar – es scheitert immer an der Nachbarschaft,
+  nie an der Anzahl. Deshalb greift die Umsortierung genau dort und nicht früher.

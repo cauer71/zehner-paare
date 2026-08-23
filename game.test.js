@@ -397,3 +397,68 @@ test('Rettung uebersteht Speichern und Laden', () => {
   assert.equal(wieder.rescuesLeft, 0);
   assert.equal(wieder.rescuesUsed, 1);
 });
+
+test('Auffuellen liefert nie ein totes Feld, wenn noch ein Paar moeglich ist', () => {
+  // 7 und 8 passen nur zu sich selbst. In Leserichtung abwechselnd angehaengt
+  // waere danach kein Zug moeglich - die Umsortierung muss das auffangen.
+  // Die erste Fassung ist leer, damit die angehaengte Zeile versetzt liegt und
+  // keine senkrechte Nachbarschaft entsteht.
+  const s = createGame({ difficulty: 'mittel', seed: 5 });
+  s.cols = 4;
+  s.diagonal = false;
+  s.wrap = false;
+  s.cells = [
+    { id: 0, v: 8, cleared: true },
+    { id: 1, v: 7, cleared: false },
+    { id: 2, v: 8, cleared: false },
+    { id: 3, v: 7, cleared: false },
+  ];
+  s.nextId = 4;
+  s.refillsLeft = 0;
+  refreshStatus(s);
+  assert.equal(s.status, 'stuck', 'ohne Diagonale und Umbruch geht hier nichts');
+  assert.equal(findPair(s), null);
+
+  s.refillsLeft = 1;
+  s.status = 'playing';
+  const res = refill(s);
+  assert.equal(res.ok, true);
+  assert.equal(s.status, 'playing', 'nach dem Auffüllen muss ein Zug möglich sein');
+  assert.ok(findPair(s), 'es gibt ein spielbares Paar');
+  assert.deepEqual(s.cells.slice(4).map((c) => c.v), [7, 7, 8],
+    'die angehängten Zahlen liegen paarweise statt in Leserichtung');
+});
+
+test('Auffuellen laesst die Leserichtung, wenn es ohnehin einen Zug gibt', () => {
+  const s = createGame({ difficulty: 'mittel', seed: 6 });
+  s.cols = 4;
+  s.cells = [3, 7, 4, 4].map((v, i) => ({ id: i, v, cleared: false }));
+  s.nextId = 4;
+  s.refillsLeft = 1;
+  refreshStatus(s);
+  refill(s);
+  const angehaengt = s.cells.slice(4).map((c) => c.v);
+  assert.deepEqual(angehaengt, [3, 7, 4, 4], 'unveraendert in Leserichtung');
+});
+
+test('Gemischtes Auffuellen bleibt bei gleichem Startwert reproduzierbar', () => {
+  const bauen = () => {
+    const s = createGame({ difficulty: 'mittel', seed: 9, shuffleRefill: true });
+    s.cols = 4;
+    s.cells = [1, 2, 3, 4, 5, 6, 7, 8].map((v, i) => ({ id: i, v, cleared: false }));
+    s.nextId = 8;
+    s.refillsLeft = 1;
+    refreshStatus(s);
+    refill(s);
+    return s.cells.slice(8).map((c) => c.v);
+  };
+  assert.deepEqual(bauen(), bauen(), 'zweimal derselbe Startwert, zweimal dieselbe Folge');
+  assert.notDeepEqual(bauen(), [1, 2, 3, 4, 5, 6, 7, 8], 'aber nicht die Leserichtung');
+});
+
+test('shuffleRefill uebersteht Speichern und Laden', () => {
+  const s = createGame({ difficulty: 'mittel', seed: 3, shuffleRefill: true });
+  assert.equal(deserialize(serialize(s)).shuffleRefill, true);
+  const t = createGame({ difficulty: 'mittel', seed: 3 });
+  assert.equal(deserialize(serialize(t)).shuffleRefill, false);
+});

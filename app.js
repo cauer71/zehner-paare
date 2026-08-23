@@ -10,7 +10,7 @@ import {
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.5.1';
+export const VERSION = '1.6.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2', seen: 'zp.seen.v1' };
 
@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS = {
   sound: true,
   vibrate: true,
   partners: false,
+  shuffleRefill: false,
   theme: 'auto',
 };
 
@@ -100,6 +101,8 @@ let tipsShown = 0;
 let timerId = null;
 let tickBase = 0;
 let endHandled = false;    // Spielende nur einmal auswerten
+let hintTimer = null;      // laufendes Tipp-Blinken
+let hintIds = [];          // welche Kacheln blinken gerade
 let recordHit = false;     // Rekord waehrend der Partie schon gefeiert?
 
 /* ----------------------------------------------------------------- Helfer */
@@ -606,6 +609,7 @@ function renderBoard({ enterFrom = -1 } = {}) {
     // Reste abgelaufener Animationen entfernen – sonst haelt "forwards" die
     // Zelle unsichtbar, statt sie als Luecke zu zeigen.
     el.classList.remove('clearing', 'bad', 'rowout');
+    if (!hintIds.includes(cell.id)) el.classList.remove('hinted');
     el.classList.toggle('empty', cell.cleared);
     el.disabled = cell.cleared;
     el.setAttribute('aria-label', labelFor(i));
@@ -1012,6 +1016,7 @@ function onCellActivate(i) {
   if (locked || !state || state.status !== 'playing') return;
   const cell = state.cells[i];
   if (!cell || cell.cleared) return;
+  clearHint();          // wer selbst tippt, braucht den Fingerzeig nicht mehr
   focusIndex = i;
   if (selected === null) { select(i); return; }
   if (selected === i) { clearSelection(); return; }
@@ -1021,6 +1026,19 @@ function onCellActivate(i) {
 
 /* ---------------------------------------------------------------- Aktionen */
 
+/**
+ * Beendet ein laufendes Blinken. Wird bei jeder Berührung des Feldes gerufen:
+ * sobald der Spieler handelt, hat der Tipp seinen Zweck erfuellt. Frueher hing
+ * das Blinken an einem Zeitgeber je Kachel - raeumte man das Paar sofort weg,
+ * blinkten die leeren Fassungen die restlichen Sekunden weiter.
+ */
+function clearHint() {
+  clearTimeout(hintTimer);
+  hintTimer = null;
+  for (const id of hintIds) cellEls.get(id)?.classList.remove('hinted');
+  hintIds = [];
+}
+
 function doHint() {
   if (locked || state.status !== 'playing') return;
   const pair = hint(state);
@@ -1029,14 +1047,16 @@ function doHint() {
     return;
   }
   clearSelection();
+  clearHint();
+  hintIds = pair.map((i) => state.cells[i].id);
   for (const i of pair) {
     const el = elAt(i);
     if (!el) continue;
     el.classList.remove('hinted');
     void el.offsetWidth;
     el.classList.add('hinted');
-    setTimeout(() => el.classList.remove('hinted'), 3400);
   }
+  hintTimer = setTimeout(clearHint, 3400);
   const el = elAt(pair[0]);
   el?.scrollIntoView({ block: 'nearest', behavior: reduceMotion.matches ? 'auto' : 'smooth' });
   sfx.hint();
@@ -1049,6 +1069,7 @@ function doRefill() {
   const res = refill(state);
   if (!res.ok) { toast('Kein Auffüllen mehr übrig.'); return; }
   clearSelection();
+  clearHint();
   syncComboLevel();
   btnRefill.classList.remove('urge');
   renderBoard({ enterFrom: res.from });
@@ -1073,6 +1094,7 @@ function doRescue() {
   closeSheet(dlgEnd);
   clearSelection();
   endHandled = false;
+  clearHint();
   syncComboLevel();
   btnRefill.classList.remove('urge');
   renderBoard({ enterFrom: res.from });
@@ -1092,6 +1114,7 @@ function doUndo() {
   if (locked || !canUndo(state)) return;
   clearSelection();
   undo(state);
+  clearHint();
   state.status = 'playing';
   endHandled = false;
   syncComboLevel();
@@ -1106,12 +1129,14 @@ function doUndo() {
 function newGame(difficulty = settings.difficulty) {
   settings.difficulty = difficulty;
   store.set(KEY.settings, settings);
-  state = createGame({ difficulty, diagonal: settings.diagonal, wrap: settings.wrap });
+  state = createGame({ difficulty, diagonal: settings.diagonal, wrap: settings.wrap,
+                       shuffleRefill: settings.shuffleRefill });
   cellEls.forEach((el) => el.remove());
   cellEls = new Map();
   selected = null;
   focusIndex = 0;
   tipsShown = 0;
+  clearHint();
   locked = false;
   endHandled = false;
   recordHit = false;
@@ -1269,6 +1294,7 @@ function load() {
   state = restored;
   state.diagonal = settings.diagonal;
   state.wrap = settings.wrap;
+  state.shuffleRefill = settings.shuffleRefill;
   settings.difficulty = state.difficulty in DIFFICULTIES ? state.difficulty : settings.difficulty;
   return true;
 }
@@ -1315,6 +1341,7 @@ function renderSettings() {
   $('#skin-note').hidden = !arcade;
   $('#opt-diagonal').checked = settings.diagonal;
   $('#opt-wrap').checked = settings.wrap;
+  $('#opt-shuffle').checked = settings.shuffleRefill;
   $('#opt-partners').checked = settings.partners;
   $('#opt-sound').checked = settings.sound;
   $('#opt-vibrate').checked = settings.vibrate;
@@ -1394,6 +1421,14 @@ $('#opt-diagonal').addEventListener('change', (e) => {
   settings.diagonal = e.target.checked;
   state.diagonal = settings.diagonal;
   applyRuleChange(settings.diagonal ? 'Diagonale Paare erlaubt.' : 'Diagonale Paare aus.');
+});
+
+$('#opt-shuffle').addEventListener('change', (e) => {
+  settings.shuffleRefill = e.target.checked;
+  state.shuffleRefill = settings.shuffleRefill;
+  applyRuleChange(settings.shuffleRefill
+    ? 'Auffüllen mischt die Zahlen.'
+    : 'Auffüllen hängt in Leserichtung an.');
 });
 
 $('#opt-wrap').addEventListener('change', (e) => {
@@ -1574,6 +1609,7 @@ if (requested || !load()) {
     difficulty: settings.difficulty,
     diagonal: settings.diagonal,
     wrap: settings.wrap,
+    shuffleRefill: settings.shuffleRefill,
   });
   if (requested) saveSettings();
 }

@@ -99,6 +99,7 @@ export function createGame({
   difficulty = 'mittel',
   diagonal = true,
   wrap = true,
+  shuffleRefill = false,
   seed,
 } = {}) {
   const preset = DIFFICULTIES[difficulty] ?? DIFFICULTIES.mittel;
@@ -110,6 +111,7 @@ export function createGame({
     cols: preset.cols,
     diagonal,
     wrap,
+    shuffleRefill,
     seed: rng.seed,
     cells: values.map((v, i) => ({ id: i, v, cleared: false })),
     nextId: values.length,
@@ -398,14 +400,56 @@ export function applyMatch(state, i, j) {
 /**
  * Haengt alle verbliebenen Zahlen in Leserichtung hinten an.
  */
+function anhaengen(state, werte) {
+  const from = state.cells.length;
+  for (const v of werte) state.cells.push({ id: state.nextId++, v, cleared: false });
+  return from;
+}
+
+/**
+ * Ordnet die Zahlen so, dass zusammenpassende nebeneinander liegen. Wird nur
+ * als Rettungsleine gebraucht: wenn das schlichte Anhaengen ein totes Feld
+ * ergaebe, waere das Auffuellen verschenkt - man bezahlt eines seiner
+ * Guthaben und kann danach trotzdem nichts tun.
+ */
+function paarweise(werte) {
+  const offen = [...werte];
+  const out = [];
+  while (offen.length) {
+    const a = offen.shift();
+    const j = offen.findIndex((b) => valuesMatch(a, b));
+    if (j >= 0) { out.push(a, offen[j]); offen.splice(j, 1); }
+    else out.push(a);
+  }
+  return out;
+}
+
+/**
+ * Haengt alle verbliebenen Zahlen an. Zwei Feinheiten:
+ *
+ * - Mit state.shuffleRefill kommen sie gemischt statt in Leserichtung. Das ist
+ *   eine Einstellung, kein Standard: die Leserichtung beizubehalten heisst,
+ *   dass man vorausplanen kann, was nach dem Auffuellen wo liegt.
+ * - Ergaebe das Anhaengen ein Feld ohne einen einzigen Zug, werden die Zahlen
+ *   paarweise angeordnet. Ein Auffuellen, das sofort in die Sackgasse fuehrt,
+ *   ist verlorenes Guthaben und fuehlt sich wie ein Fehler des Spiels an.
+ */
 export function refill(state) {
   if (state.status === 'won' || state.refillsLeft <= 0) return { ok: false };
-  const rest = state.cells.filter((c) => !c.cleared).map((c) => c.v);
+  let rest = state.cells.filter((c) => !c.cleared).map((c) => c.v);
   if (rest.length === 0) return { ok: false };
 
+  if (state.shuffleRefill) {
+    rest = shuffle([...rest], createRng((state.seed + state.refillsUsed * 7919) >>> 0));
+  }
+
   pushHistory(state);
-  const from = state.cells.length;
-  for (const v of rest) state.cells.push({ id: state.nextId++, v, cleared: false });
+  let from = anhaengen(state, rest);
+  if (!findPair(state)) {
+    state.cells.length = from;
+    state.nextId -= rest.length;
+    from = anhaengen(state, paarweise(rest));
+  }
   state.seen += rest.length;
   state.refillsLeft -= 1;
   state.refillsUsed += 1;
@@ -426,8 +470,13 @@ export function rescue(state) {
   if (rest.length === 0) return { ok: false };
 
   pushHistory(state);
-  const from = state.cells.length;
-  for (const v of rest) state.cells.push({ id: state.nextId++, v, cleared: false });
+  let from = anhaengen(state, rest);
+  if (!findPair(state)) {
+    // Eine Rettung, die nichts rettet, waere ein Hohn.
+    state.cells.length = from;
+    state.nextId -= rest.length;
+    from = anhaengen(state, paarweise(rest));
+  }
   state.seen += rest.length;
   state.rescuesLeft -= 1;
   state.rescuesUsed += 1;
@@ -470,6 +519,7 @@ export function deserialize(text) {
       refillPerRound: data.refillPerRound ?? preset.refillPerRound ?? 0,
       refillMax: data.refillMax ?? preset.refills ?? data.refillsLeft ?? 0,
       round: data.round ?? 1,
+      shuffleRefill: data.shuffleRefill ?? false,
       rescuesLeft: data.rescuesLeft ?? 1,
       rescuesUsed: data.rescuesUsed ?? 0,
       history: [],
