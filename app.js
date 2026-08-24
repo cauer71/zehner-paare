@@ -1564,20 +1564,65 @@ window.addEventListener('languagechange', () => {
  * offen - das ist der Sinn der Sache, sonst waere die Liste wieder lang.
  */
 const GRUPPEN = ['grp-game', 'grp-look', 'grp-sound', 'grp-lang', 'grp-best'];
+let getippteGruppe = null;      // Kopfzeile und ihre Lage vor dem Tipp
+
+/**
+ * Haelt die angetippte Kopfzeile an ihrem Platz. Aufklappen soll nur nach
+ * UNTEN wachsen - der Finger liegt auf dem Titel, und der soll dort bleiben.
+ *
+ * Zwei Dinge standen dem im Weg, beide gemessen:
+ *
+ *  1. Das Blatt war so hoch wie sein Inhalt. Ein Bottom Sheet ist unten
+ *     verankert, also wanderte beim Wachsen seine Oberkante nach oben - bis
+ *     zu 164 px. Dagegen steht jetzt die feste Blatthoehe im Stylesheet.
+ *  2. Es war immer nur eine Gruppe offen. Schloss sich dabei eine Gruppe
+ *     OBERHALB der angetippten, fiel Inhalt darueber weg und alles darunter
+ *     rutschte hoch - bis zu 650 px.
+ *
+ * Punkt 2 laesst sich NICHT durch Nachfuehren beheben. Wenn der Inhalt ueber
+ * der Kopfzeile verschwindet, muesste man nach oben scrollen, um sie unten zu
+ * halten - bei scrollTop 0 gibt es dorthin nichts mehr. Genau der haeufigste
+ * Fall (die offene Gruppe steht oben, man tippt eine weiter unten an) ist
+ * damit unloesbar. Deshalb schliessen sich die anderen Gruppen nicht mehr von
+ * selbst: was oberhalb steht, bleibt stehen, und die angetippte Gruppe geht
+ * darunter auf. Wer aufraeumen will, klappt selbst zu.
+ *
+ * Das Nachfuehren bleibt als Sicherung fuer den einen Rest: klappt man weit
+ * unten gescrollt seine eigene Gruppe zu, schrumpft der Inhalt und der
+ * Browser begrenzt scrollTop - dann rutscht doch etwas.
+ */
+function haltePosition(kopf) {
+  const koerper = dlgSettings.querySelector('.sheet__body');
+  if (!koerper || !getippteGruppe) return;
+  const verschoben = kopf.getBoundingClientRect().top - getippteGruppe.oben;
+  if (!verschoben) return;
+  koerper.scrollTop += verschoben;
+}
+
 function initGruppen() {
-  const gemerkt = store.raw('zp.group.v1', 'grp-game');
+  // Welche Gruppen offen waren, steht als Liste im Speicher. Voreingestellt
+  // ist "Spiel" offen: das ist die Gruppe, um die es meistens geht.
+  let offen;
+  try { offen = JSON.parse(store.raw('zp.groups.v1', '')) ; } catch { offen = null; }
+  if (!Array.isArray(offen)) offen = ['grp-game'];
+
   for (const id of GRUPPEN) {
     const el = document.getElementById(id);
     if (!el) continue;
-    el.open = id === gemerkt;
+    const kopf = el.querySelector('summary');
+    el.open = offen.includes(id);
+
+    // Im Abfangen, also bevor <details> selbst umschaltet. Ein Tastendruck
+    // auf die Kopfzeile loest ebenfalls ein click aus, damit ist auch die
+    // Bedienung ohne Finger abgedeckt.
+    kopf?.addEventListener('click', () => {
+      getippteGruppe = { id, oben: kopf.getBoundingClientRect().top };
+    }, true);
+
     el.addEventListener('toggle', () => {
-      if (!el.open) return;
-      for (const anderes of GRUPPEN) {
-        if (anderes === id) continue;
-        const x = document.getElementById(anderes);
-        if (x) x.open = false;
-      }
-      store.setRaw('zp.group.v1', id);
+      store.setRaw('zp.groups.v1', JSON.stringify(
+        GRUPPEN.filter((g) => document.getElementById(g)?.open)));
+      if (kopf && getippteGruppe?.id === id) haltePosition(kopf);
     });
   }
 }

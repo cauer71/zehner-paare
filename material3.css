@@ -991,6 +991,16 @@ body {
 .version { text-align: center; opacity: .7; margin-top: 16px; }
 
 
+/* Das Blatt der Einstellungen hat eine FESTE Hoehe.
+   Ohne sie waechst es mit dem Inhalt, und weil ein Bottom Sheet unten
+   verankert ist, wandert dabei seine Oberkante nach oben: klappt man eine
+   Gruppe auf, rutscht der eben angetippte Titel unter dem Finger weg.
+   Gemessen waren das bis zu 164 px Blattbewegung. Mit fester Hoehe scrollt
+   nur noch der Inhalt, und das laesst sich ausgleichen (siehe initGruppen
+   in app.js). */
+#dlg-settings { height: min(92dvh, 900px); }
+#dlg-settings .sheet__body { flex: 1 1 auto; min-height: 0; }
+
 /* --- Aufklappbare Gruppen in den Einstellungen ---------------------------- */
 
 /*
