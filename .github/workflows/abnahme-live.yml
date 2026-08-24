@@ -1,0 +1,161 @@
+# Abnahme der fertigen Seite gegen den echten Zaehlerdienst.
+#
+# Warum auf einem Laeufer: die Entwicklungsumgebung kommt weder an
+# cauer71.github.io noch an abacus.jasoncameron.dev (der Proxy weist beides mit
+# 403 ab). Hier laeuft ein echter Browser auf der echten Seite.
+#
+# BEWUSST NUR LESEN. Ein Schreibruf wuerde die Weltzahlen mit einer Partie
+# fuellen, die niemand gespielt hat, und womoeglich den ersten Weltrekord auf
+# einen Botwert setzen. Geprueft wird darum: laedt die Seite, ist es die neue
+# Fassung, gehen die Leserufe wirklich an den Dienst, kommt eine gueltige
+# Antwort zurueck, bleibt der Namensraum danach unberuehrt.
+
+name: Abnahme der fertigen Seite
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    env:
+      SEITE: https://cauer71.github.io/zehner-paare/
+      DIENST: https://abacus.jasoncameron.dev
+      RAUM: zehner-paare-8fz3
+    steps:
+      - name: Liegt die neue Fassung wirklich dort?
+        run: |
+          set -u
+          for datei in "" app.js online.js i18n.js sw.js manifest.de.webmanifest; do
+            code=$(curl -sS -m 20 -o /tmp/d -w '%{http_code}' "$SEITE$datei" || echo 000)
+            echo "  $code  ${datei:-index.html}  $(wc -c < /tmp/d) Bytes"
+          done
+          echo
+          echo "Fassung laut app.js:"
+          curl -sS -m 20 "$SEITE/app.js" | grep -m1 "export const VERSION" || echo "  NICHT GEFUNDEN"
+          echo "Wird online.js eingebunden?"
+          curl -sS -m 20 "$SEITE/app.js" | grep -m1 "from './online.js'" || echo "  NICHT GEFUNDEN"
+          echo "Laesst der Servicearbeiter Fremdes durch?"
+          curl -sS -m 20 "$SEITE/sw.js" | grep -m1 "eigen" || echo "  NICHT GEFUNDEN"
+
+      - name: Namensraum vor der Pruefung
+        run: |
+          set -u
+          for name in spiele siege best-mittel-gen; do
+            printf '  %-18s ' "$name"
+            curl -sS -m 20 "$DIENST/get/$RAUM/$name" || true
+            echo
+          done
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Browser holen
+        run: |
+          npm init -y >/dev/null
+          npm i --silent playwright-core@1.49.1
+          npx --yes playwright@1.49.1 install --with-deps chromium
+
+      - name: Echter Browser auf der echten Seite
+        run: |
+          cat > live.mjs <<'JS'
+          import { chromium } from 'playwright-core';
+          import { execSync } from 'node:child_process';
+
+          // Den Pfad des gerade installierten Chromium finden.
+          const pfad = execSync(
+            'find /home/runner/.cache/ms-playwright -name chrome -type f | head -1',
+            { encoding: 'utf8' }).trim();
+          console.log('Browser:', pfad || '(nicht gefunden)');
+
+          const browser = await chromium.launch(pfad ? { executablePath: pfad } : {});
+          const ctx = await browser.newContext({ viewport: { width: 390, height: 844 },
+            deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+          const page = await ctx.newPage();
+
+          const fehler = [];
+          const rufe = [];
+          page.on('pageerror', (e) => fehler.push('pageerror: ' + e.message));
+          page.on('console', (m) => { if (m.type() === 'error') fehler.push('console: ' + m.text()); });
+          page.on('response', async (r) => {
+            const u = r.url();
+            if (u.includes('abacus.jasoncameron.dev'))
+              rufe.push(`${r.status()} ${u.replace('https://abacus.jasoncameron.dev', '')}`);
+          });
+
+          const SEITE = process.env.SEITE;
+          await page.goto(SEITE, { waitUntil: 'load' });
+          await page.evaluate(() => {
+            localStorage.setItem('zp.seen.v1', 'true');
+            localStorage.setItem('zp.groups.v1', '["grp-best"]');
+          });
+          await page.reload({ waitUntil: 'load' });
+          await page.waitForTimeout(1500);
+
+          const fassung = await page.evaluate(() => window.__zp?.VERSION ?? null);
+          console.log('Fassung im Spiel:', fassung);
+
+          // Einstellungen aufschlagen - erst DAS loest das Lesen aus.
+          await page.tap('#btn-settings');
+          await page.waitForTimeout(600);
+          await page.evaluate(() => { const g = document.getElementById('grp-best');
+            if (!g.open) g.querySelector('summary').click(); });
+          await page.waitForTimeout(9000);          // 12 Leserufe mit Abstand
+
+          const sicht = await page.evaluate(() => ({
+            eigen: document.querySelector('#own-count')?.textContent,
+            welt: document.querySelector('#world-count')?.textContent,
+            liste: [...document.querySelectorAll('#world-list li')].map((l) => l.textContent.trim()),
+            schalter: document.querySelector('#opt-world')?.checked,
+            hinweis: [...document.querySelectorAll('#grp-best .field__note')]
+              .map((n) => n.textContent.trim()).filter(Boolean),
+            merkzettel: localStorage.getItem('zp.welt.v1'),
+          }));
+          console.log('\nAnzeige:');
+          console.log('  eigen   :', sicht.eigen);
+          console.log('  weltweit:', sicht.welt);
+          console.log('  Liste   :', sicht.liste.join(' | '));
+          console.log('  Schalter:', sicht.schalter);
+          console.log('  Merkzettel:', sicht.merkzettel);
+          console.log('\nRufe an den Dienst:');
+          for (const r of rufe) console.log('  ', r);
+          console.log('\nSeitenfehler:', fehler.length ? fehler.join(' | ') : 'keine');
+
+          await page.screenshot({ path: 'live-bestwerte.png', fullPage: false });
+          await browser.close();
+
+          // Urteil
+          const probleme = [];
+          if (fassung !== '1.9.0') probleme.push(`Fassung ${fassung}, erwartet 1.9.0`);
+          if (!rufe.length) probleme.push('kein einziger Ruf ging an den Dienst');
+          if (rufe.some((r) => r.startsWith('0') || r.startsWith('5'))) probleme.push('Dienst antwortete mit Fehler');
+          if (!/\d/.test(sicht.welt ?? '')) probleme.push('keine Weltzahl in der Anzeige');
+          if (fehler.length) probleme.push('Seitenfehler: ' + fehler.join(' | '));
+          console.log('\n=== Probleme ===');
+          console.log(probleme.length ? probleme.join('\n') : 'keine');
+          process.exit(probleme.length ? 1 : 0);
+          JS
+          node live.mjs
+
+      - name: Namensraum nach der Pruefung - darf unberuehrt sein
+        if: always()
+        run: |
+          set -u
+          for name in spiele siege best-mittel-gen best-mittel-v1; do
+            printf '  %-18s ' "$name"
+            curl -sS -m 20 "$DIENST/get/$RAUM/$name" || true
+            echo
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-bestwerte
+          path: live-bestwerte.png
+          if-no-files-found: ignore
