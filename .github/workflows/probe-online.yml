@@ -1,0 +1,94 @@
+# Sucht einen Online-Speicher, den das Spiel ohne Anmeldung und ohne
+# Schluessel benutzen kann.
+#
+# Warum als Workflow und nicht einfach lokal: die Entwicklungsumgebung, in der
+# dieses Spiel gebaut wird, kommt nur an Paketregister und an GitHub. Jeder
+# andere Host wird vom Proxy mit 403 abgewiesen. Ein GitHub-Runner hat freies
+# Netz - hier laesst sich also wirklich pruefen, was ein Browser spaeter kann:
+# Erreichbarkeit, API-Form, Schreiben, Lesen, und vor allem die CORS-Kopfzeilen
+# samt Vorabanfrage. Ohne diese Pruefung waere die Anbindung geraten.
+#
+# Laeuft nur auf Zuruf (workflow_dispatch), nicht bei jedem Push.
+
+name: Online-Speicher pruefen
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kandidaten durchprobieren
+        env:
+          ORIGIN: https://cauer71.github.io
+        run: |
+          set -u
+          kopf() { printf '\n========== %s ==========\n' "$1"; }
+
+          # Zeigt Status, die CORS-Kopfzeilen und den Anfang der Antwort.
+          zeig() {
+            local name="$1"; shift
+            echo "--- $name"
+            code=$(curl -sS -m 20 -o /tmp/body -D /tmp/head -w '%{http_code}' "$@" || echo "000")
+            echo "HTTP $code"
+            grep -iE '^(access-control-allow-(origin|methods|headers)|location|content-type):' /tmp/head \
+              | tr -d '\r' | sed 's/^/    /' || echo "    (keine CORS-Kopfzeile)"
+            head -c 300 /tmp/body | tr -d '\r'; echo
+          }
+
+          kopf "jsonblob.com  (JSON-Ablage, anonym)"
+          zeig "OPTIONS Vorabanfrage" -X OPTIONS \
+            -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: PUT' \
+            -H 'Access-Control-Request-Headers: content-type' \
+            https://jsonblob.com/api/jsonBlob
+          echo "--- POST anlegen"
+          BLOB=$(curl -sS -m 20 -D /tmp/h -o /tmp/b -X POST \
+            -H 'Content-Type: application/json' -H "Origin: $ORIGIN" \
+            -d '{"probe":"zehner-paare","n":1}' \
+            https://jsonblob.com/api/jsonBlob -w '%{http_code}' || echo 000)
+          echo "HTTP $BLOB"
+          grep -iE '^(location|access-control-allow-origin):' /tmp/h | tr -d '\r' | sed 's/^/    /'
+          LOC=$(grep -i '^location:' /tmp/h | tr -d '\r' | awk '{print $2}')
+          if [ -n "${LOC:-}" ]; then
+            echo "    angelegt: $LOC"
+            zeig "GET lesen"  -H "Origin: $ORIGIN" "$LOC"
+            zeig "PUT aendern" -X PUT -H 'Content-Type: application/json' \
+              -H "Origin: $ORIGIN" -d '{"probe":"zehner-paare","n":2}' "$LOC"
+            zeig "GET nachlesen" -H "Origin: $ORIGIN" "$LOC"
+          fi
+
+          kopf "abacus.jasoncameron.dev  (Zaehler, Nachfolger von countapi)"
+          zeig "create" -H "Origin: $ORIGIN" \
+            "https://abacus.jasoncameron.dev/create/zp-probe-$GITHUB_RUN_ID/partien"
+          zeig "hit"    -H "Origin: $ORIGIN" \
+            "https://abacus.jasoncameron.dev/hit/zp-probe-$GITHUB_RUN_ID/partien"
+          zeig "hit 2"  -H "Origin: $ORIGIN" \
+            "https://abacus.jasoncameron.dev/hit/zp-probe-$GITHUB_RUN_ID/partien"
+          zeig "get"    -H "Origin: $ORIGIN" \
+            "https://abacus.jasoncameron.dev/get/zp-probe-$GITHUB_RUN_ID/partien"
+
+          kopf "api.counterapi.dev"
+          zeig "v1 up" -H "Origin: $ORIGIN" \
+            "https://api.counterapi.dev/v1/zp-probe-$GITHUB_RUN_ID/partien/up"
+          zeig "v2 up" -H "Origin: $ORIGIN" \
+            "https://api.counterapi.dev/v2/zp-probe-$GITHUB_RUN_ID/partien/up"
+
+          kopf "kvdb.io  (Eimer anonym anlegen)"
+          zeig "POST Eimer" -X POST -H 'Content-Type: application/json' \
+            -H "Origin: $ORIGIN" -d '{}' https://kvdb.io/
+
+          kopf "extendsclass.com  (JSON-Ablage)"
+          zeig "POST bin" -X POST -H 'Content-Type: application/json' \
+            -H "Origin: $ORIGIN" -d '{"probe":1}' \
+            https://api.extendsclass.com/json-storage/bin
+
+          kopf "keyvalue.immanuel.co"
+          zeig "GetAppKey" -X POST -H "Origin: $ORIGIN" \
+            https://keyvalue.immanuel.co/api/KeyVal/GetAppKey
+
+          echo
+          echo "========== fertig =========="
