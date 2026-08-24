@@ -43,6 +43,15 @@ export const POINTS = {
   // mit 150 liegt es rund 18 % vorn – der Bestwert belohnt jetzt Koennen.
   refillLeft: 150,
   round: 200,     // Bonus je geschaffter Runde im Endlos-Modus
+  // Eine selbst geholte Zahl wiegt anderthalb Mal so schwer wie eine
+  // ausgeteilte, siehe wertFaktor(). Warum nicht einfach gleich schwer? Weil
+  // der Kombo-Anlauf (1x, 2x, ... 10x) pro Partie einmal anfaellt: auf einem
+  // aufgeblaehten Feld verteilt er sich auf hunderte Treffer statt auf 40 und
+  // faellt kaum auf. Gemessen ueber je 300 Partien und vier Spielweisen lag
+  // Schummeln bei Gewicht 1,0 noch 6-11 % vorn, bei 1,25 gleichauf, bei 1,5
+  // klar hinten (77-84 % von sauberem Spiel). Sauberes Spiel selbst kostet
+  // das 1-2 %, im Endlos-Modus 5 %.
+  invitedWeight: 1.5,
 };
 
 /** Deterministischer PRNG (mulberry32) – macht Partien reproduzierbar. */
@@ -116,6 +125,11 @@ export function createGame({
     cells: values.map((v, i) => ({ id: i, v, cleared: false })),
     nextId: values.length,
     seen: values.length,        // wie viele Zahlen insgesamt aufs Feld kamen
+    // Aufgeteilt danach, WER die Zahlen aufs Feld gebracht hat: das Spiel
+    // (Startfeld und neue Runden) oder der Spieler (Auffuellen, Rettung).
+    // Darauf beruht die Verwaesserung, siehe wertFaktor().
+    ausgeteilt: values.length,
+    geholt: 0,
     clearedCount: 0,            // wie viele davon weg sind
     endless: !!preset.endless,
     newRows: preset.newRows ?? 0,
@@ -265,6 +279,7 @@ export function nextRound(state, seed) {
   state.cells = values.map((v, i) => ({ id: state.nextId + i, v, cleared: false }));
   state.nextId += values.length;
   state.seen += values.length;
+  state.ausgeteilt += values.length;
   state.round += 1;
   state.refillsLeft = Math.min(state.refillMax, state.refillsLeft + state.refillPerRound);
   state.rescuesLeft = 1;            // jede Runde bekommt ihre eigene Rettung
@@ -358,6 +373,35 @@ export function refreshStatus(state) {
 }
 
 /**
+ * Wieviel ist ein Treffer wert? Punkte gibt es je gestrichenes Paar, und
+ * Auffuellen haengt die uebrigen Zahlen noch einmal an - beides zusammen war
+ * eine Einladung zum Schummeln: fuenfmal Auffuellen VOR dem ersten Zug macht
+ * aus 54 Zahlen 1728 (jedes Auffuellen verdoppelt das Feld) und aus 3.100
+ * Punkten rund 53.000. Gemessen in der Oberflaeche, nicht geschaetzt.
+ *
+ * Deshalb zaehlen Punkte nicht absolut, sondern bezogen auf die Zahlen, die
+ * man sich selbst geholt hat: doppelt so viele Zahlen sind halb so viel wert.
+ * Wer sich zu Beginn das Feld auf 32-fach blaeht, bekommt pro Treffer ein
+ * Zweiunddreissigstel - das Schummeln kostet damit genau so viel, wie es
+ * bringt, und niemand muss es fuer einen Bestwert tun.
+ *
+ * Wichtig ist die Aufteilung: neue Runden im Endlos-Modus sind KEIN Holen -
+ * sie sind der Lohn fuer ein leergeraeumtes Feld und zaehlen zu "ausgeteilt".
+ * Wer weit kommt, wird nicht bestraft.
+ *
+ * Ein Auffuellen in der Sackgasse trifft das kaum: dann liegen nur noch ein
+ * paar Zahlen da, und angehaengt wird nur dieser Rest. Gemessen kostet ein
+ * spaetes Auffuellen wenige Prozent, ein fruehes fast alles - genau die
+ * Rangfolge, die man von Koennen erwartet.
+ */
+export function wertFaktor(state) {
+  const geholt = state.geholt ?? 0;
+  const ausgeteilt = state.ausgeteilt ?? state.seen ?? 1;
+  if (!geholt) return 1;
+  return ausgeteilt / (ausgeteilt + POINTS.invitedWeight * geholt);
+}
+
+/**
  * Fuehrt einen Zug aus. Gibt einen Bericht fuer die Animation zurueck.
  */
 export function applyMatch(state, i, j) {
@@ -383,6 +427,9 @@ export function applyMatch(state, i, j) {
   // Mehrere Zeilen in einem Zug muss man vorbereiten – das ist der einzige
   // rein strategische Hebel auf die Punktzahl (kommt 1,5-2x pro Partie vor).
   if (removedRows.length >= 2) points += (removedRows.length - 1) * POINTS.multiRow;
+  // Selbst geholte Zahlen verwaessern den Wert eines Treffers, siehe
+  // wertFaktor(). Mindestens ein Punkt, damit ein Zug nie umsonst ist.
+  points = Math.max(1, Math.round(points * wertFaktor(state)));
   state.score += points;
 
   refreshStatus(state);
@@ -447,6 +494,7 @@ export function refill(state) {
     from = anhaengen(state, paarweise(rest));
   }
   state.seen += rest.length;
+  state.geholt += rest.length;
   state.refillsLeft -= 1;
   state.refillsUsed += 1;
   state.combo = 0;
@@ -474,6 +522,7 @@ export function rescue(state) {
     from = anhaengen(state, paarweise(rest));
   }
   state.seen += rest.length;
+  state.geholt += rest.length;
   state.rescuesLeft -= 1;
   state.rescuesUsed += 1;
   state.combo = 0;
@@ -502,6 +551,11 @@ export function deserialize(text) {
     const data = JSON.parse(text);
     if (!data || data.version !== 1 || !Array.isArray(data.cells)) return null;
     const seen = data.seen ?? data.cells.length;
+    // Aeltere Spielstaende kennen die Aufteilung nicht. Aus refillsUsed laesst
+    // sie sich nicht rekonstruieren; im Zweifel gilt "nichts geholt", damit
+    // eine laufende Partie nicht mitten im Spiel entwertet wird.
+    const ausgeteilt = data.ausgeteilt ?? seen;
+    const geholt = data.geholt ?? 0;
     const clearedCount = data.clearedCount ?? data.cells.filter((c) => c.cleared).length;
     // Spielstaende aus aelteren Fassungen kennen die Endlos-Felder nicht –
     // aus dem Schwierigkeitsgrad nachtragen, sonst zaehlt der Modus falsch.
@@ -509,6 +563,8 @@ export function deserialize(text) {
     return {
       ...data,
       seen,
+      ausgeteilt,
+      geholt,
       clearedCount,
       endless: data.endless ?? !!preset.endless,
       newRows: data.newRows ?? preset.newRows ?? 0,

@@ -73,11 +73,11 @@ test('angehaengte Teile behalten ihren Anfang', () => {
   // fuehrenden Trenner klebt das Wort am vorigen.
   for (const spr of Object.keys(SPRACHEN)) {
     const d = woerterbuch(spr) ?? {};
-    for (const k of ['diff.noteClassic', 'diff.noteEndless'])
+    for (const k of ['diff.noteClassic', 'diff.noteEndless', 'msg.refillWorth'])
       if (d[k]) assert.ok(d[k].startsWith(' · '), `${spr}/${k} faengt nicht mit " · " an`);
-    if (d['end.savedRefills'])
-      assert.ok(d['end.savedRefills'].startsWith(' '),
-        `${spr}/end.savedRefills faengt nicht mit einem Leerzeichen an`);
+    for (const k of ['end.savedRefills', 'end.dilute'])
+      if (d[k]) assert.ok(d[k].startsWith(' '),
+        `${spr}/${k} faengt nicht mit einem Leerzeichen an`);
   }
 });
 

@@ -7,7 +7,7 @@ import {
   POINTS, nextRound,
   createGame, canMatch, findPair, allPairs, applyMatch, refill, undo,
   valuesMatch, remaining, rowCount, serialize, deserialize, forwardNeighbours,
-  neighboursOf, partnersOf, refreshStatus, rescue,
+  neighboursOf, partnersOf, refreshStatus, rescue, wertFaktor,
 } from './game.js';
 
 /** Testfeld aus Zeilen bauen; 0 bedeutet "bereits gestrichen". */
@@ -441,3 +441,88 @@ test('Auffuellen laesst die Leserichtung, wenn es ohnehin einen Zug gibt', () =>
   assert.deepEqual(angehaengt, [3, 7, 4, 4], 'unveraendert in Leserichtung');
 });
 
+
+
+/* --- Punkte lassen sich nicht durch Auffuellen aufblaehen ---------------- */
+
+/** Spielt eine Partie gierig durch; vorher optional n-mal aufgefuellt. */
+function durchspielen(diff, seed, vorabAuffuellen = 0) {
+  const s = createGame({ difficulty: diff, seed });
+  for (let i = 0; i < vorabAuffuellen; i++) refill(s);
+  for (let zug = 0; zug < 40000; zug++) {
+    if (s.status !== 'playing') {
+      if (s.status === 'stuck' && s.rescuesLeft > 0 && rescue(s).ok) continue;
+      break;
+    }
+    const p = findPair(s);
+    if (p) { applyMatch(s, p[0], p[1]); continue; }
+    if (!refill(s).ok) break;
+  }
+  return s;
+}
+
+test('ohne Auffuellen zaehlt ein Treffer voll', () => {
+  const s = createGame({ difficulty: 'mittel', seed: 11 });
+  assert.equal(wertFaktor(s), 1);
+  assert.equal(s.ausgeteilt, s.cells.length);
+  assert.equal(s.geholt, 0);
+});
+
+test('Auffuellen verwaessert den Wert eines Treffers', () => {
+  const s = createGame({ difficulty: 'mittel', seed: 12 });
+  const ausgeteilt = s.ausgeteilt;
+  const res = refill(s);
+  assert.equal(res.ok, true);
+  assert.equal(s.geholt, res.added, 'angehaengte Zahlen zaehlen als geholt');
+  assert.equal(s.ausgeteilt, ausgeteilt, 'ausgeteilt bleibt, was das Spiel gab');
+  assert.equal(wertFaktor(s),
+    ausgeteilt / (ausgeteilt + POINTS.invitedWeight * res.added));
+  assert.ok(wertFaktor(s) < 1);
+});
+
+test('eine neue Endlos-Runde verwaessert nichts', () => {
+  const s = createGame({ difficulty: 'endlos', seed: 13 });
+  for (const c of s.cells) c.cleared = true;
+  refreshStatus(s);
+  const bericht = nextRound(s, 99);
+  assert.ok(bericht, 'im Endlos-Modus geht es weiter');
+  assert.equal(s.geholt, 0, 'die Runde ist Lohn, nicht selbst geholt');
+  assert.equal(wertFaktor(s), 1);
+});
+
+test('fuenfmal Auffuellen zu Beginn bringt weniger als sauberes Spiel', () => {
+  // Genau die Abkuerzung, die es vorher gab: fuenf Tipps auf Auffuellen machen
+  // aus 54 Zahlen 1728 - und brachten 17x so viele Punkte. Jetzt muss sauberes
+  // Spiel gewinnen, und zwar in jeder Stufe.
+  for (const diff of ['leicht', 'mittel', 'schwer', 'klassisch']) {
+    let sauber = 0;
+    let geschummelt = 0;
+    for (let seed = 400; seed < 412; seed++) {
+      sauber += durchspielen(diff, seed).score;
+      geschummelt += durchspielen(diff, seed, 5).score;
+    }
+    assert.ok(geschummelt < sauber,
+      `${diff}: geschummelt ${geschummelt} muss unter sauber ${sauber} liegen`);
+  }
+});
+
+test('ein Zug bringt nie null Punkte, auch auf einem aufgeblaehten Feld', () => {
+  const s = createGame({ difficulty: 'leicht', seed: 14 });
+  for (let i = 0; i < 5; i++) refill(s);
+  const p = findPair(s);
+  assert.ok(p, 'auf dem grossen Feld gibt es einen Zug');
+  const vorher = s.score;
+  applyMatch(s, p[0], p[1]);
+  assert.ok(s.score > vorher, 'mindestens ein Punkt');
+});
+
+test('alte Spielstaende gelten als nichts geholt', () => {
+  const s = createGame({ difficulty: 'mittel', seed: 15 });
+  const roh = JSON.parse(serialize(s));
+  delete roh.ausgeteilt;
+  delete roh.geholt;
+  const zurueck = deserialize(JSON.stringify(roh));
+  assert.equal(zurueck.geholt, 0);
+  assert.equal(zurueck.ausgeteilt, roh.seen);
+  assert.equal(wertFaktor(zurueck), 1);
+});

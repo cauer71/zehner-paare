@@ -5,6 +5,7 @@
 import {
   DIFFICULTIES, createGame, canMatch, applyMatch, refill, hint, undo, canUndo,
   breakCombo, remaining, serialize, deserialize, valuesMatch, findPair, progress,
+  wertFaktor,
   partnersOf, refreshStatus, POINTS, rescue,
 } from './game.js';
 import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js';
@@ -719,6 +720,11 @@ function renderBoard({ enterFrom = -1 } = {}) {
   }
 }
 
+/** Ein Anteil als ganze Prozent, fuer die Meldung nach dem Auffuellen. */
+function prozent(anteil) {
+  return Math.round(anteil * 100);
+}
+
 /** Am Automaten hat der Zaehler feste Stellen: 000450 statt 450. */
 function zahl(n, stellen = 6) {
   return settings.skin === 'arcade' ? String(n).padStart(stellen, '0') : String(n);
@@ -1173,7 +1179,11 @@ function doRefill() {
   sfx.refill();
   buzz(20);
   announce(t('live.refilled', { n: res.added }));
-  toast(t('msg.refilled', { n: res.added, left: state.refillsLeft }));
+  // Auffuellen holt Zahlen aufs Feld und senkt dafuer den Wert eines Treffers
+  // (siehe wertFaktor in game.js). Wer das nicht erfaehrt, wundert sich nur
+  // ueber kleinere Zahlen an den Feldern - also dazusagen.
+  toast(t('msg.refilled', { n: res.added, left: state.refillsLeft })
+    + t('msg.refillWorth', { p: prozent(wertFaktor(state)) }));
   elAt(res.from)?.scrollIntoView({ block: 'nearest', behavior: reduceMotion.matches ? 'auto' : 'smooth' });
   save();
   if (state.status === 'stuck') endGame(false);
@@ -1297,10 +1307,11 @@ function endGame(won) {
     : (state.endless ? t('end.endlessOver', { n: state.round }) : t('end.stuck'));
   // Der Bonus fuers Sparen ist die einzige Stellschraube, mit der man den
   // Bestwert durch Koennen statt durch Glueck knackt – also benennen.
-  const gespart = state.refillsLeft > 0
+  const gespart = (state.refillsLeft > 0
     ? t('end.savedRefills', { n: state.refillsLeft,
                               points: state.refillsLeft * POINTS.refillLeft })
-    : '';
+    : '')
+    + (state.geholt > 0 ? t('end.dilute', { p: prozent(wertFaktor(state)) }) : '');
   $('#end-text').textContent = won
     ? (isRecord
         ? (previous ? t('end.wonBest', { label, prev: previous.score })
