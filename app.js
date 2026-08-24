@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.9.0';
+export const VERSION = '1.10.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2',
               seen: 'zp.seen.v1', count: 'zp.count.v1' };
@@ -47,6 +47,7 @@ const DEFAULT_SETTINGS = {
   theme: 'auto',
   lang: 'auto',             // auto | de | it | en
   world: true,              // weltweit mitzaehlen (siehe online.js)
+  kuerzel: '',              // drei Zeichen fuer die Bestenliste, siehe unten
 };
 
 let settings = { ...DEFAULT_SETTINGS, ...(store.get(KEY.settings) ?? {}) };
@@ -118,6 +119,9 @@ const refillCount = $('#refill-count');
 const dlgRules = $('#dlg-rules');
 const dlgSettings = $('#dlg-settings');
 const dlgEnd = $('#dlg-end');
+const feldKuerzelEnde = $('#end-initials-field');
+const eingabeKuerzelEnde = $('#end-initials');
+const eingabeKuerzelSet = $('#set-initials');
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -135,6 +139,49 @@ let endHandled = false;    // Spielende nur einmal auswerten
 let hintTimer = null;      // laufendes Tipp-Blinken
 let hintIds = [];          // welche Kacheln blinken gerade
 let recordHit = false;     // Rekord waehrend der Partie schon gefeiert?
+let kuerzelStufe = null;   // zu welchem Bestwert das Feld im Enddialog gehoert
+
+/* ---------------------------------------------------------------- Kuerzel */
+
+/**
+ * Das Kuerzel in der Bestenliste: drei Zeichen, A-Z und 0-9.
+ *
+ * Warum genau diese Menge und nicht alles, was eine Tastatur hergibt: der
+ * Arcade-Stil setzt AUSSCHLIESSLICH die eigene Pixelschrift, und die kennt
+ * Versalien, Ziffern und Satzzeichen. Ein Emoji oder ein kyrillisches Zeichen
+ * waere dort still ein leerer Rahmen. Kleinbuchstaben werden gross
+ * geschrieben, alles andere fallengelassen - was im Feld stehen bleibt, laesst
+ * sich also in jedem Stil auch zeigen.
+ *
+ * Gefiltert wird auch beim LESEN aus dem Speicher: dort kann von Hand oder aus
+ * einer alten Fassung anderes stehen, und in die Liste geht es ohne Umweg ins
+ * Markup.
+ */
+const KUERZEL_ZEICHEN = 3;
+
+function sauberesKuerzel(roh) {
+  return String(roh ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, KUERZEL_ZEICHEN);
+}
+
+/**
+ * Schreibt das Kuerzel fest: als Voreinstellung fuer kommende Bestwerte und,
+ * wenn eine Stufe genannt ist, an deren Bestwert.
+ *
+ * Sofort und bei jedem Tastendruck, nicht erst auf einen Knopf: der Enddialog
+ * laesst sich wegtippen, und ein Kuerzel, das dabei verloren geht, tippt
+ * niemand ein zweites Mal.
+ */
+function setzeKuerzel(roh, stufe = null) {
+  const kurz = sauberesKuerzel(roh);
+  settings.kuerzel = kurz;
+  saveSettings();
+  if (stufe && best[stufe]) {
+    if (kurz) best[stufe].kuerzel = kurz;
+    else delete best[stufe].kuerzel;
+    store.set(KEY.best, best);
+  }
+  return kurz;
+}
 
 /* ----------------------------------------------------------------- Helfer */
 
@@ -704,8 +751,11 @@ function renderBoard({ enterFrom = -1 } = {}) {
     if (board.children[i] !== el) board.insertBefore(el, board.children[i] ?? null);
   });
 
-  // Kantenverlauf nur zeigen, wenn das Feld tatsaechlich ueberlaeuft
-  boardWrap.classList.toggle('scrollable', board.scrollHeight > boardWrap.clientHeight + 2);
+  // Kantenverlauf nur zeigen, wenn das Feld tatsaechlich ueberlaeuft. Gefragt
+  // wird der Rahmen, nicht das Feld: das Feld fuellt den Rahmen aus und laeuft
+  // selbst nie ueber, sein scrollHeight ist also immer seine eigene Hoehe.
+  boardWrap.classList.toggle('scrollable',
+    boardWrap.scrollHeight > boardWrap.clientHeight + 2);
 
   if (hadFocus && !document.querySelector('dialog[open]')) {
     const el = elAt(focusIndex);
@@ -1347,8 +1397,12 @@ function endGame(won) {
   const isRecord = zaehlt && (!previous || state.score > previous.score);
   if (zaehlt) {
     if (isRecord) {
+      // Das Kuerzel des letzten Mals kommt gleich mit: wer allein spielt,
+      // muss es nie wieder anfassen, und auf einem geteilten Geraet
+      // ueberschreibt es der Naechste im Feld unten im Dialog.
       best[key] = { score: state.score, time: Math.round(state.elapsed), at: Date.now(),
-                    round: state.endless ? state.round : undefined };
+                    round: state.endless ? state.round : undefined,
+                    kuerzel: sauberesKuerzel(settings.kuerzel) || undefined };
     }
     store.set(KEY.best, best);
   }
@@ -1409,6 +1463,13 @@ function endGame(won) {
     const plus = previous ? state.score - previous.score : 0;
     ribbon.textContent = plus > 0 ? t('end.recordPlus', { plus }) : t('end.record');
   }
+  // Das Kuerzelfeld gehoert zum Bestwert - ohne Bestwert ist nichts
+  // einzutragen. Der Fokus bleibt bewusst weg: eine Tastatur, die sich
+  // ueber die Feier schiebt, hat niemand verlangt, und vorbelegt ist das
+  // Feld ohnehin.
+  kuerzelStufe = isRecord ? key : null;
+  feldKuerzelEnde.hidden = !isRecord;
+  if (isRecord) eingabeKuerzelEnde.value = best[key].kuerzel ?? '';
 
   if (won || (state.endless && isRecord)) {
     confetti({ gold: isRecord });
@@ -1535,6 +1596,10 @@ function renderSettings() {
   $('#opt-partners').checked = settings.partners;
   $('#opt-sound').checked = settings.sound;
   $('#opt-vibrate').checked = settings.vibrate;
+  // Nicht ueberschreiben, waehrend jemand darin tippt: der Zeiger sprang
+  // sonst ans Ende, sobald irgendetwas anderes ein Neuzeichnen ausloest.
+  if (document.activeElement !== eingabeKuerzelSet)
+    eingabeKuerzelSet.value = sauberesKuerzel(settings.kuerzel);
   refreshInstallUi();
   const stamp = $('#version');
   if (stamp) stamp.textContent = `Zehner-Paare ${VERSION}`;
@@ -1584,9 +1649,13 @@ function setzeNow(sel, text) {
 }
 
 function renderBest() {
+  // sauberesKuerzel filtert hier ein zweites Mal: was aus dem Speicher kommt,
+  // geht ohne Umweg ins Markup.
   $('#best-list').innerHTML = Object.entries(DIFFICULTIES).map(([key]) => {
     const b = best[key];
-    return `<li><span>${diffName(key)}</span><b>${b ? `${zahl(b.score)} · ${fmtTime(b.time)}` : '–'}</b></li>`;
+    const wer = b ? sauberesKuerzel(b.kuerzel) : '';
+    return `<li><span>${diffName(key)}</span><span class="best-list__who">${wer}</span>`
+      + `<b>${b ? `${zahl(b.score)} · ${fmtTime(b.time)}` : '–'}</b></li>`;
   }).join('');
   $('#own-count').textContent =
     t('set.ownCount', { n: zaehler.gespielt, g: zaehler.gewonnen });
@@ -1828,6 +1897,28 @@ $('#opt-vibrate').addEventListener('change', (e) => {
   saveSettings();
   buzz(20);
 });
+
+/**
+ * Ein Anschlag in einem der beiden Kuerzelfelder.
+ *
+ * Zurueckgeschrieben wird nur, wenn der Filter wirklich etwas veraendert hat:
+ * jedes unnoetige Setzen von value schiebt den Schreibzeiger ans Ende.
+ */
+function kuerzelGetippt(feld, stufe) {
+  const kurz = setzeKuerzel(feld.value, stufe);
+  if (feld.value !== kurz) feld.value = kurz;
+  // Das andere Feld zieht mit - sonst stehen zwei verschiedene Kuerzel da.
+  const anderes = feld === eingabeKuerzelEnde ? eingabeKuerzelSet : eingabeKuerzelEnde;
+  anderes.value = kurz;
+  renderBest();
+}
+
+// Im Enddialog gehoert das Getippte zum frisch aufgestellten Bestwert, in den
+// Einstellungen ist es die Voreinstellung fuer den naechsten.
+eingabeKuerzelEnde.addEventListener('input',
+  () => kuerzelGetippt(eingabeKuerzelEnde, kuerzelStufe));
+eingabeKuerzelSet.addEventListener('input',
+  () => kuerzelGetippt(eingabeKuerzelSet, null));
 
 $('#opt-world').addEventListener('change', (e) => {
   settings.world = e.target.checked;

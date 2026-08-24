@@ -304,7 +304,10 @@ body {
   padding: 4px 8px 8px;
   display: flex;
   justify-content: center;
-  align-items: stretch;
+  /* start, nicht stretch: bei stretch bekaeme das Feld genau die sichtbare
+     Hoehe, und jede Zeile, die durch Auffuellen dazukommt, laege ausserhalb
+     seines Rahmens. Die freie Flaeche holt sich das Feld ueber min-height. */
+  align-items: start;
   scroll-padding-block: 12px;
 }
 .board-wrap.scrollable {
@@ -319,6 +322,8 @@ body {
   gap: var(--gap);
   width: min(100%, calc(var(--cols, 9) * var(--cell-max) + (var(--cols, 9) - 1) * var(--gap) + 20px));
   align-content: start;
+  /* Fuellt die freie Flaeche, waechst aber mit den Zeilen darueber hinaus. */
+  min-height: 100%;
   padding: 10px;
   border-radius: var(--md-sys-shape-corner-extra-large);
   background: var(--board);
@@ -892,6 +897,45 @@ body {
   font-variant-numeric: tabular-nums;
   color: var(--md-sys-color-on-surface-variant);
 }
+
+/* --- Kuerzel: die eigene Spalte in der Bestenliste und das Eingabefeld ----- */
+
+/* Der Name steht links und nimmt sich den Platz, das Kuerzel bekommt eine
+   feste Spalte davor: so stehen alle Kuerzel untereinander, statt in jeder
+   Zeile anders auszurichten. */
+.best-list li > span:first-child { flex: 1; }
+.best-list__who {
+  flex: none;
+  min-width: 3.4em;
+  padding-inline-end: 12px;
+  text-align: end;
+  /* Label Large */
+  font: 500 14px/20px var(--font);
+  letter-spacing: .1px;
+  color: var(--md-sys-color-primary);
+}
+
+.initials {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  font: 400 16px/24px var(--font);
+}
+.initials__input {
+  width: 5.6em;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  font: 500 18px/24px var(--font);
+  letter-spacing: .16em; text-align: center; text-transform: uppercase;
+}
+.initials__input:focus { border-color: var(--md-sys-color-primary); }
+.initials__input::placeholder { color: var(--md-sys-color-on-surface-variant); opacity: .6; }
+.initials--end { justify-content: center; margin-top: 16px; }
+.initials--end[hidden] { display: none; }
 
 /* --- Beispielraster in den Regeln ---------------------------------------- */
 

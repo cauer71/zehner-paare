@@ -294,7 +294,10 @@ body::before {
   padding: 6px 6px 8px;
   display: flex;
   justify-content: center;
-  align-items: stretch;
+  /* start, nicht stretch: bei stretch bekaeme das Feld genau die sichtbare
+     Hoehe, und jede Zeile, die durch Auffuellen dazukommt, laege ausserhalb
+     seines Rahmens. Die freie Flaeche holt sich das Feld ueber min-height. */
+  align-items: start;
   scroll-padding-block: 12px;
 }
 .board-wrap.scrollable {
@@ -309,6 +312,9 @@ body::before {
   gap: var(--gap);
   width: min(100%, calc(var(--cols, 9) * var(--cell-max) + (var(--cols, 9) - 1) * var(--gap) + 16px));
   align-content: start;
+  /* Die freie Flaeche gehoert weiter zum Feld, das Feld waechst aber mit
+     seinen Zeilen ueber sie hinaus. */
+  min-height: 100%;
   padding: 10px 8px;
   border-radius: 24px;
   background: var(--felt);
@@ -847,6 +853,46 @@ body::before {
 }
 .best-list li:last-child { border-bottom: 0; }
 .best-list b { font-variant-numeric: tabular-nums; }
+
+/* --- Kuerzel: die eigene Spalte in der Bestenliste und das Eingabefeld ----- */
+
+/* Der Name steht links und nimmt sich den Platz, das Kuerzel bekommt eine
+   feste Spalte davor: so stehen alle Kuerzel untereinander, statt in jeder
+   Zeile anders auszurichten. */
+.best-list li > span:first-child { flex: 1; }
+.best-list__who {
+  flex: none;
+  min-width: 3.4em;
+  padding-inline-end: 10px;
+  text-align: end;
+  font-weight: 800;
+  letter-spacing: .06em;
+  color: var(--ink-soft);
+}
+
+.initials {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  font-size: .94rem;
+}
+.initials__input {
+  width: 6.6em;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--tile-edge);
+  border-radius: 12px;
+  background: var(--tile);
+  color: var(--tile-ink);
+  font: inherit; font-weight: 800;
+  font-size: 1.05rem; letter-spacing: .16em; text-align: center;
+  text-transform: uppercase;
+}
+.initials__input::placeholder { color: var(--ink-soft); opacity: .5; letter-spacing: .16em; }
+/* Im Enddialog steht das Feld mittig unter den Zahlen, nicht als Zeile mit
+   Beschriftung links und Feld rechts. */
+.initials--end { justify-content: center; margin-top: 14px; }
+.initials--end[hidden] { display: none; }
 
 /* --- Beispielraster in den Regeln -------------------------------------------- */
 

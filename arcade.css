@@ -428,7 +428,10 @@ body::before {
   padding: 4px 8px 8px;
   display: flex;
   justify-content: center;
-  align-items: stretch;
+  /* start, nicht stretch: bei stretch bekaeme das Feld genau die sichtbare
+     Hoehe, und jede Zeile, die durch Auffuellen dazukommt, laege ausserhalb
+     seines Rahmens. Die freie Flaeche holt sich das Feld ueber min-height. */
+  align-items: start;
   scroll-padding-block: 12px;
 }
 .board-wrap.scrollable {
@@ -451,6 +454,9 @@ body::before {
   gap: var(--gap);
   width: min(100%, calc(var(--cols, 9) * var(--cell-max) + (var(--cols, 9) - 1) * var(--gap) + 16px));
   align-content: start;
+  /* Fuellt die freie Flaeche, waechst aber mit den Zeilen darueber hinaus -
+     sonst blinkt die Lichterkette mitten im Feld statt an seinem Rand. */
+  min-height: 100%;
   padding: 6px;
   border-radius: 0;
   /* halbdurchsichtig, damit das Sternenfeld hinter dem Feld durchzieht */
@@ -1082,6 +1088,44 @@ body::before {
 }
 .best-list li:last-child { box-shadow: none; }
 .best-list b { color: var(--yellow); font-weight: 400; font-variant-numeric: tabular-nums; }
+
+/* --- Kuerzel: die eigene Spalte in der Bestenliste und das Eingabefeld ----- */
+
+/* Der Name steht links und nimmt sich den Platz, das Kuerzel bekommt eine
+   feste Spalte davor: so stehen alle Kuerzel untereinander, statt in jeder
+   Zeile anders auszurichten. */
+.best-list li > span:first-child { flex: 1; }
+.best-list__who {
+  flex: none;
+  min-width: 5em;
+  padding-inline-end: 8px;
+  text-align: end;
+  color: var(--cyan);
+  letter-spacing: 2px;
+}
+
+.initials {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 8px; text-transform: uppercase; letter-spacing: 2px;
+}
+/* Die Fassung, in die man am Automaten seine drei Zeichen dreht. */
+.initials__input {
+  width: 8.4em;
+  min-height: 28px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--board);
+  color: var(--yellow);
+  font: inherit;
+  font-size: 16px; letter-spacing: 4px; text-align: center; text-transform: uppercase;
+  box-shadow: inset 0 0 0 var(--px) var(--cyan);
+}
+.initials__input::placeholder { color: var(--grid); }
+.initials--end { justify-content: center; margin-top: 12px; }
+.initials--end[hidden] { display: none; }
 
 .version { text-align: center; margin-top: 16px; color: var(--grid); }
 

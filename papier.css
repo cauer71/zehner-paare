@@ -1036,6 +1036,47 @@ body::before {
   font-variant-numeric: tabular-nums;
 }
 
+/* --- Kuerzel: die eigene Spalte in der Bestenliste und das Eingabefeld ----- */
+
+/* Der Name steht links und nimmt sich den Platz, das Kuerzel bekommt eine
+   feste Spalte davor: so stehen alle Kuerzel untereinander, statt in jeder
+   Zeile anders auszurichten. */
+.best-list li > span:first-child { flex: 1; }
+.best-list__who {
+  flex: none;
+  min-width: 3.4em;
+  padding-inline-end: 10px;
+  text-align: end;
+  font-family: 'ZP Hand', 'Nunito', monospace;
+  font-weight: 400; font-size: 1.15em;
+  color: var(--ink-soft);
+}
+
+.initials {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  font-size: .94rem;
+}
+/* Kein Kasten, sondern eine Linie zum Draufschreiben - wie das Namensfeld
+   oben auf dem Blatt. */
+.initials__input {
+  width: 5.8em;
+  min-height: 40px;
+  padding: 0 6px;
+  border: 0;
+  border-bottom: 1.5px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--graphit);
+  font-family: 'ZP Hand', 'Nunito', monospace;
+  font-weight: 400; font-size: 1.3rem;
+  letter-spacing: .12em; text-align: center; text-transform: uppercase;
+}
+.initials__input::placeholder { color: var(--ink-soft); opacity: .45; }
+.initials--end { justify-content: center; margin-top: 14px; }
+.initials--end[hidden] { display: none; }
+
 /* --- Beispielraster in den Regeln ----------------------------------------- */
 
 .demo {

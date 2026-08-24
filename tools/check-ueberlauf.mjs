@@ -1,7 +1,7 @@
 /**
  * Die Abnahmepruefung fuer "der Text verlaesst sein Feld nie".
  *
- * Vier Fragen je Zustand, alle ohne Auslegungsspielraum:
+ * Fuenf Fragen je Zustand, alle ohne Auslegungsspielraum:
  *   1. Scrollt die Seite waagrecht? Dann ist irgendwo etwas zu breit. Diese
  *      Frage ist die wichtigste: bei 1fr-Rasterspalten und flex:1 waechst
  *      nicht der Knopf ueber seinen Rand, sondern die Spur - und damit die
@@ -15,6 +15,9 @@
  *      ist mal 'normal' und mal eine Zahl, damit rechnet man sich falsch.
  *   4. Verlaesst eine Einblendung den Meldungsstreifen ueber dem Brett? Dass
  *      sie das nicht tut, war eine Beschwerde aus dem Spiel.
+ *   5. Liegt eine Kachel ausserhalb des Bretts? Nach mehrmaligem Auffuellen
+ *      lagen die angehaengten Zeilen unter der Flaeche des Bretts - auch das
+ *      eine Beschwerde aus dem Spiel, mit Bild.
  *
  * Gepruefte Zustaende: Sprachen x Bildschirmbreiten x Stile x sieben
  * Spiellagen (Start, Sackgasse, Kombo, Meldung, Einstellungen, Regeln, Ende).
@@ -63,6 +66,8 @@ const FELDER = [
   ['.demo__cell', 1],
   ['.switch-row', 3],
   ['.best-list li', 2],
+  ['.initials', 2],
+  ['.initials__input', 1],
   ['.field__title', 1],
   ['.sheet__headline', 2],
   ['.dialog__headline', 2],
@@ -156,6 +161,20 @@ const PRUEFEN = (felder) => {
                                  text: (el.textContent || '').trim(), sel });
     }
   }
+  // Liegt eine Kachel ausserhalb des Bretts? Mit align-items:stretch bekam das
+  // Feld genau die sichtbare Hoehe, und jede Zeile, die durch Auffuellen
+  // dazukam, lag unter seiner Flaeche: Kacheln ohne Brett darunter, die
+  // abgerundete Unterkante mitten im Bild. Gemessen wird die Geometrie und
+  // nicht scrollHeight - das zaehlt im Arcade-Stil die Polsterung mit und
+  // meldete dann auch ein Brett, an dem nichts falsch ist.
+  const feld = document.querySelector('#board');
+  const letzte = feld?.lastElementChild;
+  if (feld && letzte) {
+    const raus = Math.round(letzte.getBoundingClientRect().bottom
+                          - feld.getBoundingClientRect().bottom);
+    if (raus > 1) funde.push({ art: 'kachel-ausserhalb-des-bretts', um: raus,
+                               wo: '#board', text: '' });
+  }
   return funde;
 };
 
@@ -172,7 +191,8 @@ for (const sprache of SPRACHEN) {
       await page.goto('http://localhost:4223/');
       await page.evaluate((s) => { localStorage.setItem('zp.seen.v1', 'true');
         localStorage.setItem('zp.settings.v1', JSON.stringify(
-          { skin: s.skin, difficulty: 'endlos', sound: false, lang: s.lang, partners: true })); },
+          { skin: s.skin, difficulty: 'endlos', sound: false, lang: s.lang, partners: true,
+            kuerzel: 'WWW' })); },
         { skin, lang: sprache });
       await page.reload(); await page.waitForTimeout(700);
 

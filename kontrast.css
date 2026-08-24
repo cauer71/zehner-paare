@@ -298,7 +298,10 @@ body {
   padding: 4px 8px 14px;
   display: flex;
   justify-content: center;
-  align-items: stretch;
+  /* start, nicht stretch: bei stretch bekaeme das Feld genau die sichtbare
+     Hoehe, und jede Zeile, die durch Auffuellen dazukommt, laege ausserhalb
+     seines Rahmens. Die freie Flaeche holt sich das Feld ueber min-height. */
+  align-items: start;
   scroll-padding-block: 12px;
 }
 /* Kein weicher Rand: eine Kante, die verblasst, ist eine Kante, die man
@@ -311,6 +314,8 @@ body {
   gap: var(--gap);
   width: min(100%, calc(var(--cols, 9) * var(--cell-max) + (var(--cols, 9) - 1) * var(--gap)));
   align-content: start;
+  /* Fuellt die freie Flaeche, waechst aber mit den Zeilen darueber hinaus. */
+  min-height: 100%;
   padding: 0;
   border: 0;
   background: transparent;
@@ -750,6 +755,42 @@ body {
 }
 .best-list li:last-child { border-bottom: 0; }
 .best-list b { font-variant-numeric: tabular-nums; font-weight: 900; }
+
+/* --- Kuerzel: die eigene Spalte in der Bestenliste und das Eingabefeld ----- */
+
+/* Der Name steht links und nimmt sich den Platz, das Kuerzel bekommt eine
+   feste Spalte davor: so stehen alle Kuerzel untereinander, statt in jeder
+   Zeile anders auszurichten. */
+.best-list li > span:first-child { flex: 1; }
+.best-list__who {
+  flex: none;
+  min-width: 3.4em;
+  padding-inline-end: 12px;
+  text-align: end;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.initials {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  font-size: .98rem; font-weight: 700;
+}
+.initials__input {
+  width: 6.8em;
+  min-height: 44px;
+  padding: 0 10px;
+  border: var(--strich) solid var(--line);
+  border-radius: 0;
+  background: var(--surface-solid);
+  color: var(--ink);
+  font: inherit; font-weight: 900;
+  font-size: 1.15rem; letter-spacing: .14em; text-align: center; text-transform: uppercase;
+}
+.initials__input::placeholder { color: var(--ink); opacity: .55; }
+.initials--end { justify-content: center; margin-top: 14px; }
+.initials--end[hidden] { display: none; }
 
 /* --- Beispielraster in den Regeln ----------------------------------------- */
 

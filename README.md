@@ -74,6 +74,16 @@ Vorlage war, zeigt nur waagrecht und senkrecht.
   sobald er fällt.
 * Wer seinen Bestwert einer Stufe schlägt, bekommt am Ende eine eigene kleine Feier:
   Strahlenkranz hinter dem Pokal, goldenes Konfetti, hochlaufende Punktzahl.
+* **Kürzel in der Bestenliste.** Zu einem Bestwert gehören drei Zeichen: `A`–`Z` und `0`–`9`,
+  wie am Automaten. Das Feld steht im Enddialog unter den Zahlen und noch einmal in den
+  **Einstellungen → Bestwerte**, dort auch ohne neuen Bestwert. Vorbelegt ist es mit dem
+  letzten Kürzel – wer allein spielt, fasst es nie wieder an; auf einem geteilten Gerät
+  schreibt der Nächste sein eigenes hinein. Gespeichert wird bei jedem Tastendruck und nicht
+  erst auf einen Knopf: der Enddialog lässt sich wegtippen, und ein Kürzel, das dabei
+  verloren geht, tippt niemand ein zweites Mal. Kleinbuchstaben werden groß geschrieben,
+  alles andere fällt weg – die Zeichenmenge ist die der eigenen Pixelschrift, und was die
+  nicht kennt, stünde im Arcade-Stil still als leerer Rahmen da. Das Kürzel bleibt auf dem
+  Gerät: hinaus geht weiterhin kein Name (siehe [Weltweite Zähler](#weltweite-zähler)).
 
 Die **Einstellungen** stehen in fünf aufklappbaren Gruppen – Spiel, Darstellung, Ton &
 Vibration, Sprache, Bestwerte. Vorher war es eine Liste von sieben Abschnitten am Stück, die
@@ -151,6 +161,17 @@ Kombo-Plakette und Hinweise haben eine eigene, feste Zeile zwischen Fortschritts
 Brett (`.ticker`). Vorher schwebten beide über dem Feld und verdeckten je nach Bildschirmhöhe
 bis zu 14 Kacheln – ausgerechnet die eben angehängten.
 
+Das Brett wächst mit seinen Zeilen. Vorher stand `align-items: stretch` am Rahmen
+(`.board-wrap`): das Feld bekam damit genau die sichtbare Höhe, und jede Zeile, die durch
+Auffüllen dazukam, lag außerhalb seiner Fläche. Nach zwei, drei Auffüllen sah man Kacheln
+ohne Brett darunter – die abgerundete Unterkante mitten im Bild, im Arcade-Stil dazu die
+Lichterkette quer über dem Feld. Jetzt hängt das Feld oben (`align-items: start`) und holt
+sich die freie Fläche über `min-height: 100%`: ein kurzes Feld füllt den Platz wie vorher,
+ein langes wächst darüber hinaus, gescrollt wird im Rahmen. Auch der weiche Rand oben und
+unten wird jetzt am Rahmen gemessen und nicht mehr am Feld – das Feld läuft ja nicht mehr
+über. (Der Papier-Stil hatte `start` von Anfang an, weil das Blatt dort oben hängen soll;
+ihm ist das nie passiert.)
+
 ## Drei Sprachen
 
 Deutsch, Italienisch, Englisch. Beim ersten Start nimmt das Spiel die erste Sprache aus
@@ -196,7 +217,7 @@ eingesetzt** und geprüft, ob sie anschlägt – über 320/360/390 px und alle f
 
 Zum Schluss die Abnahme über alles ([`tools/check-ueberlauf.mjs`](tools/check-ueberlauf.mjs)):
 **drei Sprachen × vier Bildschirmbreiten × fünf Stile × sieben Spiellagen = 420 Zustände.** Je
-Zustand vier Fragen ohne Auslegungsspielraum:
+Zustand fünf Fragen ohne Auslegungsspielraum:
 
 1. Scrollt die Seite waagrecht? Das ist die wichtigste Frage – siehe oben, bei `1fr` und
    `flex: 1` schlägt nicht der Knopf an, sondern die Seite.
@@ -206,6 +227,9 @@ Zustand vier Fragen ohne Auslegungsspielraum:
    `Range.getClientRects()` – jede Zeile ist ein eigenes Rechteck. Über die Zeilenhöhe zu
    rechnen ging schief, weil `line-height` mal `normal` und mal eine Zahl ist.
 4. Verlässt eine Einblendung den Meldungsstreifen über dem Brett?
+5. Liegt eine Kachel außerhalb des Bretts? Gemessen wird die Geometrie – Unterkante der
+   letzten Kachel gegen Unterkante des Bretts – und nicht `scrollHeight`: das zählt im
+   Arcade-Stil die Polsterung mit und meldete auch ein Brett, an dem nichts falsch ist.
 
 Die Höhenfrage hat mich dabei zweimal etwas gelehrt. Der erste Durchlauf meldete in **jeder**
 Sprache gleich, dass im Hochkontrast die Ziffer 3 px höher sei als ihre Kachel. Nachgemessen:
@@ -398,6 +422,10 @@ In den Einstellungen unter **Bestwerte** stehen zwei Listen: die Bestwerte diese
 die Weltrekorde je Stufe, dazu die Zahl der weltweit gespielten und gewonnenen Partien. Alles
 anonym – hinaus geht ein Zählimpuls, kein Name, kein Gerät, keine Kennung. Ein Schalter in
 derselben Gruppe stellt das ganz ab; dann geht keine einzige Anfrage hinaus.
+
+Das gilt auch für das Kürzel neben den eigenen Bestwerten: es liegt im `localStorage` dieses
+Geräts, ist kein Konto und geht in keinen Zähler ein. Ein Zähler könnte es auch nicht tragen –
+er kennt nur Zahlen, siehe unten. Die Weltliste zeigt darum Punktestände ohne Namen.
 
 Der Dienst dahinter ist `abacus.jasoncameron.dev`, ein öffentlicher Zähler ohne Anmeldung und
 mit offenem CORS. Er war der einzige von acht geprüften Kandidaten, der ohne Schlüssel und ohne

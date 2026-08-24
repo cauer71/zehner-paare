@@ -194,6 +194,10 @@ const TEXTE = {
     'set.groupLanguage': 'Sprache',
     'set.groupBest': 'Bestwerte',
     'set.bestHere': 'Auf diesem Gerät',
+    // Kuerzel in der Bestenliste: drei Zeichen, mehr passt nicht in die Spalte
+    'set.initials': 'Dein Kürzel',
+    'set.initialsNote': 'Drei Zeichen, Buchstaben oder Ziffern. Sie stehen neben '
+      + 'deinen Bestwerten und bleiben auf diesem Gerät: hinaus geht kein Name.',
     'set.bestWorld': 'Weltweit',
     'set.optWorld': 'Weltweit mitzählen',
     'set.worldNote': 'Hinaus geht nur, was gezählt wird: eine Partie, ein Sieg – und bei einem Rekord der Punktestand samt Stufe. Kein Name, kein Gerät, keine Kennung; die IP-Adresse sieht der Dienst wie jeder Server im Netz. Weil niemand angemeldet ist, kann jeder eintragen, was er will: nimm die Weltwerte als Anhaltspunkt, nicht als Urkunde.',
@@ -407,6 +411,9 @@ const TEXTE = {
     'set.groupLanguage': 'Lingua',
     'set.groupBest': 'Record',
     'set.bestHere': 'Su questo dispositivo',
+    'set.initials': 'La tua sigla',
+    'set.initialsNote': 'Tre caratteri, lettere o cifre. Compaiono accanto ai tuoi '
+      + 'record e restano su questo dispositivo: nessun nome esce da qui.',
     'set.bestWorld': 'Nel mondo',
     'set.optWorld': 'Conta nel mondo',
     'set.worldNote': 'Esce solo ciò che viene contato: una partita, una vittoria – e per un record il punteggio con il livello. Nessun nome, nessun dispositivo, nessun codice; l’indirizzo IP lo vede il servizio come ogni server in rete. Poiché nessuno è registrato, chiunque può scrivere ciò che vuole: prendi i valori mondiali come indicazione, non come certificato.',
@@ -618,6 +625,9 @@ const TEXTE = {
     'set.groupLanguage': 'Language',
     'set.groupBest': 'Best scores',
     'set.bestHere': 'On this device',
+    'set.initials': 'Your initials',
+    'set.initialsNote': 'Three characters, letters or digits. They sit next to your '
+      + 'best scores and stay on this device: no name ever leaves it.',
     'set.bestWorld': 'Worldwide',
     'set.optWorld': 'Count worldwide',
     'set.worldNote': 'Only what gets counted goes out: a game, a win – and for a record the score together with the level. No name, no device, no identifier; the service sees your IP address like any server on the net. Since nobody signs in, anyone can write anything: treat the world figures as a pointer, not a certificate.',
