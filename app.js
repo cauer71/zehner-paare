@@ -10,7 +10,7 @@ import {
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.6.0';
+export const VERSION = '1.6.1';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2', seen: 'zp.seen.v1' };
 
@@ -40,7 +40,6 @@ const DEFAULT_SETTINGS = {
   sound: true,
   vibrate: true,
   partners: false,
-  shuffleRefill: false,
   theme: 'auto',
 };
 
@@ -1129,8 +1128,7 @@ function doUndo() {
 function newGame(difficulty = settings.difficulty) {
   settings.difficulty = difficulty;
   store.set(KEY.settings, settings);
-  state = createGame({ difficulty, diagonal: settings.diagonal, wrap: settings.wrap,
-                       shuffleRefill: settings.shuffleRefill });
+  state = createGame({ difficulty, diagonal: settings.diagonal, wrap: settings.wrap });
   cellEls.forEach((el) => el.remove());
   cellEls = new Map();
   selected = null;
@@ -1294,7 +1292,6 @@ function load() {
   state = restored;
   state.diagonal = settings.diagonal;
   state.wrap = settings.wrap;
-  state.shuffleRefill = settings.shuffleRefill;
   settings.difficulty = state.difficulty in DIFFICULTIES ? state.difficulty : settings.difficulty;
   return true;
 }
@@ -1341,7 +1338,6 @@ function renderSettings() {
   $('#skin-note').hidden = !arcade;
   $('#opt-diagonal').checked = settings.diagonal;
   $('#opt-wrap').checked = settings.wrap;
-  $('#opt-shuffle').checked = settings.shuffleRefill;
   $('#opt-partners').checked = settings.partners;
   $('#opt-sound').checked = settings.sound;
   $('#opt-vibrate').checked = settings.vibrate;
@@ -1421,14 +1417,6 @@ $('#opt-diagonal').addEventListener('change', (e) => {
   settings.diagonal = e.target.checked;
   state.diagonal = settings.diagonal;
   applyRuleChange(settings.diagonal ? 'Diagonale Paare erlaubt.' : 'Diagonale Paare aus.');
-});
-
-$('#opt-shuffle').addEventListener('change', (e) => {
-  settings.shuffleRefill = e.target.checked;
-  state.shuffleRefill = settings.shuffleRefill;
-  applyRuleChange(settings.shuffleRefill
-    ? 'Auffüllen mischt die Zahlen.'
-    : 'Auffüllen hängt in Leserichtung an.');
 });
 
 $('#opt-wrap').addEventListener('change', (e) => {
@@ -1609,7 +1597,6 @@ if (requested || !load()) {
     difficulty: settings.difficulty,
     diagonal: settings.diagonal,
     wrap: settings.wrap,
-    shuffleRefill: settings.shuffleRefill,
   });
   if (requested) saveSettings();
 }

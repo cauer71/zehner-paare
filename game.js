@@ -99,7 +99,6 @@ export function createGame({
   difficulty = 'mittel',
   diagonal = true,
   wrap = true,
-  shuffleRefill = false,
   seed,
 } = {}) {
   const preset = DIFFICULTIES[difficulty] ?? DIFFICULTIES.mittel;
@@ -111,7 +110,6 @@ export function createGame({
     cols: preset.cols,
     diagonal,
     wrap,
-    shuffleRefill,
     seed: rng.seed,
     cells: values.map((v, i) => ({ id: i, v, cleared: false })),
     nextId: values.length,
@@ -425,23 +423,19 @@ function paarweise(werte) {
 }
 
 /**
- * Haengt alle verbliebenen Zahlen an. Zwei Feinheiten:
+ * Haengt alle verbliebenen Zahlen in Leserichtung hinten an - so wie im
+ * Original. Man kann also vorausplanen, welche Zahl nach dem Auffuellen wo
+ * liegt.
  *
- * - Mit state.shuffleRefill kommen sie gemischt statt in Leserichtung. Das ist
- *   eine Einstellung, kein Standard: die Leserichtung beizubehalten heisst,
- *   dass man vorausplanen kann, was nach dem Auffuellen wo liegt.
- * - Ergaebe das Anhaengen ein Feld ohne einen einzigen Zug, werden die Zahlen
- *   paarweise angeordnet. Ein Auffuellen, das sofort in die Sackgasse fuehrt,
- *   ist verlorenes Guthaben und fuehlt sich wie ein Fehler des Spiels an.
+ * Eine einzige Ausnahme: ergaebe das Anhaengen ein Feld ohne einen einzigen
+ * Zug, werden die Zahlen paarweise angeordnet. Ein Auffuellen, das sofort in
+ * die Sackgasse fuehrt, ist verlorenes Guthaben und fuehlt sich wie ein Fehler
+ * des Spiels an.
  */
 export function refill(state) {
   if (state.status === 'won' || state.refillsLeft <= 0) return { ok: false };
-  let rest = state.cells.filter((c) => !c.cleared).map((c) => c.v);
+  const rest = state.cells.filter((c) => !c.cleared).map((c) => c.v);
   if (rest.length === 0) return { ok: false };
-
-  if (state.shuffleRefill) {
-    rest = shuffle([...rest], createRng((state.seed + state.refillsUsed * 7919) >>> 0));
-  }
 
   pushHistory(state);
   let from = anhaengen(state, rest);
@@ -519,7 +513,6 @@ export function deserialize(text) {
       refillPerRound: data.refillPerRound ?? preset.refillPerRound ?? 0,
       refillMax: data.refillMax ?? preset.refills ?? data.refillsLeft ?? 0,
       round: data.round ?? 1,
-      shuffleRefill: data.shuffleRefill ?? false,
       rescuesLeft: data.rescuesLeft ?? 1,
       rescuesUsed: data.rescuesUsed ?? 0,
       history: [],

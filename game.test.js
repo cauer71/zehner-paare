@@ -441,24 +441,3 @@ test('Auffuellen laesst die Leserichtung, wenn es ohnehin einen Zug gibt', () =>
   assert.deepEqual(angehaengt, [3, 7, 4, 4], 'unveraendert in Leserichtung');
 });
 
-test('Gemischtes Auffuellen bleibt bei gleichem Startwert reproduzierbar', () => {
-  const bauen = () => {
-    const s = createGame({ difficulty: 'mittel', seed: 9, shuffleRefill: true });
-    s.cols = 4;
-    s.cells = [1, 2, 3, 4, 5, 6, 7, 8].map((v, i) => ({ id: i, v, cleared: false }));
-    s.nextId = 8;
-    s.refillsLeft = 1;
-    refreshStatus(s);
-    refill(s);
-    return s.cells.slice(8).map((c) => c.v);
-  };
-  assert.deepEqual(bauen(), bauen(), 'zweimal derselbe Startwert, zweimal dieselbe Folge');
-  assert.notDeepEqual(bauen(), [1, 2, 3, 4, 5, 6, 7, 8], 'aber nicht die Leserichtung');
-});
-
-test('shuffleRefill uebersteht Speichern und Laden', () => {
-  const s = createGame({ difficulty: 'mittel', seed: 3, shuffleRefill: true });
-  assert.equal(deserialize(serialize(s)).shuffleRefill, true);
-  const t = createGame({ difficulty: 'mittel', seed: 3 });
-  assert.equal(deserialize(serialize(t)).shuffleRefill, false);
-});
