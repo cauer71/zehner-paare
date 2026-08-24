@@ -309,8 +309,44 @@ def pruefe_abdeckung(cmap):
         raise SystemExit(f'FEHLER: die Woerterbuecher brauchen Zeichen, die diese '
                          f'Schrift nicht hat:\n   {liste}\n'
                          f'   Entweder in G[] dazuzeichnen oder den Text umformulieren.')
+    # Und der Text, der FEST im Markup steht. Der geht nicht durch das
+    # Woerterbuch und waere hier sonst blind - genau so ein Fall ist der
+    # Name des Zaehlerdienstes in den Einstellungen.
+    im_markup = markup_zeichen()
+    fehlen_markup = sorted(c for c in im_markup if ord(c) not in cmap)
+    if fehlen_markup:
+        liste = ' '.join(f'{c!r} U+{ord(c):04X}' for c in fehlen_markup)
+        raise SystemExit(f'FEHLER: fest im Markup stehender Text braucht Zeichen, '
+                         f'die diese Schrift nicht hat:\n   {liste}\n'
+                         f'   Entweder in G[] dazuzeichnen oder den Text umformulieren.')
     print(f'   Abdeckung geprueft: alle {len(gebraucht)} Zeichen der '
-          f'Woerterbuecher sind vorhanden')
+          f'Woerterbuecher und {len(im_markup)} aus index.html sind vorhanden')
+
+
+def markup_zeichen():
+    """Sichtbarer Text aus index.html - nur die Textknoten.
+
+    Vorsicht mit dieser Pruefung: index.html enthaelt ein Kopfskript und
+    SVG-Pfade. Wer die mitliest, meldet {, }, = und Ziffernsalat als fehlend
+    und alarmiert falsch. Eine Pruefung, die falsch alarmiert, ist keine
+    Pruefung - nur eine, die man ignoriert. Darum fliegen Skript, Stil, SVG
+    und Kommentare vorher heraus, und Attribute werden gar nicht betrachtet.
+    """
+    seite = Path(__file__).resolve().parent.parent / 'index.html'
+    if not seite.exists():
+        return set()
+    roh = seite.read_text(encoding='utf-8')
+    roh = re.sub(r'(?is)<!--.*?-->', ' ', roh)
+    roh = re.sub(r'(?is)<(script|style|svg)\b.*?</\1\s*>', ' ', roh)
+    # Was zwischen den Marken steht, ist Text; Marken selbst samt Attributen
+    # bleiben draussen.
+    stuecke = re.findall(r'>([^<]+)<', roh)
+    zeichen = set()
+    for stueck in stuecke:
+        # Benannte Entitaeten wie &nbsp; sind kein sichtbarer Buchstabe.
+        stueck = re.sub(r'&[#\w]+;', ' ', stueck)
+        zeichen |= set(stueck.strip())
+    return zeichen - {' '}
 
 
 if __name__ == '__main__':

@@ -135,12 +135,13 @@ npm run gen:manifests  # die drei Manifeste aus i18n.js neu schreiben
 | `game.test.js` | Regeltests |
 | `app.js` | Oberfläche: Rendering, FLIP-Animationen, Ton, Speicher |
 | `i18n.js` | die drei Sprachen und der Platzhalter-Ersetzer |
+| `online.js` | die weltweiten Zähler (anonym, abschaltbar) |
 | `i18n.test.js` | prüft die Wörterbücher gegeneinander |
 | `index.html` | Markup inkl. Regel-, Einstellungs- und Enddialog |
 | `classic.css`, `material3.css`, `m3-colors.css`, `arcade.css`, `papier.css`, `kontrast.css` | die fünf Stile und die erzeugten M3-Farbrollen |
 | `sw.js` | Offline-Cache |
 | `manifest.{de,it,en}.webmanifest` | erzeugt aus `i18n.js`, je Sprache eines |
-| `tools/` | Erzeuger: M3-Farbrollen, Pixelschrift, Handschrift, Pixel-Icons, App-Icons, Manifeste |
+| `tools/` | Erzeuger (M3-Farbrollen, Pixelschrift, Handschrift, Pixel-Icons, App-Icons, Manifeste) und Prüfungen (`check-ueberlauf.mjs`, `check-platz.mjs`, `check-welt.mjs`) |
 
 Die Logik in `game.js` kennt kein DOM: `createGame`, `canMatch`, `applyMatch`, `refill`,
 `rescue`, `nextRound`, `findPair`, `undo`. Wer eine andere Oberfläche bauen will, braucht nur
@@ -158,7 +159,7 @@ vor dem Bindestrich betrachtet wird. Unter **Einstellungen → Sprache** lässt 
 festnageln; „Automatisch" bleibt am Gerät und merkt auch einen Wechsel dort, ohne Neuladen
 (`languagechange`).
 
-Alles liegt in [`i18n.js`](i18n.js): 160 Sätze je Sprache, ein Ersetzer für `{platzhalter}`,
+Alles liegt in [`i18n.js`](i18n.js): 172 Sätze je Sprache, ein Ersetzer für `{platzhalter}`,
 kein Fremdpaket. Statischer Text hängt über vier Attribute im Markup – `data-i18n`
 (textContent), `data-i18n-html` (für die Sätze mit `<b>`), `data-i18n-aria`, `data-i18n-title` –,
 alles Dynamische geht durch `t()`. `game.js` kennt gar keinen Text mehr: die Schwierigkeiten
@@ -391,6 +392,49 @@ Drei Farben, dicke Linien, nichts bewegt sich.
   deckte gerade die Zahlen zu, um die es geht – bei schnellem Spiel sogar mehrere übereinander.
   Der Punktestand oben ist groß, schwarz und sofort aktuell; das reicht.
 
+## Weltweite Zähler
+
+In den Einstellungen unter **Bestwerte** stehen zwei Listen: die Bestwerte dieses Geräts und
+die Weltrekorde je Stufe, dazu die Zahl der weltweit gespielten und gewonnenen Partien. Alles
+anonym – hinaus geht ein Zählimpuls, kein Name, kein Gerät, keine Kennung. Ein Schalter in
+derselben Gruppe stellt das ganz ab; dann geht keine einzige Anfrage hinaus.
+
+Der Dienst dahinter ist `abacus.jasoncameron.dev`, ein öffentlicher Zähler ohne Anmeldung und
+mit offenem CORS. Er war der einzige von acht geprüften Kandidaten, der ohne Schlüssel und ohne
+Anmeldung wirklich antwortet (jsonblob 403, kvdb.io „email required", counterapi 410/404,
+extendsclass 404, keyvalue.immanuel.co 411). Geprüft wurde auf einem GitHub-Läufer, weil die
+Entwicklungsumgebung nur an Paketregister und GitHub kommt.
+
+**Ein Zähler kennt nur „plus eins" – wie steht dann ein genauer Punktestand darin?** Über den
+Startwert beim Anlegen: `create/:raum/:name?initializer=8450` legt einen Namen mit genau diesem
+Wert an und antwortet beim zweiten Mal mit 409, ohne den Wert anzutasten. Also zeigt ein Zähler
+`best-mittel-gen` auf die laufende Nummer des Rekords, und jede Nummer ist ein eigener Name
+`best-mittel-v3` mit dem Punktestand als Startwert. Lesen kostet zwei Anfragen, ein neuer Rekord
+drei. Wer gleichzeitig einträgt, bekommt 409 und versucht es beim nächsten Partieende erneut.
+
+Gemessene Grenzen, die den Entwurf bestimmt haben:
+
+* **30 Anfragen je 10 Sekunden je Adresse**, dann 429. Deshalb eine eigene Bremse (18 je 10 s,
+  120 ms Abstand) und nach einer 429 eine halbe Minute Funkstille. Ein Verfahren, das einen
+  Rekord durch wiederholtes „plus eins" hochzählt, wäre daran gescheitert.
+* **Ein Schlüssel lebt 6 Monate ab dem Anlegen.** Ein Zugriff verlängert das *nicht* – die Doku
+  behauptet das Gegenteil, gemessen ist es nicht so. Darum sucht das Lesen bis zu drei Nummern
+  zurück, und was fehlt, trägt der nächste Spieler wieder ein: der Eintrag heilt sich selbst.
+* Weltzahlen werden erst geholt, wenn jemand die Gruppe **Bestwerte** aufschlägt, und dann
+  höchstens alle fünf Minuten neu. Wer nur spielen will, wartet auf niemanden.
+
+**Was das nicht ist:** eine Wettkampfliste. Weil niemand angemeldet ist, kann jeder eintragen,
+was er will – das steht auch so in der Oberfläche. Und es ist ein Einzelstück ohne Zusage:
+fällt der Dienst aus, bleibt das Spiel unverändert spielbar, die Weltwerte fehlen dann einfach.
+Beides ist geprüft (`tools/check-welt.mjs`): der Dienst ist dort im Browser nachgebaut, mit
+genau der gemessenen Semantik, und elf Lagen werden abgenommen – erster Rekord, besserer
+Rekord, schwächere Partie, verfallener Schlüssel, 429, Netzausfall, abgeschalteter Schalter,
+die Anzeige selbst, eine Partie mit Rettung (die genau *einmal* zählen darf, obwohl das
+Spielende zweimal durchläuft) und der Klemmfall: geht das Netz zwischen „Stand anlegen" und
+„Zeiger nachziehen" verloren, zeigt der Zeiger auf den alten Stand und jeder weitere Versuch
+trifft auf eine belegte Nummer. Wer dort aufgibt, kommt nie wieder durch – also wird die
+belegte Nummer gelesen, der Zeiger nachgeholt und eine Nummer weiter versucht.
+
 ## Schriften und Lizenzen
 
 * **Nunito** (`fonts/nunito-latin-var.woff2`, 39 kB) – SIL Open Font License 1.1,
@@ -432,6 +476,16 @@ menschliche Fehlgriffe. Daraus stammen unter anderem diese Entscheidungen:
   etwas *mehr* Punkte als ein sauberes – mehr Zahlen heißt mehr Züge. Mit 50 Punkten war beides
   gleichauf, mit 150 liegt sauberes Spiel rund 18 % vorn. Erst damit knackt man den Bestwert
   durch Können statt durch ein schlechtes Feld.
+* **Punkte zählen bezogen auf selbst geholte Zahlen.** Auffüllen hängt die übrigen Zahlen noch
+  einmal an, *verdoppelt* also das Feld. Fünfmal Auffüllen vor dem ersten Zug macht aus 54
+  Zahlen 1728 – in der Oberfläche nachgetippt – und aus 3100 Punkten rund 53000, in Leicht sogar
+  91000. Der Bestwert hätte damit nicht Können belohnt, sondern fünf Tipps auf denselben Knopf.
+  Seither ist ein Treffer weniger wert, je mehr Zahlen man sich selbst geholt hat: doppelt so
+  viele Zahlen, halber Wert. Eine geholte Zahl wiegt dabei anderthalbfach, weil der Kombo-Anlauf
+  einmal je Partie anfällt und auf einem aufgeblähten Feld nicht auffällt; über 300 Partien ×
+  5 Stufen × 4 Spielweisen lag Schummeln bei Gewicht 1,0 noch 6–11 % vorn, bei 1,5 klar hinten
+  (77–84 % von sauberem Spiel). Sauberes Spiel kostet das 1–2 %, im Endlos-Modus 5 %. Neue
+  Runden im Endlos-Modus zählen *nicht* als geholt – sie sind der Lohn fürs leergeräumte Feld.
 * **Verworfen: das Mischen beim Auffüllen.** Über 500 Partien je Stufe hebt es die Siegquote von
   85/79/58 % auf 91/84/67 % – und es nimmt dem Spiel das Vorausplanen: in Leserichtung weiß man,
   welche Zahl nach dem Auffüllen wo liegt. Beides Gründe, beim Original zu bleiben.

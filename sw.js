@@ -1,10 +1,10 @@
 /* Einfacher Offline-Cache: beim Aktivieren alles Noetige ablegen,
    danach Netz zuerst, Cache als Rueckfalloption. */
-const CACHE = 'zehner-paare-1.8.0';
+const CACHE = 'zehner-paare-1.9.0';
 const ASSETS = [
   './', 'index.html',
   'classic.css', 'material3.css', 'm3-colors.css', 'arcade.css', 'papier.css', 'kontrast.css',
-  'app.js', 'game.js', 'i18n.js',
+  'app.js', 'game.js', 'i18n.js', 'online.js',
   'manifest.webmanifest', 'manifest.de.webmanifest',
   'manifest.it.webmanifest', 'manifest.en.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png',
@@ -26,6 +26,12 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  // Nur eigene Dateien anfassen. Die Weltzaehler liegen auf einem fremden
+  // Host: im Zwischenspeicher waeren sie sofort veraltet, und die
+  // Ausweichantwort index.html waere fuer eine Zahlenauskunft blanker Unsinn.
+  let eigen = false;
+  try { eigen = new URL(e.request.url).origin === self.location.origin; } catch { eigen = false; }
+  if (!eigen) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {

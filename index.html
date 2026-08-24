@@ -363,7 +363,20 @@
         <svg class="group__arrow icon" aria-hidden="true"><use href="#i-chevron"></use></svg>
       </summary>
       <div class="group__body">
+        <h3 class="field__title" data-i18n="set.bestHere">Auf diesem Gerät</h3>
         <ul class="best-list" id="best-list"></ul>
+        <p class="field__note" id="own-count"></p>
+        <h3 class="field__title" data-i18n="set.bestWorld">Weltweit</h3>
+        <ul class="best-list" id="world-list"></ul>
+        <p class="field__note" id="world-count"></p>
+        <label class="switch-row">
+          <span class="switch-row__text" data-i18n="set.optWorld">Weltweit mitzählen</span>
+          <span class="switch"><input type="checkbox" id="opt-world"><span class="switch__track"></span></span>
+        </label>
+        <p class="field__note" data-i18n="set.worldNote">Es geht nur ein Zählimpuls hinaus – kein Name, kein Gerät, keine Kennung. Weil niemand angemeldet ist, kann jeder eintragen, was er will: nimm die Weltwerte als Anhaltspunkt, nicht als Urkunde.</p>
+        <!-- Der Hostname braucht keine Uebersetzung, steht aber bewusst da:
+             wer den Schalter sieht, soll auch sehen, wohin gezaehlt wird. -->
+        <p class="field__note">abacus.jasoncameron.dev</p>
       </div>
     </details>
 

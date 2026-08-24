@@ -8,13 +8,15 @@ import {
   wertFaktor,
   partnersOf, refreshStatus, POINTS, rescue,
 } from './game.js';
+import { welt } from './online.js';
 import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js';
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.8.0';
+export const VERSION = '1.9.0';
 
-const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2', seen: 'zp.seen.v1' };
+const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2',
+              seen: 'zp.seen.v1', count: 'zp.count.v1' };
 
 const store = {
   get(key, fallback = null) {
@@ -44,6 +46,7 @@ const DEFAULT_SETTINGS = {
   partners: false,
   theme: 'auto',
   lang: 'auto',             // auto | de | it | en
+  world: true,              // weltweit mitzaehlen (siehe online.js)
 };
 
 let settings = { ...DEFAULT_SETTINGS, ...(store.get(KEY.settings) ?? {}) };
@@ -65,6 +68,12 @@ function gewaehlteSprache() {
 setzeSprache(gewaehlteSprache());
 
 let best = store.get(KEY.best) ?? {};
+
+// Der eigene Zaehler: wie viele Partien auf diesem Geraet gespielt und
+// gewonnen wurden. Bleibt hier, geht nie hinaus.
+let zaehler = { gespielt: 0, gewonnen: 0, ...(store.get(KEY.count) ?? {}) };
+
+welt.schalten(settings.world);
 
 // Die Stile liegen als eigene Stylesheets vor. Was sich darueber hinaus
 // unterscheidet, steht hier: Icon-Satz und Tonstimme. Der Anzeigename kommt
@@ -1301,6 +1310,33 @@ function endGame(won) {
     store.set(KEY.best, best);
   }
 
+  // Eigener Zaehler. Die Merker haengen an der PARTIE, nicht an dieser
+  // Funktion: endGame laeuft mehrfach fuer dieselbe Partie, wenn man aus der
+  // Sackgasse die Rettung nimmt oder aus dem Enddialog zurueckgeht. Ohne die
+  // Merker haette eine Partie mit Rettung zwei- oder dreifach gezaehlt.
+  // Serialisiert werden sie mit, ein neu geladener Spielstand zaehlt also
+  // nicht noch einmal.
+  const ersteZaehlung = !state.gezaehlt;
+  if (ersteZaehlung) {
+    state.gezaehlt = true;
+    zaehler.gespielt += 1;
+  }
+  const ersterSieg = won && !state.siegGezaehlt;
+  if (ersterSieg) {
+    state.siegGezaehlt = true;
+    zaehler.gewonnen += 1;
+  }
+  store.set(KEY.count, zaehler);
+
+  // Weltweit mitzaehlen. Bewusst ohne await: das Ergebnis interessiert erst,
+  // wenn jemand die Bestwerte aufschlaegt, und ein lahmes Netz darf den
+  // Enddialog nicht aufhalten. Der Punktestand geht bei JEDEM Ende hinaus -
+  // nach einer Rettung ist er hoeher, und dann soll auch der Rekord stimmen.
+  welt.partieBeendet({ stufe: key, punkte: state.score, zaehlt,
+                       neuePartie: ersteZaehlung, gewonnen: ersterSieg })
+    .then(() => { if (dlgSettings.open) renderBest(); })
+    .catch(() => {});
+
   $('#end-badge').querySelector('use').setAttribute('href', won ? '#i-trophy' : '#i-sad');
   $('#end-badge').classList.toggle('sad', !won);
   $('#end-title').textContent = won ? t('end.won')
@@ -1516,6 +1552,59 @@ function renderBest() {
     const b = best[key];
     return `<li><span>${diffName(key)}</span><b>${b ? `${zahl(b.score)} · ${fmtTime(b.time)}` : '–'}</b></li>`;
   }).join('');
+  $('#own-count').textContent =
+    t('set.ownCount', { n: zaehler.gespielt, g: zaehler.gewonnen });
+  renderWorld();
+}
+
+/**
+ * Die Weltzahlen. Gezeigt wird immer der letzte bekannte Stand - auch ohne
+ * Netz, auch sofort beim Aufklappen. Nachgeladen wird nur, wenn er alt ist,
+ * und das Ergebnis kommt hier von selbst wieder an.
+ */
+function renderWorld() {
+  const liste = $('#world-list');
+  const note = $('#world-count');
+  if (!liste || !note) return;
+  $('#opt-world').checked = settings.world;
+
+  const w = welt.zwischenstand();
+  liste.innerHTML = Object.keys(DIFFICULTIES).map((key) => {
+    const r = w.rekorde[key];
+    return `<li><span>${diffName(key)}</span><b>${r ? zahl(r) : '–'}</b></li>`;
+  }).join('');
+
+  if (!settings.world) { note.textContent = t('set.worldOff'); return; }
+  if (w.spiele === null) { note.textContent = t('set.worldWaiting'); return; }
+  // Die Zahl der Siege kennt man erst, wenn einmal gelesen oder eine Partie
+  // gewonnen wurde - bis dahin steht nur die Zahl der Partien da. Lieber ein
+  // kuerzerer Satz als eine erfundene Null.
+  // Ohne zahl(): die Nullen davor sind die Sprache des Punktezaehlers am
+  // Automaten (siehe zahl()), in einem Satz waere "000037 Partien" nur
+  // seltsam. Die Bestwerte darueber sind Punktestaende und bleiben aufgefuellt.
+  note.textContent = (w.siege === null
+    ? t('set.worldGames', { n: w.spiele })
+    : t('set.worldCount', { n: w.spiele, g: w.siege }))
+    // Nur ein wirklich gemessenes Alter anzeigen.
+    + (Number.isFinite(w.alter) && w.alter > 60000
+        ? ' ' + t('set.worldOld', { min: Math.round(w.alter / 60000) })
+        : '');
+  // Hinweis: set.worldOld faengt selbst mit " · " an, siehe i18n.test.js.
+}
+
+/**
+ * Holt die Weltzahlen, wenn sie alt sind. Aufgerufen beim Aufschlagen der
+ * Gruppe - nicht beim Start des Spiels: wer nur spielen will, soll auf
+ * niemanden warten und niemandem etwas schicken muessen.
+ */
+let weltLaeuft = false;
+function weltFrischen() {
+  if (!settings.world || weltLaeuft || !welt.veraltet()) return;
+  weltLaeuft = true;
+  welt.lesen(Object.keys(DIFFICULTIES))
+    .then((neu) => { if (neu) renderWorld(); })
+    .catch(() => {})
+    .finally(() => { weltLaeuft = false; });
 }
 
 function saveSettings() {
@@ -1634,6 +1723,12 @@ function initGruppen() {
       store.setRaw('zp.groups.v1', JSON.stringify(
         GRUPPEN.filter((g) => document.getElementById(g)?.open)));
       if (kopf && getippteGruppe?.id === id) haltePosition(kopf);
+      // Die Weltzahlen erst holen, wenn jemand sie auch sehen will. Die
+      // Bedingung auf das offene Blatt ist nicht ueberfluessig: initGruppen
+      // setzt beim Start el.open, und schon das loest ein toggle aus - ohne
+      // die Bedingung wuerde also jeder Programmstart Anfragen hinausschicken,
+      // obwohl niemand nach den Weltzahlen gefragt hat.
+      if (id === 'grp-best' && el.open && dlgSettings.open) weltFrischen();
     });
   }
 }
@@ -1687,6 +1782,14 @@ $('#opt-vibrate').addEventListener('change', (e) => {
   buzz(20);
 });
 
+$('#opt-world').addEventListener('change', (e) => {
+  settings.world = e.target.checked;
+  welt.schalten(settings.world);
+  saveSettings();
+  renderWorld();
+  weltFrischen();
+});
+
 /* ------------------------------------------------------------- Bedienung */
 
 board.addEventListener('click', (e) => {
@@ -1729,7 +1832,11 @@ btnNew.addEventListener('click', () => {
 
 $('#btn-rules').addEventListener('click', () => openSheet(dlgRules));
 $('#btn-rules-2').addEventListener('click', () => { closeSheet(dlgSettings); setTimeout(() => openSheet(dlgRules), 210); });
-$('#btn-settings').addEventListener('click', () => { renderSettings(); openSheet(dlgSettings); });
+$('#btn-settings').addEventListener('click', () => {
+  renderSettings();
+  openSheet(dlgSettings);
+  if (document.getElementById('grp-best')?.open) weltFrischen();
+});
 $('#btn-end-new').addEventListener('click', () => { closeSheet(dlgEnd); newGame(); });
 $('#btn-end-undo').addEventListener('click', () => { closeSheet(dlgEnd); doUndo(); startTimer(); });
 $('#btn-end-rescue').addEventListener('click', doRescue);

@@ -75,6 +75,9 @@ test('angehaengte Teile behalten ihren Anfang', () => {
     const d = woerterbuch(spr) ?? {};
     for (const k of ['diff.noteClassic', 'diff.noteEndless', 'msg.refillWorth'])
       if (d[k]) assert.ok(d[k].startsWith(' · '), `${spr}/${k} faengt nicht mit " · " an`);
+    if (d['set.worldOld'])
+      assert.ok(d['set.worldOld'].startsWith('· '),
+        `${spr}/set.worldOld faengt nicht mit "· " an`);
     for (const k of ['end.savedRefills', 'end.dilute'])
       if (d[k]) assert.ok(d[k].startsWith(' '),
         `${spr}/${k} faengt nicht mit einem Leerzeichen an`);
