@@ -13,6 +13,8 @@
  *
  *   GET /hit/:raum/:name       -> {"value":n}   erhoeht um 1, legt bei Bedarf an
  *   GET /get/:raum/:name       -> {"value":n}   404 {"error":...} wenn es fehlt
+ *   GET /info/:raum/:name      -> 200 {"value":n,"exists":true|false,...}
+ *                                 auch fuer Unbekanntes, darum wird gelesen
  *   GET /create/:raum/:name?initializer=n
  *                              -> 201 {...,"value":n}   oder 409, wenn es
  *                                 den Namen schon gibt (der Wert bleibt dann
@@ -202,12 +204,26 @@ async function durchfuehren(pfad) {
 
 /* ------------------------------------------------------- die drei Befehle */
 
-/** Liest einen Zaehler. null heisst "keine Antwort", 0 heisst "gibt es nicht". */
+/**
+ * Liest einen Zaehler. null heisst "keine Antwort", 0 heisst "gibt es nicht".
+ *
+ * Gefragt wird /info und nicht /get, obwohl beide dasselbe sagen: /get
+ * antwortet auf einen unbekannten Namen mit 404, /info mit 200 und
+ * "exists": false. Beim ersten Start gibt es nichts, also waeren das sieben
+ * rote 404-Zeilen in der Browserkonsole - harmlos, aber sie sehen nach einem
+ * Fehler aus, und eine Abnahmepruefung, die "keine Konsolenfehler" verlangt,
+ * muesste sie einzeln ausnehmen. Lieber gar keine erzeugen: dann darf die
+ * Pruefung streng bleiben.
+ *
+ * Die 404-Behandlung bleibt trotzdem stehen - falls der Dienst /info einmal
+ * anders beantwortet, ist ein fehlender Name weiter ein fehlender Name.
+ */
 async function holen(name) {
-  const a = await anstellen(`/get/${RAUM}/${name}`);
+  const a = await anstellen(`/info/${RAUM}/${name}`);
   if (!a) return null;
   if (a.status === 404) return 0;
   if (a.status !== 200 || typeof a.daten?.value !== 'number') return null;
+  if (a.daten.exists === false) return 0;
   return a.daten.value;
 }
 

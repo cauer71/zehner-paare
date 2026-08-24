@@ -124,6 +124,15 @@ function dienst() {
         if (!werte.has(schluessel)) return json(404, { error: 'Key not found' });
         return json(200, { value: werte.get(schluessel) });
       }
+      if (befehl === 'info') {
+        // Gemessen: auch fuer Unbekanntes 200, mit exists false und value -1.
+        if (!werte.has(schluessel))
+          return json(200, { exists: false, value: -1, is_genuine: true,
+                             expires_in: -2e-9, full_key: `K:${raum}:${name}` });
+        return json(200, { exists: true, value: werte.get(schluessel),
+                           is_genuine: false, expires_in: 14515200,
+                           full_key: `K:${raum}:${name}` });
+      }
       if (befehl === 'create') {
         if (werte.has(schluessel))
           return json(409, { error: 'Key already exists, please use a different key.' });

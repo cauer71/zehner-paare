@@ -422,6 +422,11 @@ Gemessene Grenzen, die den Entwurf bestimmt haben:
   zurück, und was fehlt, trägt der nächste Spieler wieder ein: der Eintrag heilt sich selbst.
 * Weltzahlen werden erst geholt, wenn jemand die Gruppe **Bestwerte** aufschlägt, und dann
   höchstens alle fünf Minuten neu. Wer nur spielen will, wartet auf niemanden.
+* Gelesen wird über `/info` und nicht über `/get`, obwohl beide dasselbe sagen: `/get`
+  antwortet auf einen unbekannten Namen mit 404, `/info` mit 200 und `"exists": false`. Beim
+  ersten Start existiert nichts, das wären also sieben rote 404-Zeilen in der Browserkonsole –
+  harmlos, aber sie sehen nach einem Fehler aus. So darf die Abnahme streng bleiben und
+  „keine Konsolenmeldung" verlangen.
 
 **Was das nicht ist:** eine Wettkampfliste. Weil niemand angemeldet ist, kann jeder eintragen,
 was er will – das steht auch so in der Oberfläche. Und es ist ein Einzelstück ohne Zusage:
