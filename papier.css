@@ -958,6 +958,49 @@ body::before {
 .switch input:checked + .switch__track::after { transform: translateX(20px); background: var(--good); }
 .switch input:focus-visible + .switch__track { outline: 3px solid var(--hintc); outline-offset: 2px; }
 
+
+/* --- Aufklappbare Gruppen in den Einstellungen ---------------------------- */
+
+/*
+ * Die Kopfzeile ist ein Raster mit zwei Spalten und zwei Zeilen: Titel oben
+ * links, Zustand darunter, Pfeil rechts ueber beide Zeilen. Der Zustand
+ * bekommt damit die ganze Breite und darf umbrechen - abgeschnitten wird
+ * nichts, auch nicht bei "Mittel · Diagonal · Umbruch · Partner" auf 320 px.
+ */
+.group { border-bottom: 1.5px solid var(--line); }
+.group__head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1px 10px;
+  padding: 14px 2px;
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.group__head::-webkit-details-marker { display: none; }
+.group__title {
+  grid-column: 1; grid-row: 1;
+  font-size: .95rem; font-weight: 800; color: var(--ink);
+}
+.group__now {
+  grid-column: 1; grid-row: 2;
+  font-size: .78rem; color: var(--ink-soft); line-height: 1.35;
+}
+.group__now:empty { display: none; }
+.group__arrow {
+  grid-column: 2; grid-row: 1 / span 2;
+  width: 20px; height: 20px;
+  flex: none;
+  color: var(--ink-soft);
+  transition: rotate .2s ease;
+}
+.group[open] .group__arrow { rotate: 180deg; }
+.group__head:focus-visible { outline: 3px solid var(--hintc); outline-offset: -2px; }
+.group__body { padding: 2px 2px 18px; }
+.group__body > .field:last-child { margin-bottom: 0; }
+.group__body > .switch-row:last-child { margin-bottom: 0; }
+
 /* --- Felder und Listen ---------------------------------------------------- */
 
 .field { margin: 0 0 20px; }

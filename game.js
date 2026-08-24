@@ -12,16 +12,18 @@
  * hinweg), senkrecht und optional diagonal.
  */
 
+// Kein Anzeigename hier: dieses Modul ist sprachfrei. Wie die Stufen heissen,
+// steht in i18n.js unter diff.* - der Schluessel ist der Name.
 export const DIFFICULTIES = {
-  leicht:    { label: 'Leicht',    rows: 6, cols: 9, mode: 'balanced', refills: 5 },
-  mittel:    { label: 'Mittel',    rows: 8, cols: 9, mode: 'balanced', refills: 4 },
-  schwer:    { label: 'Schwer',    rows: 10, cols: 9, mode: 'random',  refills: 3 },
-  klassisch: { label: 'Klassisch', rows: 3, cols: 9, mode: 'classic',  refills: 5 },
+  leicht:    { rows: 6,  cols: 9, mode: 'balanced', refills: 5 },
+  mittel:    { rows: 8,  cols: 9, mode: 'balanced', refills: 4 },
+  schwer:    { rows: 10, cols: 9, mode: 'random',   refills: 3 },
+  klassisch: { rows: 3,  cols: 9, mode: 'classic',  refills: 5 },
   // Endlos: nach jedem leergeraeumten Feld kommt frischer Nachschub. Gemessen
   // haelt ein Lauf im Mittel 6 Runden, streut aber von 1 bis 26 - damit gibt es
   // endlich ein Ergebnis, das sich zu jagen lohnt.
   endlos: {
-    label: 'Endlos', rows: 6, cols: 9, mode: 'balanced', refills: 3,
+    rows: 6, cols: 9, mode: 'balanced', refills: 3,
     endless: true, newRows: 3, refillPerRound: 1,
   },
 };

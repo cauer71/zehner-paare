@@ -19,6 +19,7 @@ Aufruf:  python3 tools/gen-pixelfont.py
 Braucht: pip install fonttools brotli
 """
 
+import re
 from pathlib import Path
 
 from fontTools.fontBuilder import FontBuilder
@@ -56,6 +57,9 @@ G[','] = ['.....', '.....', '.....', '.....', '.....', '..##.', '..##.', '.##..'
 G['-'] = ['.....', '.....', '.....', '.###.', '.....', '.....', '.....']
 G['.'] = ['.....', '.....', '.....', '.....', '.....', '..##.', '..##.']
 G['/'] = ['....#', '....#', '...#.', '..#..', '.#...', '#....', '#....']
+
+G['«'] = ['.....', '..#.#', '.#.#.', '#.#..', '.#.#.', '..#.#', '.....']
+G['»'] = ['.....', '#.#..', '.#.#.', '..#.#', '.#.#.', '#.#..', '.....']
 
 G['0'] = ['.###.', '#...#', '#..##', '#.#.#', '##..#', '#...#', '.###.']
 G['1'] = ['..#..', '.##..', '..#..', '..#..', '..#..', '..#..', '.###.']
@@ -119,11 +123,19 @@ G['·'] = ['.....', '.....', '..##.', '..##.', '.....', '.....', '.....']   # ·
 G['×'] = ['.....', '#...#', '.#.#.', '..#..', '.#.#.', '#...#', '.....']   # ×
 G['–'] = ['.....', '.....', '.....', '#####', '.....', '.....', '.....']   # –
 G['—'] = ['.....', '.....', '.....', '#####', '.....', '.....', '.....']   # —
-G['“'] = ['.#.#.', '#.#..', '.....', '.....', '.....', '.....', '.....']   # “
-G['”'] = ['.#.#.', '..#.#', '.....', '.....', '.....', '.....', '.....']   # ”
-G['„'] = ['.....', '.....', '.....', '.....', '.#.#.', '#.#..', '.....']   # „
-G['‘'] = ['..#..', '.#...', '.....', '.....', '.....', '.....', '.....']   # ‘
-G['’'] = ['..#..', '...#.', '.....', '.....', '.....', '.....', '.....']   # ’
+# Anfuehrungszeichen: auf 2x5 Pixeln kann man den Punkt am Ende des Striches
+# nicht zeichnen, unterscheidbar sind nur Hoehe und Neigung. Die schliessenden
+# Zeichen neigen sich wie das Komma nach links unten, die oeffnenden nach
+# rechts unten - so bilden auf und zu ein Paar.
+#
+# Wichtig ist das vor allem fuer ' (U+2019): im Italienischen ist es der
+# Apostroph und steht in fast jedem Satz (ALL'ALTRO, UN'ALTRA). Vorher waren
+# die beiden Paare vertauscht, dadurch sah der Apostroph aus wie ein Gravis.
+G['“'] = ['.#.#.', '..#.#', '.....', '.....', '.....', '.....', '.....']   # “ oeffnend
+G['”'] = ['.#.#.', '#.#..', '.....', '.....', '.....', '.....', '.....']   # ” schliessend
+G['„'] = ['.....', '.....', '.....', '.....', '.#.#.', '#.#..', '.....']   # „ tief, oeffnend
+G['‘'] = ['..#..', '...#.', '.....', '.....', '.....', '.....', '.....']   # ‘ oeffnend
+G['’'] = ['..#..', '.#...', '.....', '.....', '.....', '.....', '.....']   # ’ schliessend, Apostroph
 G['…'] = ['.....', '.....', '.....', '.....', '.....', '#.#.#', '.....']   # …
 G['★'] = ['..#..', '.###.', '#####', '.###.', '.###.', '#...#', '.....']   # ★
 G['◀'] = ['....#', '..###', '#####', '#####', '..###', '....#', '.....']   # ◀ Menuecursor
@@ -134,24 +146,42 @@ G['ß'] = ['.##..', '#..#.', '#..#.', '###..', '#..#.', '#..#.', '###..']   # ß
 G['°'] = ['.##..', '#..#.', '.##..', '.....', '.....', '.....', '.....']   # °
 
 # Umlaute: dasselbe Zeichen, zwei Punkte darueber (Zeile 0-1, Spalte 1 und 3)
-UMLAUT = {'Ä': 'A', 'Ö': 'O', 'Ü': 'U'}
+# Zeichen ueber dem Buchstaben: zwei Rasterzeilen (0 und 1), 5 Spalten breit.
+# Frueher gab es hier nur die Umlautpunkte. Mit dem Italienischen kamen Gravis
+# und Akut dazu - deshalb steht das jetzt als Tabelle da und nicht als
+# Wahrheitswert "dots".
+AKZENTE = {
+    'punkte': ('.#.#.', '.#.#.'),
+    'gravis': ('.#...', '..#..'),
+    'akut':   ('...#.', '..#..'),
+}
 
-# Kleinbuchstaben und Kleinumlaute zeigen auf die Grossform: die Schrift ist
-# eine reine Versalienschrift, wie es die Automaten auch waren.
+# Buchstabe mit Zeichen darueber -> (Grundform, Akzent)
+BETONT = {
+    'Ä': ('A', 'punkte'), 'Ö': ('O', 'punkte'), 'Ü': ('U', 'punkte'),
+    'À': ('A', 'gravis'), 'È': ('E', 'gravis'), 'Ì': ('I', 'gravis'),
+    'Ò': ('O', 'gravis'), 'Ù': ('U', 'gravis'),
+    'É': ('E', 'akut'),
+}
+
+# Kleinbuchstaben und betonte Kleinbuchstaben zeigen auf die Grossform: die
+# Schrift ist eine reine Versalienschrift, wie es die Automaten auch waren.
 ALIAS = {chr(c): chr(c - 32) for c in range(ord('a'), ord('z') + 1)}
-ALIAS.update({'ä': 'Ä', 'ö': 'Ö', 'ü': 'Ü'})
+ALIAS.update({'ä': 'Ä', 'ö': 'Ö', 'ü': 'Ü',
+              'à': 'À', 'è': 'È', 'é': 'É', 'ì': 'Ì', 'ò': 'Ò', 'ù': 'Ù'})
 
 
 # ------------------------------------------------------------------ Umrisse
 
-def rects_for(rows, dots=False):
+def rects_for(rows, akzent=None):
     """Bitmuster -> Liste von Rechtecken (x, y, w, h) in Fonteinheiten."""
     boxes = []
     lines = []
-    if dots:
-        # Umlautpunkte in Rasterzeile 0 und 1
-        lines.append((0, '.#.#.'))
-        lines.append((1, '.#.#.'))
+    if akzent:
+        # Das Zeichen ueber dem Buchstaben in Rasterzeile 0 und 1
+        oben, unten = AKZENTE[akzent]
+        lines.append((0, oben))
+        lines.append((1, unten))
     for i, pattern in enumerate(rows):
         lines.append((i + 2, pattern))          # Zeichen beginnt in Rasterzeile 2
 
@@ -187,7 +217,7 @@ def glyph_name(ch):
 
 def main():
     chars = dict(G)
-    for ch, base in UMLAUT.items():
+    for ch, (base, _) in BETONT.items():
         chars[ch] = G[base]
 
     order = ['.notdef'] + [glyph_name(c) for c in chars]
@@ -202,7 +232,7 @@ def main():
 
     for ch, rows in chars.items():
         pen = TTGlyphPen(None)
-        draw(pen, rects_for(rows, dots=ch in UMLAUT))
+        draw(pen, rects_for(rows, akzent=BETONT.get(ch, (None, None))[1]))
         name = glyph_name(ch)
         pen_glyphs[name] = pen.glyph()
         metrics[name] = (ADVANCE, 0)
@@ -245,6 +275,42 @@ def main():
     fb.font.flavor = 'woff2'
     fb.save(str(out))
     print(f'{out.name}: {len(chars)} Zeichen, {len(cmap)} Zuordnungen, {out.stat().st_size} Bytes')
+    pruefe_abdeckung(cmap)
+
+
+def pruefe_abdeckung(cmap):
+    """Deckt die Schrift jeden Buchstaben ab, den das Spiel schreibt?
+
+    Der Arcade-Stil setzt AUSSCHLIESSLICH diese Schrift. Was sie nicht kennt,
+    erscheint als leerer Rahmen (.notdef) - und zwar still, ohne Fehler
+    irgendwo. Genau das war beim Italienischen passiert: à è é ì ù und die
+    Anfuehrungszeichen fehlten, an 15 sichtbaren Stellen.
+
+    Darum liest der Erzeuger die Woerterbuecher und bricht ab, wenn ein
+    Zeichen fehlt. Eine neue Sprache kann so nicht mehr unbemerkt Loecher
+    reissen: entweder man zeichnet das Zeichen dazu oder formuliert um.
+    """
+    i18n = Path(__file__).resolve().parent.parent / 'i18n.js'
+    if not i18n.exists():
+        print('   (i18n.js nicht gefunden, Abdeckung nicht geprueft)')
+        return
+    # Nur die Werte der Woerterbucheintraege, nicht die Kommentare drumherum.
+    text = i18n.read_text(encoding='utf-8')
+    saetze = re.findall(r"^\s*'[\w.]+':\s*(.+?)(?:,\s*)?$", text, re.M)
+    fortsetzung = re.findall(r"^\s*\+\s*('.*?'|\".*?\")\s*,?$", text, re.M)
+    gebraucht = set()
+    for stueck in saetze + fortsetzung:
+        for wort in re.findall(r"'((?:[^'\\]|\\.)*)'|\"((?:[^\"\\]|\\.)*)\"", stueck):
+            gebraucht |= set(wort[0] or wort[1])
+    fehlen = sorted(c for c in gebraucht
+                    if c not in ('\\',) and ord(c) not in cmap)
+    if fehlen:
+        liste = ' '.join(f'{c!r} U+{ord(c):04X}' for c in fehlen)
+        raise SystemExit(f'FEHLER: die Woerterbuecher brauchen Zeichen, die diese '
+                         f'Schrift nicht hat:\n   {liste}\n'
+                         f'   Entweder in G[] dazuzeichnen oder den Text umformulieren.')
+    print(f'   Abdeckung geprueft: alle {len(gebraucht)} Zeichen der '
+          f'Woerterbuecher sind vorhanden')
 
 
 if __name__ == '__main__':

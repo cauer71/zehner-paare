@@ -1,12 +1,15 @@
 {
   "name": "zehner-paare",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "private": true,
   "description": "Zahlen-Streichspiel: gleiche Zahlen oder Summe 10 wegstreichen.",
   "type": "module",
   "scripts": {
-    "test": "node --test game.test.js",
-    "start": "python3 -m http.server 4173"
+    "test": "node --test game.test.js i18n.test.js",
+    "start": "python3 -m http.server 4173",
+    "check:ueberlauf": "node tools/check-ueberlauf.mjs de it en",
+    "check:platz": "node tools/check-platz.mjs",
+    "gen:manifests": "node tools/gen-manifests.mjs"
   },
   "license": "MIT"
 }

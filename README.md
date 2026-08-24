@@ -75,6 +75,14 @@ Vorlage war, zeigt nur waagrecht und senkrecht.
 * Wer seinen Bestwert einer Stufe schlägt, bekommt am Ende eine eigene kleine Feier:
   Strahlenkranz hinter dem Pokal, goldenes Konfetti, hochlaufende Punktzahl.
 
+Die **Einstellungen** stehen in fünf aufklappbaren Gruppen – Spiel, Darstellung, Ton &
+Vibration, Sprache, Bestwerte. Vorher war es eine Liste von sieben Abschnitten am Stück, die
+auf einem Handy nicht mehr auf einen Blick passte. Es ist immer höchstens eine Gruppe offen,
+und welche das war, bleibt gemerkt. Damit man zum Nachsehen nicht aufklappen muss, steht in
+jeder Kopfzeile rechts der aktuelle Zustand („Mittel · Diagonal · Umbruch", „Papier · Auto",
+„Automatisch · Deutsch"). Gebaut mit `<details>`/`<summary>` – Tastatur und Vorlesehilfe
+kommen damit von Haus aus zurecht, ohne eine Zeile Skript für das Auf und Zu.
+
 Spielstand, Einstellungen und Bestwerte liegen im `localStorage` des Geräts. Die Seite lässt
 sich als App zum Startbildschirm hinzufügen und läuft dank Service Worker auch offline.
 
@@ -111,7 +119,10 @@ Regeltests (21 Stück, decken Nachbarschaften, Zeilenentfernung, Auffüllen, Und
 Serialisierung ab):
 
 ```bash
-npm test           # oder: node --test game.test.js
+npm test               # Regeltests und Woerterbuchtests
+npm run check:platz    # wie viel Platz hat jedes Feld? (braucht playwright-core)
+npm run check:ueberlauf  # laeuft irgendwo Text aus seinem Feld?
+npm run gen:manifests  # die drei Manifeste aus i18n.js neu schreiben
 ```
 
 ## Aufbau
@@ -123,10 +134,13 @@ npm test           # oder: node --test game.test.js
 | `manifest.webmanifest` | Web-App-Manifest inkl. Kurzbefehlen |
 | `game.test.js` | Regeltests |
 | `app.js` | Oberfläche: Rendering, FLIP-Animationen, Ton, Speicher |
+| `i18n.js` | die drei Sprachen und der Platzhalter-Ersetzer |
+| `i18n.test.js` | prüft die Wörterbücher gegeneinander |
 | `index.html` | Markup inkl. Regel-, Einstellungs- und Enddialog |
 | `classic.css`, `material3.css`, `m3-colors.css`, `arcade.css`, `papier.css`, `kontrast.css` | die fünf Stile und die erzeugten M3-Farbrollen |
 | `sw.js` | Offline-Cache |
-| `tools/` | Erzeuger: M3-Farbrollen, Pixelschrift, Handschrift, Pixel-Icons, App-Icons |
+| `manifest.{de,it,en}.webmanifest` | erzeugt aus `i18n.js`, je Sprache eines |
+| `tools/` | Erzeuger: M3-Farbrollen, Pixelschrift, Handschrift, Pixel-Icons, App-Icons, Manifeste |
 
 Die Logik in `game.js` kennt kein DOM: `createGame`, `canMatch`, `applyMatch`, `refill`,
 `rescue`, `nextRound`, `findPair`, `undo`. Wer eine andere Oberfläche bauen will, braucht nur
@@ -135,6 +149,94 @@ diese Datei.
 Kombo-Plakette und Hinweise haben eine eigene, feste Zeile zwischen Fortschrittsbalken und
 Brett (`.ticker`). Vorher schwebten beide über dem Feld und verdeckten je nach Bildschirmhöhe
 bis zu 14 Kacheln – ausgerechnet die eben angehängten.
+
+## Drei Sprachen
+
+Deutsch, Italienisch, Englisch. Beim ersten Start nimmt das Spiel die erste Sprache aus
+`navigator.languages`, die es kennt – `de-AT` und `de-CH` zählen als Deutsch, weil nur der Teil
+vor dem Bindestrich betrachtet wird. Unter **Einstellungen → Sprache** lässt sich das
+festnageln; „Automatisch" bleibt am Gerät und merkt auch einen Wechsel dort, ohne Neuladen
+(`languagechange`).
+
+Alles liegt in [`i18n.js`](i18n.js): 160 Sätze je Sprache, ein Ersetzer für `{platzhalter}`,
+kein Fremdpaket. Statischer Text hängt über vier Attribute im Markup – `data-i18n`
+(textContent), `data-i18n-html` (für die Sätze mit `<b>`), `data-i18n-aria`, `data-i18n-title` –,
+alles Dynamische geht durch `t()`. `game.js` kennt gar keinen Text mehr: die Schwierigkeiten
+heißen dort nur noch nach ihrem Schlüssel.
+
+Auch das Manifest ist übersetzt. Es kann sich nicht selbst umschalten, darum gibt es drei
+Dateien, erzeugt von [`tools/gen-manifests.mjs`](tools/gen-manifests.mjs) aus demselben
+Wörterbuch; das Kopfskript hängt `<link rel="manifest">` schon vor dem ersten Bild um. So steht
+im Installationsdialog und auf dem Startbildschirm derselbe Text wie im Spiel.
+
+### Dass der Text nie aus seinem Feld läuft
+
+Das ist bei drei Sprachen die eigentliche Arbeit, und sie wird nicht nach Augenmaß gemacht.
+
+Zuerst **gemessen, wie viel Platz ein Feld hat** – nicht gerechnet. Der erste Versuch, die
+Budgets aus Polstern und Rasterspalten herzuleiten, war um mehr als das Doppelte falsch: bei
+`grid-template-columns: repeat(4, 1fr)` und `flex: 1` wächst nämlich nicht der Knopf über
+seinen Rand, sondern die Spur – und damit die Leiste und die Seite. Der Knopf allein meldet
+dann nie einen Überlauf. Ein Skript schreibt darum immer längeren Text in jedes Feld und
+schaut, wann *irgendetwas* davon anschlägt. Ergebnis für die engste Stelle, die untere
+Knopfleiste bei 320 px, wo die Beschriftung auf `nowrap` steht:
+
+| Feld | Platz |
+|---|---|
+| Zurück / Tipp / Neu | 16–18 Zeichen |
+| Auffüllen / Rettung | 12 Zeichen |
+| Zeit / Runde | 9 Zeichen |
+| Punkte / Übrig | 18 Zeichen |
+| Kombo-Plakette | 30 Zeichen |
+
+Diese Zahlen standen als harte Vorgabe in der Übersetzung, und dieselben Grenzen prüft
+`i18n.test.js` bei jedem Testlauf nach. Danach wird jede einzelne Beschriftung **im Browser
+eingesetzt** und geprüft, ob sie anschlägt – über 320/360/390 px und alle fünf Stile.
+
+Zum Schluss die Abnahme über alles ([`tools/check-ueberlauf.mjs`](tools/check-ueberlauf.mjs)):
+**drei Sprachen × vier Bildschirmbreiten × fünf Stile × sieben Spiellagen = 420 Zustände.** Je
+Zustand vier Fragen ohne Auslegungsspielraum:
+
+1. Scrollt die Seite waagrecht? Das ist die wichtigste Frage – siehe oben, bei `1fr` und
+   `flex: 1` schlägt nicht der Knopf an, sondern die Seite.
+2. Ist bei einem begrenzten Feld der Inhalt breiter als das Feld? `scrollWidth > clientWidth`
+   verrät das auch bei `overflow: visible`.
+3. Braucht eine Beschriftung mehr Zeilen als vorgesehen? Exakt gezählt über
+   `Range.getClientRects()` – jede Zeile ist ein eigenes Rechteck. Über die Zeilenhöhe zu
+   rechnen ging schief, weil `line-height` mal `normal` und mal eine Zahl ist.
+4. Verlässt eine Einblendung den Meldungsstreifen über dem Brett?
+
+Die Höhenfrage hat mich dabei zweimal etwas gelehrt. Der erste Durchlauf meldete in **jeder**
+Sprache gleich, dass im Hochkontrast die Ziffer 3 px höher sei als ihre Kachel. Nachgemessen:
+die Zeilenschachtel ist bei `line-height: 1` 27,7 px hoch, der **Schriftkasten** von Nunito
+aber 1,37 em, also 38 px – und der ragt 1,3 px über den Rahmen. Was da hinausragt, ist
+allerdings leerer Raum über und unter der Ziffer, keine Farbe. Die Prüfung fragt darum jetzt
+nach der **Farbausdehnung** (`actualBoundingBoxAscent/Descent` aus der Kanvas-Metrik) statt
+nach der Schachtel: sie soll melden, wenn Schrift ihr Feld verlässt, und nicht, wenn eine
+Schrift viel Luft mitbringt.
+
+Die erste Fassung dieser Messung war dann selbst falsch – sie schätzte die Zeilenzahl aus
+`scrollHeight` und zählte eine Zeile zu viel, was aus 3 px plötzlich 17 machte. Deshalb steht
+im Prüfskript nur noch **eine** Quelle für die Zeilenzahl, dieselbe `Range`-Zählung wie für
+Frage 3. Eine Prüfung, die falsch alarmiert, ist keine Prüfung – nur eine, die man ignoriert.
+
+Zwei echte Funde kamen dabei heraus, beide hausgemacht:
+
+* In **Material 3** war der Stil-Umschalter eine einzeilige Pille mit `overflow: hidden`. Mit
+  dem fünften Stil reichte der Platz nicht mehr, und „Material 3" wurde **abgeschnitten** –
+  eingeschleppt beim Bau von Papier und Kontrast. Der Umschalter ist jetzt eine
+  umbrechende Chip-Reihe; das entspricht auch der Material-Empfehlung ab vier Optionen.
+* Die **Pixelschrift des Arcade-Stils kannte keine Akzentbuchstaben.** Italienisch braucht
+  à è é ì ù und die französischen Anführungszeichen – an 15 sichtbaren Stellen wären leere
+  Kästchen erschienen, ohne jede Fehlermeldung. Die Diakritika sind jetzt eine Tabelle
+  (Umlautpunkte, Gravis, Akut) statt eines Wahrheitswerts, und
+  [`tools/gen-pixelfont.py`](tools/gen-pixelfont.py) **bricht ab**, wenn ein Wörterbuch ein
+  Zeichen braucht, das die Schrift nicht hat. Eine vierte Sprache kann so nicht mehr still
+  Löcher reißen.
+
+Dabei fiel auch auf, dass „★ EINWURF FREI ★" als deutscher Text mitten in `arcade.css` stand
+und beim Sprachwechsel stehenblieb. Die beiden Attract-Sprüche kommen jetzt aus dem
+Wörterbuch, über CSS-Eigenschaften.
 
 ## Fünf Stile
 
@@ -296,7 +398,8 @@ Drei Farben, dicke Linien, nichts bewegt sich.
 * **Roboto** (`fonts/roboto-latin-var.woff2`, 43 kB) und die **Material Symbols** im
   Icon-Sprite der `index.html` – Apache License 2.0, Volltext in
   [`fonts/APACHE-2.0.txt`](fonts/APACHE-2.0.txt).
-* **ZP Pixel** (`fonts/zp-pixel.woff2`, 1,8 kB), **ZP Hand** (`fonts/zp-hand.woff2`, 4,9 kB)
+* **ZP Pixel** (`fonts/zp-pixel.woff2`, 2,0 kB – 97 Zeichen inkl. Umlauten, Gravis und Akut),
+  **ZP Hand** (`fonts/zp-hand.woff2`, 4,9 kB)
   und die Pixel-Icons – für dieses Projekt gezeichnet, gemeinfrei (CC0). Kein Nachladen von
   fremden Servern, keine Lizenzfrage.
 

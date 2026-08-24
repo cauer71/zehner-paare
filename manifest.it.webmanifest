@@ -1,0 +1,107 @@
+{
+  "id": "./",
+  "name": "Zehner-Paare",
+  "short_name": "Zehner-Paare",
+  "description": "Elimina coppie di numeri: uguali oppure con somma 10. Il classico rompicapo numerico per lo smartphone.",
+  "lang": "it",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait",
+  "theme_color": "#f4f1ea",
+  "background_color": "#f4f1ea",
+  "categories": [
+    "games",
+    "puzzle",
+    "education"
+  ],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "icons/screenshot-spiel.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Spielfeld mit Zahlenkacheln"
+    },
+    {
+      "src": "icons/screenshot-regeln.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Spielregeln"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nuova partita – Facile",
+      "short_name": "Facile",
+      "url": "./?neu=leicht",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Nuova partita – Medio",
+      "short_name": "Medio",
+      "url": "./?neu=mittel",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Nuova partita – Difficile",
+      "short_name": "Difficile",
+      "url": "./?neu=schwer",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

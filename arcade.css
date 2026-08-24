@@ -233,20 +233,30 @@ body::before {
   90% { opacity: .5; }
   91%, 100% { opacity: 1; }
 }
-/* Die Attract-Zeile: wechselt zwischen den beiden Spruechen jedes Automaten. */
+/* Die Attract-Zeile: wechselt zwischen den beiden Spruechen jedes Automaten.
+   Die Sprueche stehen nicht mehr hier, sondern als Eigenschaften, die app.js
+   aus dem Woerterbuch setzt - "EINWURF FREI" war deutscher Text mitten im
+   Stylesheet und blieb beim Sprachwechsel stehen. Die Vorgaben hier sind der
+   Rueckfall, falls das Skript nicht laeuft. */
+:root {
+  --attract-1: "1UP · HIGH SCORE";
+  --attract-2: "★ EINWURF FREI ★";
+}
 .top-app-bar__title::after {
-  content: "1UP · HIGH SCORE";
+  content: var(--attract-1);
   position: absolute;
   left: 0; right: 0; bottom: 0;
   font-size: 8px;
   letter-spacing: 2px;
+  white-space: nowrap;
+  overflow: hidden;
   -webkit-text-fill-color: var(--cyan);
   animation: arc-attract 4s steps(1) infinite;
 }
 @keyframes arc-attract {
-  0%, 45% { content: "1UP · HIGH SCORE"; opacity: 1; }
+  0%, 45% { content: var(--attract-1); opacity: 1; }
   48%, 52% { opacity: 0; }
-  55%, 100% { content: "★ EINWURF FREI ★"; opacity: 1; }
+  55%, 100% { content: var(--attract-2); opacity: 1; }
 }
 .brand-dot {
   -webkit-text-fill-color: var(--magenta-t);
@@ -999,6 +1009,49 @@ body::before {
   box-shadow: 0 0 8px var(--green);
 }
 .switch input:focus-visible + .switch__track { outline: var(--px) solid var(--cyan); outline-offset: 2px; }
+
+
+/* --- Aufklappbare Gruppen in den Einstellungen ---------------------------- */
+
+/*
+ * Die Kopfzeile ist ein Raster mit zwei Spalten und zwei Zeilen: Titel oben
+ * links, Zustand darunter, Pfeil rechts ueber beide Zeilen. Der Zustand
+ * bekommt damit die ganze Breite und darf umbrechen - abgeschnitten wird
+ * nichts, auch nicht bei "Mittel · Diagonal · Umbruch · Partner" auf 320 px.
+ */
+.group { border-bottom: var(--px) solid var(--line); }
+.group__head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1px 10px;
+  padding: 16px 0;
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.group__head::-webkit-details-marker { display: none; }
+.group__title {
+  grid-column: 1; grid-row: 1;
+  font-size: 16px; color: var(--yellow); text-transform: uppercase;
+}
+.group__now {
+  grid-column: 1; grid-row: 2;
+  font-size: 16px; color: var(--cyan); line-height: 1.4;
+}
+.group__now:empty { display: none; }
+.group__arrow {
+  grid-column: 2; grid-row: 1 / span 2;
+  width: 24px; height: 24px;
+  flex: none;
+  color: var(--cyan);
+  transition: rotate .2s ease;
+}
+.group[open] .group__arrow { rotate: 180deg; }
+.group__head:focus-visible { outline: var(--px) solid var(--yellow); outline-offset: -2px; }
+.group__body { padding: 0 0 24px; }
+.group__body > .field:last-child { margin-bottom: 0; }
+.group__body > .switch-row:last-child { margin-bottom: 0; }
 
 /* --- Felder und Listen --------------------------------------------------- */
 

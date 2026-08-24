@@ -7,10 +7,11 @@ import {
   breakCombo, remaining, serialize, deserialize, valuesMatch, findPair, progress,
   partnersOf, refreshStatus, POINTS, rescue,
 } from './game.js';
+import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js';
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.7.1';
+export const VERSION = '1.8.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2', seen: 'zp.seen.v1' };
 
@@ -41,6 +42,7 @@ const DEFAULT_SETTINGS = {
   vibrate: true,
   partners: false,
   theme: 'auto',
+  lang: 'auto',             // auto | de | it | en
 };
 
 let settings = { ...DEFAULT_SETTINGS, ...(store.get(KEY.settings) ?? {}) };
@@ -53,17 +55,35 @@ if (!store.get('zp.migrated.partners.v1')) {
   store.set('zp.migrated.partners.v1', true);
   store.set(KEY.settings, settings);
 }
+// Vor allem anderen: die Sprache. Danach liefert t() die richtigen Saetze,
+// und alles Folgende - Stilnamen, Schwierigkeitsnamen, Meldungen - stimmt.
+function gewaehlteSprache() {
+  return settings.lang === 'auto' || !(settings.lang in SPRACHEN)
+    ? spracheVomGeraet() : settings.lang;
+}
+setzeSprache(gewaehlteSprache());
+
 let best = store.get(KEY.best) ?? {};
 
 // Die Stile liegen als eigene Stylesheets vor. Was sich darueber hinaus
-// unterscheidet, steht hier: Anzeigename, Icon-Satz und Tonstimme.
+// unterscheidet, steht hier: Icon-Satz und Tonstimme. Der Anzeigename kommt
+// aus dem Woerterbuch - kurz fuer den Chip, lang fuer die Meldung.
 const SKINS = {
-  classic:  { label: 'Original', icons: 'i', voice: 'soft' },
-  m3:       { label: 'Material 3', icons: 'i', voice: 'soft' },
-  arcade:   { label: 'Arcade', icons: 'px', voice: 'chip' },
-  papier:   { label: 'Papier & Bleistift', icons: 'i', voice: 'soft' },
-  kontrast: { label: 'Hochkontrast', icons: 'i', voice: 'soft' },
+  classic:  { icons: 'i', voice: 'soft' },
+  m3:       { icons: 'i', voice: 'soft' },
+  arcade:   { icons: 'px', voice: 'chip' },
+  papier:   { icons: 'i', voice: 'soft' },
+  kontrast: { icons: 'i', voice: 'soft' },
 };
+
+/** Langer Name eines Stils, fuer die Meldung nach dem Umschalten. */
+function skinName(key) {
+  return t(`skin.${key}.long`) !== `skin.${key}.long`
+    ? t(`skin.${key}.long`) : t(`skin.${key}`);
+}
+
+/** Name einer Schwierigkeit. game.js kennt nur die Schluessel. */
+function diffName(key) { return t(`diff.${key}`); }
 
 
 /* ------------------------------------------------------------------- DOM */
@@ -477,6 +497,56 @@ const sfx = {
   comboUp: (level) => voice().comboUp(level),
 };
 
+/* ---------------------------------------------------------------- Sprache */
+
+/**
+ * Schreibt alle Texte des Markups neu. Vier Attribute, vier Ziele:
+ *
+ *   data-i18n        -> textContent
+ *   data-i18n-html   -> innerHTML  (nur fuer Saetze mit <b> aus dem eigenen
+ *                       Woerterbuch; es kommt nichts von aussen herein)
+ *   data-i18n-aria   -> aria-label
+ *   data-i18n-title  -> title
+ *
+ * Das laeuft bei jedem Sprachwechsel ueber die ganze Seite. Bei knapp 80
+ * Stellen ist das billiger, als einzelne Verweise zu pflegen - und es kann
+ * nichts vergessen werden.
+ */
+function applyTexts() {
+  const doc = document;
+  doc.documentElement.lang = SPRACHEN[sprache()]?.htmlLang ?? 'de';
+  doc.title = t('doc.title');
+  const beschreibung = doc.querySelector('meta[name="description"]');
+  if (beschreibung) beschreibung.setAttribute('content', t('doc.description'));
+
+  // Die zwei Sprueche der Arcade-Attract-Zeile stehen in CSS-Eigenschaften,
+  // weil sie aus ::after-Inhalt kommen. Die Anfuehrungszeichen gehoeren dazu:
+  // content erwartet eine Zeichenkette.
+  const wurzel = doc.documentElement;
+  wurzel.style.setProperty('--attract-1', JSON.stringify(t('arcade.attract1')));
+  wurzel.style.setProperty('--attract-2', JSON.stringify(t('arcade.attract2')));
+
+  const manifest = doc.querySelector('link[rel="manifest"]');
+  if (manifest) manifest.href = `manifest.${sprache()}.webmanifest`;
+
+  for (const el of doc.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  for (const el of doc.querySelectorAll('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
+  for (const el of doc.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', t(el.dataset.i18nAria));
+  for (const el of doc.querySelectorAll('[data-i18n-title]')) el.setAttribute('title', t(el.dataset.i18nTitle));
+}
+
+/**
+ * Stellt die Sprache um und zeichnet alles neu, was Text enthaelt: Markup,
+ * Statuszeile, Kacheln (deren aria-label), Blaetter, Enddialog.
+ */
+function applyLanguage() {
+  setzeSprache(gewaehlteSprache());
+  applyTexts();
+  renderBoard();          // die Vorlesetexte der Kacheln haengen an der Sprache
+  updateStats();
+  renderSettings();
+}
+
 /* ------------------------------------------------------------- Darstellung */
 
 /**
@@ -561,8 +631,8 @@ function labelFor(i) {
   const c = (i % cols) + 1;
   const cell = state.cells[i];
   return cell.cleared
-    ? `Zeile ${r}, Spalte ${c}, leer`
-    : `Zeile ${r}, Spalte ${c}, Zahl ${cell.v}`;
+    ? t('cell.labelEmpty', { row: r, col: c })
+    : t('cell.label', { row: r, col: c, v: cell.v });
 }
 
 /**
@@ -661,7 +731,7 @@ function updateStats({ bumpScore = false } = {}) {
   // Enddialog laesst sich wegtippen - ohne das hier waere die Rettung dann
   // nicht mehr erreichbar.
   const rettungDa = state.status === 'stuck' && state.rescuesLeft > 0;
-  refillLabel.textContent = rettungDa ? 'Rettung' : 'Auffüllen';
+  refillLabel.textContent = rettungDa ? t('bar.rescue') : t('bar.refill');
   refillCount.hidden = rettungDa;
   refillCount.textContent = String(state.refillsLeft);
   btnRefill.classList.toggle('fab--rescue', rettungDa);
@@ -683,28 +753,30 @@ function updateStats({ bumpScore = false } = {}) {
   const card = $('#card-score');
   if (note) {
     if (!record) {
-      note.textContent = 'noch kein Rekord';
+      note.textContent = t('hud.noRecord');
       card?.classList.remove('beaten');
     } else if (state.score > record.score) {
       note.textContent = settings.skin === 'arcade'
-        ? `HI ${zahl(record.score)} geknackt`
-        : `Rekord ${record.score} geknackt`;
+        ? t('hud.recordBeatenArcade', { score: zahl(record.score) })
+        : t('hud.recordBeaten', { score: record.score });
       card?.classList.add('beaten');
       if (!recordHit && state.status === 'playing') {
         recordHit = true;
-        toast(`Rekord! ${record.score} Punkte übertroffen`);
+        toast(t('msg.recordLive', { score: record.score }));
         sfx.recordLive();
         buzz([15, 40, 15]);
       }
     } else {
-      note.textContent = settings.skin === 'arcade' ? `HI ${zahl(record.score)}` : `Rekord ${record.score}`;
+      note.textContent = settings.skin === 'arcade'
+        ? t('hud.recordArcade', { score: zahl(record.score) })
+        : t('hud.record', { score: record.score });
       card?.classList.remove('beaten');
     }
   }
 
   const labelTime = $('#label-time');
   if (labelTime) {
-    labelTime.textContent = state.endless ? 'Runde' : 'Zeit';
+    labelTime.textContent = state.endless ? t('hud.round') : t('hud.time');
     if (state.endless) elTime.textContent = String(state.round);
   }
 
@@ -722,7 +794,7 @@ function updateStats({ bumpScore = false } = {}) {
     pf.style.width = `${(anteil * 100).toFixed(2)}%`;
   }
   if (state.combo >= 2) {
-    elCombo.textContent = `Kombo ×${Math.min(state.combo, POINTS.maxCombo)}`;
+    elCombo.textContent = t('combo.badge', { n: Math.min(state.combo, POINTS.maxCombo) });
     elCombo.classList.add('show');
   } else {
     elCombo.classList.remove('show');
@@ -806,11 +878,14 @@ let comboLevel = 1;    // Stufe, die schon gefeiert wurde; 0 oder 1 = keine Komb
 let popToken = 0;      // laufende Nummer, entwertet Nachlaeufer eines abgeloesten Pops
 const fxLog = [];      // nur fuer die automatische Pruefung
 
-const POP_WORT = {
-  2: 'Kombo ×2', 3: 'Kombo ×3', 4: 'Kombo ×4',
-  5: 'Stark! ×5', 6: 'Kombo ×6', 7: 'Heiß! ×7',
-  8: 'Irre! ×8', 9: 'Kombo ×9', 10: 'Maximum ×10',
-};
+/** Der Schriftzug je Kombostufe. Steht im Woerterbuch, je Sprache eigen. */
+function popWort(level) {
+  // Faellt der Schluessel weg - etwa weil eine Sprache eine Stufe vergisst -,
+  // steht sonst "combo.pop.7" im Bild. Dann lieber die schlichte Plakette.
+  const schluessel = `combo.pop.${level}`;
+  const wort = t(schluessel, { n: level });
+  return wort === schluessel ? t('combo.badge', { n: level }) : wort;
+}
 /*
  * Wie lange die Einblendung steht. Der Anschlag dauert nur rund 220 ms, den
  * Rest steht die Schrift unbewegt da: bei 1600 ms sind das gut 1090 ms zum
@@ -829,7 +904,7 @@ function playComboPop(level) {
   if (!comboPop) return;
 
   const meine = ++popToken;
-  comboPop.textContent = POP_WORT[level] ?? `Kombo ×${level}`;
+  comboPop.textContent = popWort(level);
   comboPop.dataset.level = String(level);
   tickerEl.classList.add('pop');      // die kleine Plakette weicht
   // Abloesen statt stapeln: Klasse weg, Umbruch erzwingen, Klasse neu. Ohne
@@ -941,7 +1016,7 @@ function select(i) {
   }
   sfx.select();
   buzz(8);
-  announce(`${state.cells[i].v} ausgewählt`);
+  announce(t('live.selected', { v: state.cells[i].v }));
 }
 
 function flash(el, cls, ms) {
@@ -962,8 +1037,8 @@ function rejectPair(i, j) {
   if (tipsShown < 3) {
     tipsShown += 1;
     toast(valuesMatch(a.v, b.v)
-      ? `${a.v} und ${b.v} passen – nur nicht benachbart.`
-      : `${a.v} und ${b.v} – weder gleich noch Summe 10.`);
+      ? t('msg.pairNotAdjacent', { a: a.v, b: b.v })
+      : t('msg.pairNoMatch', { a: a.v, b: b.v }));
   }
   clearSelection();
   updateStats();
@@ -986,14 +1061,15 @@ function doMatch(i, j) {
   // Beides gleichzeitig waeren zwei Tonfolgen uebereinander - Matsch.
   if (!comboStep(res.multiplier)) sfx.match(res.multiplier);
   buzz(14);
-  announce(`${values[0]} und ${values[1]} gestrichen, ${res.points} Punkte`);
+  announce(t('live.cleared', { a: values[0], b: values[1], points: res.points }));
   updateStats({ bumpScore: true });
 
   const structural = res.removedRows.length > 0 || !!res.round;
   if (structural) {
     locked = true;
     sfx.row();
-    floaterAt(elI, res.removedRows.length > 1 ? `${res.removedRows.length} Zeilen!` : 'Zeile frei!');
+    floaterAt(elI, res.removedRows.length > 1
+      ? t('fx.rowsFree', { n: res.removedRows.length }) : t('fx.rowFree'));
   }
 
   const liveIds = new Set(state.cells.map((c) => c.id));
@@ -1004,10 +1080,10 @@ function doMatch(i, j) {
     locked = false;
     updateStats();
     if (res.round) {
-      toast(`Runde ${res.round.round} · +${res.round.bonus} · ein Auffüllen zurück`, 3000);
+      toast(t('msg.round', { n: res.round.round, bonus: res.round.bonus }), 3000);
       sfx.round();
       buzz([20, 50, 20]);
-      announce(`Runde ${res.round.round}`);
+      announce(t('live.round', { n: res.round.round }));
     }
     afterMove();
   };
@@ -1026,7 +1102,7 @@ function afterMove() {
   if (state.status === 'stuck') { endGame(false); return; }
   if (!findPair(state)) {
     btnRefill.classList.add('urge');
-    toast('Kein Zug mehr – bitte auffüllen.', 3200);
+    toast(t('msg.noMoveRefill'), 3200);
   } else {
     btnRefill.classList.remove('urge');
   }
@@ -1063,7 +1139,7 @@ function doHint() {
   if (locked || state.status !== 'playing') return;
   const pair = hint(state);
   if (!pair) {
-    toast(state.refillsLeft > 0 ? 'Kein Zug mehr – bitte auffüllen.' : 'Kein Zug mehr möglich.');
+    toast(state.refillsLeft > 0 ? t('msg.noMoveRefill') : t('msg.noMove'));
     return;
   }
   clearSelection();
@@ -1080,14 +1156,14 @@ function doHint() {
   const el = elAt(pair[0]);
   el?.scrollIntoView({ block: 'nearest', behavior: reduceMotion.matches ? 'auto' : 'smooth' });
   sfx.hint();
-  announce(`Tipp: ${state.cells[pair[0]].v} und ${state.cells[pair[1]].v}`);
+  announce(t('live.hint', { a: state.cells[pair[0]].v, b: state.cells[pair[1]].v }));
   save();
 }
 
 function doRefill() {
   if (locked || state.status !== 'playing') return;
   const res = refill(state);
-  if (!res.ok) { toast('Kein Auffüllen mehr übrig.'); return; }
+  if (!res.ok) { toast(t('msg.noRefill')); return; }
   clearSelection();
   clearHint();
   syncComboLevel();
@@ -1096,8 +1172,8 @@ function doRefill() {
   updateStats();
   sfx.refill();
   buzz(20);
-  announce(`${res.added} Zahlen angehängt`);
-  toast(`${res.added} Zahlen angehängt · noch ${state.refillsLeft}×`);
+  announce(t('live.refilled', { n: res.added }));
+  toast(t('msg.refilled', { n: res.added, left: state.refillsLeft }));
   elAt(res.from)?.scrollIntoView({ block: 'nearest', behavior: reduceMotion.matches ? 'auto' : 'smooth' });
   save();
   if (state.status === 'stuck') endGame(false);
@@ -1122,8 +1198,8 @@ function doRescue() {
   startTimer();
   sfx.rescue();
   buzz([12, 30, 12]);
-  announce(`Rettung: ${res.added} Zahlen noch einmal auf dem Feld`);
-  toast('Rettung! Noch eine Chance.', 2800);
+  announce(t('live.rescued', { n: res.added }));
+  toast(t('msg.rescue'), 2800);
   elAt(res.from)?.scrollIntoView({ block: 'nearest', behavior: reduceMotion.matches ? 'auto' : 'smooth' });
   save();
   // Auch nach der Rettung kann es sofort wieder aus sein
@@ -1142,7 +1218,7 @@ function doUndo() {
   updateStats();
   btnRefill.classList.remove('urge');
   sfx.undo();
-  announce('Zug zurückgenommen');
+  announce(t('live.undone'));
   save();
 }
 
@@ -1165,12 +1241,12 @@ function newGame(difficulty = settings.difficulty) {
   syncComboLevel();
   startTimer(true);
   save();
-  announce(`Neues Spiel: ${DIFFICULTIES[difficulty].label}`);
+  announce(t('live.newGame', { label: diffName(difficulty) }));
   // "Warum kommen immer dieselben Zahlen?" - weil das in Klassisch so
   // gehoert: das Startfeld ist die Ziffernfolge 1 bis 19 ohne 10, jedes Mal
   // dieselbe. Das steht zwar unter den Schwierigkeiten, aber wer auf "Neu"
   // tippt, schaut nicht in die Einstellungen. Also hier, im Moment der Frage.
-  if (difficulty === 'klassisch') toast('Klassisch: immer dasselbe Startfeld');
+  if (difficulty === 'klassisch') toast(t('msg.classicFixed'));
 }
 
 /** Laesst eine Zahl hochlaufen – der kleine Trommelwirbel am Spielende. */
@@ -1200,7 +1276,7 @@ function endGame(won) {
   state.combo = 0;
   elCombo.classList.remove('show');
   syncComboLevel();
-  const label = DIFFICULTIES[state.difficulty]?.label ?? state.difficulty;
+  const label = diffName(state.difficulty);
   const key = state.difficulty;
   const previous = best[key];
   // Im Endlos-Modus endet jeder Lauf in der Sackgasse – dort zaehlt der
@@ -1217,28 +1293,30 @@ function endGame(won) {
 
   $('#end-badge').querySelector('use').setAttribute('href', won ? '#i-trophy' : '#i-sad');
   $('#end-badge').classList.toggle('sad', !won);
-  $('#end-title').textContent = won ? 'Feld leer geräumt!'
-    : (state.endless ? `Lauf beendet · Runde ${state.round}` : 'Keine Züge mehr');
+  $('#end-title').textContent = won ? t('end.won')
+    : (state.endless ? t('end.endlessOver', { n: state.round }) : t('end.stuck'));
   // Der Bonus fuers Sparen ist die einzige Stellschraube, mit der man den
   // Bestwert durch Koennen statt durch Glueck knackt – also benennen.
   const gespart = state.refillsLeft > 0
-    ? ` ${state.refillsLeft}× Auffüllen gespart: +${state.refillsLeft * POINTS.refillLeft}.`
+    ? t('end.savedRefills', { n: state.refillsLeft,
+                              points: state.refillsLeft * POINTS.refillLeft })
     : '';
   $('#end-text').textContent = won
     ? (isRecord
-        ? (previous ? `${label} · dein bisher bester Lauf, vorher ${previous.score}.`
-                    : `${label} · dein erster Sieg auf dieser Stufe.`)
-        : `Sauber gespielt bei ${label}.`) + gespart
+        ? (previous ? t('end.wonBest', { label, prev: previous.score })
+                    : t('end.wonFirst', { label }))
+        : t('end.wonClean', { label })) + gespart
     : (state.status === 'stuck' && state.rescuesLeft > 0
-        ? `Nur noch ${remaining(state)} Zahlen – die Rettung legt sie dir noch einmal aufs Feld.`
+        ? t('end.rescueOffer', { n: remaining(state) })
         : state.endless
-          ? `Bis Runde ${state.round} gekommen. Ein Zug zurück hält den Lauf am Leben.`
-          : 'Kein Paar mehr übrig und kein Auffüllen mehr. Nimm einen Zug zurück oder starte neu.');
+          ? t('end.endlessTip', { n: state.round })
+          : t('end.deadEnd'));
   $('#end-stats').innerHTML = [
-    ['Punkte', zahl(state.score), ' id="end-score"'],
-    state.endless ? ['Runden', state.round] : ['Zeit', fmtTime(state.elapsed)],
-    ['Züge', state.matches],
-    ['Beste Kombo', `×${Math.min(state.bestCombo, POINTS.maxCombo)}`],
+    [t('end.statScore'), zahl(state.score), ' id="end-score"'],
+    state.endless ? [t('end.statRounds'), state.round]
+                  : [t('end.statTime'), fmtTime(state.elapsed)],
+    [t('end.statMoves'), state.matches],
+    [t('end.statCombo'), `×${Math.min(state.bestCombo, POINTS.maxCombo)}`],
   ].map(([k, v, attr = '']) => `<div><dt>${k}</dt><dd${attr}>${v}</dd></div>`).join('');
   // Nach einem Sieg lockt "Nochmal", in der Sackgasse ist Weiterspielen das
   // bessere Angebot – der jeweils sinnvollere Knopf wird der gefuellte.
@@ -1251,7 +1329,7 @@ function endGame(won) {
   btnUndoEnd.hidden = won || !canUndo(state);
   btnUndoEnd.classList.toggle('button--filled', !won && !rettungDa);
   btnNewEnd.classList.toggle('button--filled', won);
-  btnNewEnd.textContent = won ? 'Nochmal' : 'Neues Spiel';
+  btnNewEnd.textContent = won ? t('end.again') : t('end.newGame');
 
   // Bestwert: eigenes Band, Strahlenkranz, goldenes Konfetti, hochlaufende Punktzahl
   const ribbon = $('#end-record');
@@ -1259,7 +1337,7 @@ function endGame(won) {
   dlgEnd.classList.toggle('is-record', isRecord);
   if (isRecord) {
     const plus = previous ? state.score - previous.score : 0;
-    ribbon.textContent = plus > 0 ? `★ Neuer Bestwert · +${plus}` : '★ Neuer Bestwert';
+    ribbon.textContent = plus > 0 ? t('end.recordPlus', { plus }) : t('end.record');
   }
 
   if (won || (state.endless && isRecord)) {
@@ -1359,9 +1437,16 @@ function renderSettings() {
   for (const btn of document.querySelectorAll('#seg-skin button')) {
     btn.setAttribute('aria-pressed', String(btn.dataset.value === settings.skin));
   }
+  for (const btn of document.querySelectorAll('#seg-lang button')) {
+    btn.setAttribute('aria-pressed', String(btn.dataset.value === settings.lang));
+  }
   const arcade = settings.skin === 'arcade';
-  $('#seg-theme').hidden = arcade;
+  $('#theme-field').hidden = arcade;
   $('#skin-note').hidden = !arcade;
+  $('#lang-note').textContent = settings.lang === 'auto'
+    ? t('set.langAutoNote', { label: SPRACHEN[sprache()].label })
+    : '';
+  $('#lang-note').hidden = settings.lang !== 'auto';
   $('#opt-diagonal').checked = settings.diagonal;
   $('#opt-wrap').checked = settings.wrap;
   $('#opt-partners').checked = settings.partners;
@@ -1372,16 +1457,53 @@ function renderSettings() {
   if (stamp) stamp.textContent = `Zehner-Paare ${VERSION}`;
   const d = DIFFICULTIES[settings.difficulty];
   $('#difficulty-note').textContent =
-    `${d.rows} × ${d.cols} Felder · ${d.refills}× Auffüllen`
-    + (settings.difficulty === 'klassisch' ? ' · immer dasselbe Startfeld, das Papier-Original (1–19 ohne 10)' : '')
-    + (settings.difficulty === 'endlos' ? ` · je Runde ${d.newRows} neue Zeilen, +${d.refillPerRound}× Auffüllen, kein Ende` : '');
+    t('diff.note', { rows: d.rows, cols: d.cols, refills: d.refills })
+    + (settings.difficulty === 'klassisch' ? t('diff.noteClassic') : '')
+    + (settings.difficulty === 'endlos'
+        ? t('diff.noteEndless', { rows: d.newRows, refills: d.refillPerRound }) : '');
+  renderGroupSummaries();
   renderBest();
 }
 
+/**
+ * Was in jeder Gruppenkopfzeile rechts steht. Ohne das muesste man jede
+ * Gruppe aufklappen, nur um zu sehen, was eingestellt ist - dann waere mit
+ * dem Zusammenklappen nichts gewonnen.
+ */
+function renderGroupSummaries() {
+  const an = [];
+  if (settings.diagonal) an.push(t('set.nowDiagonal'));
+  if (settings.wrap) an.push(t('set.nowWrap'));
+  if (settings.partners) an.push(t('set.nowPartners'));
+  setzeNow('#now-game', [diffName(settings.difficulty), ...an].join(' · '));
+
+  const farbe = settings.skin === 'arcade' ? null : t(`theme.${settings.theme}`);
+  setzeNow('#now-look', [t(`skin.${settings.skin}`), farbe].filter(Boolean).join(' · '));
+
+  const ton = [];
+  if (settings.sound) ton.push(t('set.optSound'));
+  if (settings.vibrate) ton.push(t('set.optVibrate'));
+  setzeNow('#now-sound', ton.length ? ton.join(' · ') : t('set.nowNothing'));
+
+  setzeNow('#now-lang', settings.lang === 'auto'
+    ? `${t('set.langAuto')} · ${SPRACHEN[sprache()].label}`
+    : SPRACHEN[settings.lang]?.label ?? '');
+
+  const wieViele = Object.keys(DIFFICULTIES).filter((k) => best[k]).length;
+  setzeNow('#now-best', wieViele
+    ? t('set.nowBest', { n: wieViele, von: Object.keys(DIFFICULTIES).length })
+    : t('set.nowNoBest'));
+}
+
+function setzeNow(sel, text) {
+  const el = $(sel);
+  if (el) el.textContent = text;
+}
+
 function renderBest() {
-  $('#best-list').innerHTML = Object.entries(DIFFICULTIES).map(([key, d]) => {
+  $('#best-list').innerHTML = Object.entries(DIFFICULTIES).map(([key]) => {
     const b = best[key];
-    return `<li><span>${d.label}</span><b>${b ? `${zahl(b.score)} · ${fmtTime(b.time)}` : '–'}</b></li>`;
+    return `<li><span>${diffName(key)}</span><b>${b ? `${zahl(b.score)} · ${fmtTime(b.time)}` : '–'}</b></li>`;
   }).join('');
 }
 
@@ -1395,7 +1517,7 @@ $('#seg-difficulty').addEventListener('click', (e) => {
   const value = btn.dataset.value;
   if (value === settings.difficulty && state.moves === 0) return;
   if (state.moves > 0 && state.status === 'playing' &&
-      !confirm('Neues Spiel starten? Die laufende Partie geht verloren.')) return;
+      !confirm(t('msg.confirmNew'))) return;
   newGame(value);
   renderSettings();
 });
@@ -1408,7 +1530,8 @@ $('#seg-skin').addEventListener('click', (e) => {
   saveSettings();
   renderSettings();
   renderBoard();
-  toast(`Stil: ${SKINS[settings.skin]?.label ?? 'Original'}`);
+  updateStats();
+  toast(t('msg.style', { label: skinName(settings.skin) }));
 });
 
 $('#seg-theme').addEventListener('click', (e) => {
@@ -1419,6 +1542,45 @@ $('#seg-theme').addEventListener('click', (e) => {
   saveSettings();
   renderSettings();
 });
+
+$('#seg-lang').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn || btn.dataset.value === settings.lang) return;
+  settings.lang = btn.dataset.value;
+  saveSettings();
+  applyLanguage();
+  toast(t('msg.language', { label: SPRACHEN[sprache()].label }));
+});
+
+// Wer die Sprache dem Geraet ueberlaesst, soll es auch merken, wenn sie sich
+// dort aendert - ohne die Seite neu zu laden.
+window.addEventListener('languagechange', () => {
+  if (settings.lang === 'auto') applyLanguage();
+});
+
+/*
+ * Welche Gruppe der Einstellungen offen ist, bleibt gemerkt. Sonst muss man
+ * bei jedem Oeffnen wieder dieselbe aufklappen. Es ist immer hoechstens eine
+ * offen - das ist der Sinn der Sache, sonst waere die Liste wieder lang.
+ */
+const GRUPPEN = ['grp-game', 'grp-look', 'grp-sound', 'grp-lang', 'grp-best'];
+function initGruppen() {
+  const gemerkt = store.raw('zp.group.v1', 'grp-game');
+  for (const id of GRUPPEN) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.open = id === gemerkt;
+    el.addEventListener('toggle', () => {
+      if (!el.open) return;
+      for (const anderes of GRUPPEN) {
+        if (anderes === id) continue;
+        const x = document.getElementById(anderes);
+        if (x) x.open = false;
+      }
+      store.setRaw('zp.group.v1', id);
+    });
+  }
+}
 
 /** Nach einer Regelaenderung kann aus einer Sackgasse wieder ein Spiel werden – und umgekehrt. */
 function applyRuleChange(message) {
@@ -1442,13 +1604,13 @@ function applyRuleChange(message) {
 $('#opt-diagonal').addEventListener('change', (e) => {
   settings.diagonal = e.target.checked;
   state.diagonal = settings.diagonal;
-  applyRuleChange(settings.diagonal ? 'Diagonale Paare erlaubt.' : 'Diagonale Paare aus.');
+  applyRuleChange(t(settings.diagonal ? 'msg.diagonalOn' : 'msg.diagonalOff'));
 });
 
 $('#opt-wrap').addEventListener('change', (e) => {
   settings.wrap = e.target.checked;
   state.wrap = settings.wrap;
-  applyRuleChange(settings.wrap ? 'Zeilenumbruch zählt als Nachbarschaft.' : 'Zeilenumbruch aus.');
+  applyRuleChange(t(settings.wrap ? 'msg.wrapOn' : 'msg.wrapOff'));
 });
 
 $('#opt-partners').addEventListener('change', (e) => {
@@ -1505,7 +1667,7 @@ btnRefill.addEventListener('click', () => {
 });
 btnNew.addEventListener('click', () => {
   if (state.moves > 0 && state.status === 'playing' &&
-      !confirm('Neues Spiel starten? Die laufende Partie geht verloren.')) return;
+      !confirm(t('msg.confirmNew'))) return;
   newGame();
 });
 
@@ -1571,14 +1733,13 @@ function refreshInstallUi() {
   if (installPrompt) {                        // Android, Chrome, Edge …
     field.hidden = false;
     button.hidden = false;
-    note.textContent = 'Danach startet das Spiel ohne Browserleiste und läuft auch offline.';
+    note.textContent = t('set.installNote');
     return;
   }
   if (isApplePhone()) {                       // iOS kennt keinen Installationsdialog
     field.hidden = false;
     button.hidden = true;
-    note.textContent = 'In Safari unten auf „Teilen“ tippen und „Zum Home-Bildschirm“ wählen. '
-      + 'Danach startet das Spiel ohne Browserleiste und läuft auch offline.';
+    note.textContent = t('set.installIos');
     return;
   }
   field.hidden = true;
@@ -1593,7 +1754,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 window.addEventListener('appinstalled', () => {
   installPrompt = null;
   refreshInstallUi();
-  toast('Liegt jetzt auf dem Startbildschirm.');
+  toast(t('msg.installed'));
 });
 
 $('#btn-install')?.addEventListener('click', async () => {
@@ -1626,6 +1787,8 @@ if (requested || !load()) {
   });
   if (requested) saveSettings();
 }
+applyTexts();         // muss vor dem ersten Zeichnen laufen
+initGruppen();
 renderBoard();
 updateStats();
 renderSettings();
