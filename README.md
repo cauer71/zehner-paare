@@ -427,13 +427,34 @@ Gemessene Grenzen, die den Entwurf bestimmt haben:
 was er will – das steht auch so in der Oberfläche. Und es ist ein Einzelstück ohne Zusage:
 fällt der Dienst aus, bleibt das Spiel unverändert spielbar, die Weltwerte fehlen dann einfach.
 Beides ist geprüft (`tools/check-welt.mjs`): der Dienst ist dort im Browser nachgebaut, mit
-genau der gemessenen Semantik, und elf Lagen werden abgenommen – erster Rekord, besserer
-Rekord, schwächere Partie, verfallener Schlüssel, 429, Netzausfall, abgeschalteter Schalter,
-die Anzeige selbst, eine Partie mit Rettung (die genau *einmal* zählen darf, obwohl das
-Spielende zweimal durchläuft) und der Klemmfall: geht das Netz zwischen „Stand anlegen" und
-„Zeiger nachziehen" verloren, zeigt der Zeiger auf den alten Stand und jeder weitere Versuch
-trifft auf eine belegte Nummer. Wer dort aufgibt, kommt nie wieder durch – also wird die
-belegte Nummer gelesen, der Zeiger nachgeholt und eine Nummer weiter versucht.
+genau der gemessenen Semantik, und zwölf Abschnitte werden abgenommen – erster Rekord,
+besserer Rekord, schwächere Partie (samt Übernahme eines fremden, höheren Rekords),
+verfallener Schlüssel, 429, Netzausfall, abgeschalteter Schalter, die Anzeige selbst, eine
+Partie mit Rettung (die genau *einmal* zählen darf, obwohl das Spielende zweimal durchläuft)
+und der Klemmfall: geht das Netz zwischen „Stand anlegen" und „Zeiger nachziehen" verloren,
+zeigt der Zeiger auf den alten Stand und jeder weitere Versuch trifft auf eine belegte Nummer.
+Wer dort aufgibt, kommt nie wieder durch – also wird die belegte Nummer gelesen, der Zeiger
+nachgeholt und eine Nummer weiter versucht.
+
+Zwei Regeln stehen dabei nicht aus Vorsicht im Code, sondern weil ihr Fehlen den Rekord
+zerstört hätte:
+
+* **Der Zeiger darf nur nachgezogen werden, wenn er wirklich hinterherhängt.** Tragen zwei
+  Browser gleichzeitig ein, bekommt einer die 409; erhöht *er* den Zeiger ebenfalls, zeigt
+  dieser auf eine Nummer, die es nicht gibt. Dieser Abstand heilt nicht von selbst und wächst
+  mit jedem Zusammenstoß – ab vier Schritten findet das Lesen nichts mehr, und dann gilt jede
+  beliebige Punktzahl als neuer Weltrekord. Also wird vorher noch einmal nachgesehen.
+* **Ein Weltrekord fällt nie.** Der Zeiger verfällt nach sechs Monaten für sich allein (er
+  wird einmal angelegt und danach nur erhöht, und Erhöhen verlängert die Frist nicht), während
+  die späteren Stände noch leben. Dann liest sich der Rekord kurzzeitig zu klein. Ein bekannter
+  Wert wird deshalb nie durch einen kleineren ersetzt.
+
+Gefunden hat das eine gegnerische Durchsicht des fertigen Codes durch fünf unabhängige
+Leser mit verschiedenen Blickwinkeln (Protokoll, Ausfälle, Zählung, Privatheit, Oberfläche),
+deren Funde einzeln widerlegt werden mussten, bevor sie gelten durften: von zwanzig
+Behauptungen blieben acht übrig. Drei betrafen den Prüfstand selbst – unter anderem bestanden
+zwei Abschnitte aus dem falschen Grund, weil die Strafpause aus dem 429-Test noch nachwirkte.
+Eine Prüfung, die aus dem falschen Grund besteht, ist schlimmer als keine.
 
 ## Schriften und Lizenzen
 

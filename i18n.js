@@ -175,10 +175,13 @@ const TEXTE = {
     'rules.points1': 'Ein Paar bringt 10 Punkte, mal <b>Kombofaktor</b>: jeder Treffer in '
       + 'Folge erhöht ihn um eins, bis ×10. Ein Fehlgriff oder ein Auffüllen setzt ihn '
       + 'zurück – sauber gespielt ist also gut doppelt so viel wert. Zwei Zeilen in einem '
-      + 'Zug geben einen Zuschlag. Am Ende zählt jedes gesparte Auffüllen 150 Punkte.',
+      + 'Zug geben einen Zuschlag. Am Ende zählt jedes gesparte Auffüllen 150 Punkte. '
+      + 'Auffüllen holt außerdem neue Zahlen aufs Feld und senkt den Wert der folgenden '
+      + 'Treffer – wer sich das Feld vollpackt, verdient pro Paar weniger.',
     'rules.points2': 'Im Modus <b>Endlos</b> ist ein leeres Feld nicht das Ende: es kommen '
       + 'drei frische Zeilen, ein Auffüllen zurück ins Guthaben und 200 Punkte. Der Lauf '
       + 'endet erst, wenn nichts mehr geht – wie weit kommst du?',
+    'rules.world': 'Weltweit wird anonym mitgezählt: gespielte Partien, Siege und die Rekorde je Stufe. Was dabei hinausgeht, steht in den Einstellungen unter Bestwerte – dort lässt es sich auch abschalten.',
     'rules.footnote': 'Diagonale und Zeilenumbruch lassen sich in den Einstellungen '
       + 'abschalten.',
     'rules.go': 'Los geht’s',
@@ -193,7 +196,7 @@ const TEXTE = {
     'set.bestHere': 'Auf diesem Gerät',
     'set.bestWorld': 'Weltweit',
     'set.optWorld': 'Weltweit mitzählen',
-    'set.worldNote': 'Es geht nur ein Zählimpuls hinaus – kein Name, kein Gerät, keine Kennung. Weil niemand angemeldet ist, kann jeder eintragen, was er will: nimm die Weltwerte als Anhaltspunkt, nicht als Urkunde.',
+    'set.worldNote': 'Hinaus geht nur, was gezählt wird: eine Partie, ein Sieg – und bei einem Rekord der Punktestand samt Stufe. Kein Name, kein Gerät, keine Kennung; die IP-Adresse sieht der Dienst wie jeder Server im Netz. Weil niemand angemeldet ist, kann jeder eintragen, was er will: nimm die Weltwerte als Anhaltspunkt, nicht als Urkunde.',
     'set.ownCount': 'Hier gespielt: {n} · gewonnen: {g}',
     'set.worldCount': 'Weltweit gespielt: {n} · gewonnen: {g}',
     'set.worldGames': 'Weltweit gespielt: {n}',
@@ -387,10 +390,13 @@ const TEXTE = {
     'rules.points1': 'Una coppia vale 10 punti, per il <b>fattore combo</b>: ogni coppia di fila lo '
       + 'alza di uno, fino a ×10. Un errore o una ricarica lo riporta a ×1 – giocare '
       + 'pulito vale quindi più del doppio. Due righe in una sola mossa danno un '
-      + 'bonus. Alla fine ogni ricarica risparmiata vale 150 punti.',
+      + 'bonus. Alla fine ogni ricarica risparmiata vale 150 punti. Ricaricare porta '
+      + 'inoltre numeri nuovi sul campo e abbassa il valore delle mosse successive: chi '
+      + 'si riempie il campo guadagna meno per ogni coppia.',
     'rules.points2': 'In modalità <b>Infinito</b> il campo vuoto non è la fine: arrivano tre righe '
       + 'nuove, una ricarica torna nel credito e 200 punti. La corsa finisce solo '
       + 'quando non si muove più niente – fin dove arrivi?',
+    'rules.world': 'Il conteggio mondiale è anonimo: partite giocate, vittorie e i record per livello. Che cosa esce sta nelle impostazioni sotto Record – e lì si può anche disattivare.',
     'rules.footnote': 'Diagonale e fine riga si possono disattivare nelle impostazioni.',
     'rules.go': 'Iniziamo',
     // Einstellungen – die Gruppentitel stehen in aufklappbaren Abschnitten
@@ -403,7 +409,7 @@ const TEXTE = {
     'set.bestHere': 'Su questo dispositivo',
     'set.bestWorld': 'Nel mondo',
     'set.optWorld': 'Conta nel mondo',
-    'set.worldNote': 'Esce solo un impulso di conteggio – nessun nome, nessun dispositivo, nessun codice. Poiché nessuno è registrato, chiunque può scrivere ciò che vuole: prendi i valori mondiali come indicazione, non come certificato.',
+    'set.worldNote': 'Esce solo ciò che viene contato: una partita, una vittoria – e per un record il punteggio con il livello. Nessun nome, nessun dispositivo, nessun codice; l’indirizzo IP lo vede il servizio come ogni server in rete. Poiché nessuno è registrato, chiunque può scrivere ciò che vuole: prendi i valori mondiali come indicazione, non come certificato.',
     'set.ownCount': 'Giocate qui: {n} · vinte: {g}',
     'set.worldCount': 'Giocate nel mondo: {n} · vinte: {g}',
     'set.worldGames': 'Giocate nel mondo: {n}',
@@ -595,10 +601,13 @@ const TEXTE = {
     'rules.points1': 'A pair is worth 10 points, times the <b>combo factor</b>: every consecutive '
       + 'hit raises it by one, up to ×10. A wrong tap or a refill resets it – so '
       + 'playing clean is worth well over twice as much. Two rows in one move earn a '
-      + 'bonus. At the end, every refill you did not use is worth 150 points.',
+      + 'bonus. At the end, every refill you did not use is worth 150 points. A refill '
+      + 'also brings new numbers onto the board and lowers the value of later matches: '
+      + 'pack the board and each pair earns you less.',
     'rules.points2': 'In <b>Endless</b> mode an empty board is not the end: you get three fresh '
       + 'rows, one refill back in credit and 200 points. The run only ends when '
       + 'nothing works any more – how far can you get?',
+    'rules.world': 'Worldwide counting is anonymous: games played, wins and the records per level. What goes out is spelled out in Settings under Best scores – and can be switched off there.',
     'rules.footnote': 'Diagonals and line wrap can be switched off in the settings.',
     'rules.go': 'Let’s go',
     // Einstellungen – die Gruppentitel stehen in aufklappbaren Abschnitten
@@ -611,7 +620,7 @@ const TEXTE = {
     'set.bestHere': 'On this device',
     'set.bestWorld': 'Worldwide',
     'set.optWorld': 'Count worldwide',
-    'set.worldNote': 'Only a counting pulse goes out – no name, no device, no identifier. Since nobody signs in, anyone can write anything: treat the world figures as a pointer, not a certificate.',
+    'set.worldNote': 'Only what gets counted goes out: a game, a win – and for a record the score together with the level. No name, no device, no identifier; the service sees your IP address like any server on the net. Since nobody signs in, anyone can write anything: treat the world figures as a pointer, not a certificate.',
     'set.ownCount': 'Played here: {n} · won: {g}',
     'set.worldCount': 'Played worldwide: {n} · won: {g}',
     'set.worldGames': 'Played worldwide: {n}',

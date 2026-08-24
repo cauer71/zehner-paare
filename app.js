@@ -1268,6 +1268,49 @@ function newGame(difficulty = settings.difficulty) {
   if (difficulty === 'klassisch') toast(t('msg.classicFixed'));
 }
 
+/**
+ * Eine Partie zaehlen - einmal, egal wie oft sie endet.
+ *
+ * Die Merker haengen an der PARTIE, nicht am Aufrufer: das Spielende laeuft
+ * mehrfach fuer dieselbe Partie, wenn man aus der Sackgasse die Rettung nimmt
+ * oder aus dem Enddialog zurueckgeht. Ohne die Merker haette eine Partie mit
+ * Rettung zwei- oder dreifach gezaehlt. Serialisiert werden sie mit, ein neu
+ * geladener Spielstand zaehlt also nicht noch einmal.
+ *
+ * Gerufen wird das auch aus applyRuleChange: wer die Diagonale ausschaltet
+ * und damit in die Sackgasse geraet, hat diese Partie gespielt - dort geht
+ * aber bewusst kein Enddialog auf (die Regel laesst sich zurueckstellen),
+ * also muss das Zaehlen von der Anzeige getrennt sein.
+ */
+function zaehlePartie(won, zaehlt) {
+  if (!state.gezaehlt) {
+    state.gezaehlt = true;
+    zaehler.gespielt += 1;
+  }
+  const ersterSieg = won && !state.siegGezaehlt;
+  if (ersterSieg) {
+    state.siegGezaehlt = true;
+    zaehler.gewonnen += 1;
+  }
+  store.set(KEY.count, zaehler);
+  saveNow();                    // Merker und Zaehler zusammen, nicht versetzt
+
+  // Weltweit mitzaehlen. Bewusst ohne await: das Ergebnis interessiert erst,
+  // wenn jemand die Bestwerte aufschlaegt, und ein lahmes Netz darf den
+  // Enddialog nicht aufhalten. Der Punktestand geht bei JEDEM Ende hinaus -
+  // nach einer Rettung ist er hoeher, und dann soll auch der Rekord stimmen.
+  // neuePartie haengt am WELT-Merker, nicht am eigenen: geht der Ruf verloren
+  // (Netz weg, oder Strafpause nach einer 429), soll das naechste Ende
+  // derselben Partie nachzaehlen. Der eigene Zaehler stimmt ohnehin.
+  welt.partieBeendet({ stufe: state.difficulty, punkte: state.score, zaehlt,
+                       neuePartie: !state.weltGezaehlt, gewonnen: ersterSieg })
+    .then((ergebnis) => {
+      if (ergebnis?.gezaehlt) { state.weltGezaehlt = true; saveNow(); }
+      if (dlgSettings.open) renderBest();
+    })
+    .catch(() => {});
+}
+
 /** Laesst eine Zahl hochlaufen – der kleine Trommelwirbel am Spielende. */
 function countUp(el, to, ms = 900) {
   if (!el) return;
@@ -1310,32 +1353,7 @@ function endGame(won) {
     store.set(KEY.best, best);
   }
 
-  // Eigener Zaehler. Die Merker haengen an der PARTIE, nicht an dieser
-  // Funktion: endGame laeuft mehrfach fuer dieselbe Partie, wenn man aus der
-  // Sackgasse die Rettung nimmt oder aus dem Enddialog zurueckgeht. Ohne die
-  // Merker haette eine Partie mit Rettung zwei- oder dreifach gezaehlt.
-  // Serialisiert werden sie mit, ein neu geladener Spielstand zaehlt also
-  // nicht noch einmal.
-  const ersteZaehlung = !state.gezaehlt;
-  if (ersteZaehlung) {
-    state.gezaehlt = true;
-    zaehler.gespielt += 1;
-  }
-  const ersterSieg = won && !state.siegGezaehlt;
-  if (ersterSieg) {
-    state.siegGezaehlt = true;
-    zaehler.gewonnen += 1;
-  }
-  store.set(KEY.count, zaehler);
-
-  // Weltweit mitzaehlen. Bewusst ohne await: das Ergebnis interessiert erst,
-  // wenn jemand die Bestwerte aufschlaegt, und ein lahmes Netz darf den
-  // Enddialog nicht aufhalten. Der Punktestand geht bei JEDEM Ende hinaus -
-  // nach einer Rettung ist er hoeher, und dann soll auch der Rekord stimmen.
-  welt.partieBeendet({ stufe: key, punkte: state.score, zaehlt,
-                       neuePartie: ersteZaehlung, gewonnen: ersterSieg })
-    .then(() => { if (dlgSettings.open) renderBest(); })
-    .catch(() => {});
+  zaehlePartie(won, zaehlt);
 
   $('#end-badge').querySelector('use').setAttribute('href', won ? '#i-trophy' : '#i-sad');
   $('#end-badge').classList.toggle('sad', !won);
@@ -1343,12 +1361,17 @@ function endGame(won) {
     : (state.endless ? t('end.endlessOver', { n: state.round }) : t('end.stuck'));
   // Der Bonus fuers Sparen ist die einzige Stellschraube, mit der man den
   // Bestwert durch Koennen statt durch Glueck knackt – also benennen.
-  const gespart = (state.refillsLeft > 0
+  const gespart = state.refillsLeft > 0
     ? t('end.savedRefills', { n: state.refillsLeft,
                               points: state.refillsLeft * POINTS.refillLeft })
-    : '')
-    + (state.geholt > 0 ? t('end.dilute', { p: prozent(wertFaktor(state)) }) : '');
-  $('#end-text').textContent = won
+    : '';
+  // Die Verwaesserung erklaert den Punktestand und gehoert darum in JEDEN
+  // Enddialog. Der Sparbonus dagegen nur in den gewonnenen: bei einer
+  // Niederlage gibt es ihn nicht, ihn zu nennen waere eine falsche Auskunft.
+  const verwaessert = state.geholt > 0
+    ? t('end.dilute', { p: prozent(wertFaktor(state)) })
+    : '';
+  $('#end-text').textContent = (won
     ? (isRecord
         ? (previous ? t('end.wonBest', { label, prev: previous.score })
                     : t('end.wonFirst', { label }))
@@ -1357,7 +1380,7 @@ function endGame(won) {
         ? t('end.rescueOffer', { n: remaining(state) })
         : state.endless
           ? t('end.endlessTip', { n: state.round })
-          : t('end.deadEnd'));
+          : t('end.deadEnd'))) + verwaessert;
   $('#end-stats').innerHTML = [
     [t('end.statScore'), zahl(state.score), ' id="end-score"'],
     state.endless ? [t('end.statRounds'), state.round]
@@ -1435,6 +1458,19 @@ let saveTimer = null;
 function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => store.setRaw(KEY.save, serialize(state)), 220);
+}
+
+/**
+ * Sofort sichern, ohne die 220 ms abzuwarten.
+ *
+ * Gebraucht beim Spielende: dort werden Merker gesetzt, die sagen "diese
+ * Partie ist gezaehlt". Der Zaehler selbst liegt sofort im Speicher. Wer die
+ * Seite in dem Fenster dazwischen neu laedt, haette eine Partie mit Merker
+ * im Zaehler, aber ohne Merker im Spielstand - und zaehlte sie noch einmal.
+ */
+function saveNow() {
+  clearTimeout(saveTimer);
+  store.setRaw(KEY.save, serialize(state));
 }
 
 function load() {
@@ -1575,7 +1611,14 @@ function renderWorld() {
   }).join('');
 
   if (!settings.world) { note.textContent = t('set.worldOff'); return; }
-  if (w.spiele === null) { note.textContent = t('set.worldWaiting'); return; }
+  if (w.spiele === null) {
+    // "Noch keine Weltwerte geladen" waere falsch, wenn oben schon ein Rekord
+    // steht: der kann vom eigenen Eintrag kommen, ohne dass je gelesen wurde.
+    // Dann sagt die Liste selbst, was bekannt ist, und der Satz entfaellt.
+    const etwasBekannt = Object.keys(w.rekorde).some((k) => w.rekorde[k] > 0);
+    note.textContent = etwasBekannt ? '' : t('set.worldWaiting');
+    return;
+  }
   // Die Zahl der Siege kennt man erst, wenn einmal gelesen oder eine Partie
   // gewonnen wurde - bis dahin steht nur die Zahl der Partien da. Lieber ein
   // kuerzerer Satz als eine erfundene Null.
@@ -1749,6 +1792,10 @@ function applyRuleChange(message) {
   } else if (state.status === 'stuck' && before === 'playing') {
     btnRefill.classList.add('urge');
     stopTimer();
+    // Kein Enddialog: die Regel laesst sich zurueckstellen, und dann geht es
+    // weiter. Gespielt ist die Partie aber, also zaehlt sie - einmal, dafuer
+    // sorgen die Merker in zaehlePartie.
+    zaehlePartie(false, state.endless);
   }
 }
 

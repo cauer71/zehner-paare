@@ -54,6 +54,30 @@ async function ruhe(maxMs = 12000) {
   }
 }
 
+/**
+ * Serverzustand von Hand stellen und mit frischem Blatt weitermachen.
+ *
+ * Das Neuladen ist nicht Zierrat: online.js haelt den Merkzettel IM MODUL
+ * (damit ein Partieende und ein Lesen sich nicht gegenseitig ueberschreiben).
+ * localStorage zu loeschen genuegt darum nicht mehr - ohne Neuladen kennt der
+ * Browser weiter seinen alten Rekord und versucht gar nichts. Nebenbei setzt
+ * das Neuladen die Strafpause nach einer 429 zurueck.
+ */
+async function stelleEin(paare = [], { merkzettel = 'leeren' } = {}) {
+  for (const [name, wert] of paare) D.werte.set(`${raum}/${name}`, wert);
+  await page.evaluate((was) => {
+    const s = JSON.parse(localStorage.getItem('zp.settings.v1') ?? '{}');
+    s.world = true;
+    localStorage.setItem('zp.settings.v1', JSON.stringify(s));
+    // Meist soll der Browser wirklich nachfragen, darum weg damit. Wer
+    // pruefen will, was OHNE Netz angezeigt wird, braucht ihn dagegen.
+    if (was === 'leeren') localStorage.removeItem('zp.welt.v1');
+  }, merkzettel);
+  await page.reload();
+  await page.waitForTimeout(700);
+  await ruhe();
+}
+
 async function zuDialog() {
   await page.evaluate(() => {
     const d = document.querySelector('#dlg-end');
@@ -205,8 +229,7 @@ await page.waitForTimeout(300);
 // verwirft ihn wieder, und die Punktzahl einer gewonnenen Partie streut um
 // etwa ein Zehntel - ein Rekord waere also Glueckssache. Statt dessen den
 // Weltwert kleinhalten, dann ist jede gewonnene Partie sicher ein Rekord.
-D.werte.set(`${raum}/best-mittel-v1`, 100);
-await page.evaluate(() => localStorage.removeItem('zp.welt.v1'));
+await stelleEin([['best-mittel-v1', 100]]);
 pruefe(await gewonnenePartie(), 'Abschnitt 3: keine gewonnene Partie');
 await ruhe();
 console.log(Object.fromEntries(D.werte));
@@ -217,12 +240,36 @@ pruefe(D.werte.get(`${raum}/best-mittel-gen`) === 2,
 pruefe(D.werte.get(`${raum}/spiele`) >= 2, 'spiele muesste gewachsen sein');
 
 console.log('\n=== 4. Schwaechere Partie: nichts Neues ===');
-await page.evaluate(() => document.querySelector('#btn-end-new')?.click());
-await page.waitForTimeout(400);
-await partie();
-pruefe(D.werte.get(`${raum}/best-mittel-v3`) === undefined, 'es darf keine v3 geben');
+// Der Weltwert wird kuenstlich hoch gesetzt, statt zu hoffen, dass die
+// naechste Partie schlechter ausfaellt: die Punktzahl streut um etwa ein
+// Zehntel, damit waere die Pruefung Glueckssache. Der Merkzettel wird dabei
+// geleert, damit der Browser wirklich nachfragt und nicht schon aus dem
+// eigenen Gedaechtnis abwinkt - so wird auch geprueft, dass er den fremden
+// hoeheren Wert akzeptiert.
+const zeigerVor = D.werte.get(`${raum}/best-mittel-gen`);
+await stelleEin([['best-mittel-v2', 999999]]);
+const marke4 = D.protokoll.length;
+pruefe(await gewonnenePartie(), 'Abschnitt 4: keine gewonnene Partie');
+await ruhe();
+console.log('   hinaus:', D.protokoll.slice(marke4).join(' ') || '(nichts)');
+pruefe(D.werte.get(`${raum}/best-mittel-v3`) === undefined,
+  `es darf keine v3 geben (ist ${D.werte.get(`${raum}/best-mittel-v3`)})`);
+pruefe(D.werte.get(`${raum}/best-mittel-gen`) === zeigerVor,
+  `der Zeiger darf sich nicht bewegen (${zeigerVor} -> ${D.werte.get(`${raum}/best-mittel-gen`)})`);
 pruefe(D.werte.get(`${raum}/spiele`) >= 3, 'spiele muesste weiter gewachsen sein');
-console.log('v3:', D.werte.get(`${raum}/best-mittel-v3`), '· spiele:', D.werte.get(`${raum}/spiele`));
+// Und der fremde, hoehere Wert muss in der Anzeige ankommen.
+await zuDialog();
+await page.tap('#btn-settings'); await page.waitForTimeout(400);
+await page.evaluate(() => { const g = document.getElementById('grp-best');
+  if (!g.open) g.querySelector('summary').click(); });
+await ruhe();
+const gezeigt = await page.evaluate(() =>
+  [...document.querySelectorAll('#world-list li')].map((l) => l.textContent.trim()));
+console.log('Anzeige:', gezeigt.join(' | '));
+pruefe(gezeigt.some((z) => z.includes('999999')),
+  'der fremde Rekord 999999 muesste angezeigt werden');
+await page.evaluate(() => document.querySelector('#dlg-settings [data-close]')?.click());
+await page.waitForTimeout(300);
 
 console.log('\n=== 5. Verfallener Schluessel: heilt sich das? ===');
 const marke5 = D.protokoll.length;
@@ -256,6 +303,11 @@ pruefe(D.protokoll.length - vorher <= 2,
 pruefe(fehler.length === 0, 'keine Seitenfehler bei 429');
 
 console.log('\n=== 7. Netz weg ===');
+// Frisches Blatt: sonst gilt noch die Strafpause aus Abschnitt 6, es geht
+// ohnehin nichts hinaus, und der Abschnitt bestaetigt sich selbst. Der
+// Merkzettel bleibt hier ausdruecklich stehen - genau er soll ohne Netz
+// angezeigt werden.
+await stelleEin([], { merkzettel: 'behalten' });
 D.setModus('offline');
 await page.evaluate(() => document.querySelector('#btn-end-new')?.click());
 await page.waitForTimeout(400);
@@ -270,7 +322,10 @@ console.log(ohneNetz);
 pruefe(fehler.length === 0, `keine Seitenfehler ohne Netz: ${fehler.join(' | ')}`);
 
 console.log('\n=== 8. Schalter aus: kein einziger Ruf mehr ===');
+// Auch hier: ohne frisches Blatt waere "nichts ging hinaus" schon durch die
+// Strafpause erfuellt, und der Schalter bliebe ungeprueft.
 D.setModus('normal');
+await stelleEin();
 await page.evaluate(() => { const s = document.querySelector('#opt-world'); s.checked = false;
   s.dispatchEvent(new Event('change', { bubbles: true })); });
 await page.waitForTimeout(500);
@@ -308,21 +363,6 @@ console.log('\n=== 9b. Zeiger nicht nachgezogen: klemmt es? ===');
 // gesperrt gesperrt bleibt, und meldet das faelschlich als Klemmer.
 D.setModus('normal');
 await zuDialog();
-await page.evaluate(() => {
-  const s = JSON.parse(localStorage.getItem('zp.settings.v1') ?? '{}');
-  s.world = true;                       // Abschnitt 8 hatte ihn ausgeschaltet
-  localStorage.setItem('zp.settings.v1', JSON.stringify(s));
-  localStorage.removeItem('zp.welt.v1');
-});
-await page.reload();
-await page.waitForTimeout(700);
-await ruhe();
-
-/** Zustand von Hand herstellen und den Merkzettel des Browsers leeren. */
-async function stelleEin(paare) {
-  for (const [name, wert] of paare) D.werte.set(`${raum}/${name}`, wert);
-  await page.evaluate(() => localStorage.removeItem('zp.welt.v1'));
-}
 
 // Erstens: der Zeiger hinkt schon hinterher (zeigt auf 8, es gibt aber v9).
 // Das Lesen schaut nur zurueck, findet also nichts - der Eintrag muss
@@ -354,7 +394,7 @@ pruefe(zeigerDanach === 10, `der Zeiger muesste zurueckhaengen (steht auf ${zeig
 
 // Drittens - der entscheidende Teil: die naechste Partie muss den Zeiger
 // nachholen, statt fuer immer an der belegten Nummer 11 abzuprallen.
-await page.evaluate(() => localStorage.removeItem('zp.welt.v1'));
+await stelleEin();
 marke = D.protokoll.length;
 pruefe(await gewonnenePartie(), 'Abschnitt 9b: keine dritte gewonnene Partie');
 await ruhe();
@@ -366,7 +406,7 @@ console.log(`nach der naechsten Partie: Zeiger ${geheilt}`
 pruefe(geheilt >= 11,
   `der Zeiger muesste nachgeholt sein, sonst klemmt es fuer immer (steht auf ${geheilt})`);
 // Und der verwaiste Stand ist damit wieder sichtbar.
-await page.evaluate(() => localStorage.removeItem('zp.welt.v1'));
+await stelleEin();
 await zuDialog();
 await page.tap('#btn-settings'); await page.waitForTimeout(500);
 await page.evaluate(() => { const g = document.getElementById('grp-best');

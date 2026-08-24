@@ -81,17 +81,69 @@ const schlaf = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /* ------------------------------------------------------- kleiner Speicher */
 
-function gelesen() {
-  try {
-    const roh = JSON.parse(localStorage.getItem(SPEICHER) ?? 'null');
-    if (roh && typeof roh === 'object') return roh;
-  } catch { /* kaputter Eintrag ist kein Grund zum Absturz */ }
-  return { at: 0, spiele: null, siege: null, rekorde: {} };
+/**
+ * EIN Merkzettel im Speicher, den alle hier veraendern.
+ *
+ * Vorher holte sich jede Aufgabe ihre eigene Abschrift aus localStorage und
+ * schrieb sie nach mehreren Netzrufen zurueck. Das ist Lesen-Aendern-
+ * Schreiben ueber Wartezeiten hinweg: wer zuletzt schreibt, loescht die Arbeit
+ * des anderen. Genau das passiert regelmaessig, weil ein Partieende und ein
+ * Aufschlagen der Bestwerte gleichzeitig laufen koennen.
+ */
+let merkzettel = null;
+
+function zettel() {
+  if (merkzettel) return merkzettel;
+  let roh = null;
+  try { roh = JSON.parse(localStorage.getItem(SPEICHER) ?? 'null'); }
+  catch { /* kaputter Eintrag ist kein Grund zum Absturz */ }
+  merkzettel = {
+    // Wann zuletzt wirklich GELESEN wurde. Ausdruecklich nicht "wann zuletzt
+    // etwas geschrieben wurde": ein erhoehter Zaehler sagt nichts darueber,
+    // ob die Rekorde noch stimmen. Wer das vermischt, liest nie wieder nach,
+    // solange gespielt wird - und schreibt daneben "vor 1 Min. geholt".
+    gelesenAm: Number(roh?.gelesenAm) || 0,
+    spiele: typeof roh?.spiele === 'number' ? roh.spiele : null,
+    siege: typeof roh?.siege === 'number' ? roh.siege : null,
+    rekorde: roh?.rekorde && typeof roh.rekorde === 'object' ? { ...roh.rekorde } : {},
+  };
+  return merkzettel;
 }
 
-function merken(daten) {
-  try { localStorage.setItem(SPEICHER, JSON.stringify(daten)); }
+function sichern() {
+  try { localStorage.setItem(SPEICHER, JSON.stringify(zettel())); }
   catch { /* voller oder gesperrter Speicher: dann eben ohne */ }
+}
+
+/**
+ * Wie alt sind die gelesenen Werte? Infinity heisst "noch nie gelesen".
+ *
+ * Negative Werte gibt es nicht: eine zurueckgestellte Geraeteuhr wuerde
+ * sonst dazu fuehren, dass tagelang nicht mehr nachgelesen wird.
+ */
+function alter() {
+  const wann = zettel().gelesenAm;
+  if (!wann) return Infinity;
+  const her = Date.now() - wann;
+  return her < 0 ? Infinity : her;
+}
+
+/**
+ * Ein Weltrekord kann nur steigen. Darum wird ein bekannter Wert nie durch
+ * einen kleineren ersetzt - auch dann nicht, wenn der Dienst gerade einen
+ * kleineren liefert. Das kommt naemlich vor: der Zeiger auf die laufende
+ * Nummer verfaellt nach sechs Monaten fuer sich allein (er wird einmal
+ * angelegt und danach nur erhoeht, und Erhoehen verlaengert die Frist nicht),
+ * waehrend die spaeter angelegten Staende noch leben. Dann liest sich der
+ * Rekord kurzzeitig zu klein, bis die naechsten Partien den Zeiger
+ * nachgeholt haben. Ohne diese Regel stuende in der Anzeige zwischendurch
+ * eine Zahl, die kleiner ist als der Rekord, den derselbe Browser vorher
+ * schon gezeigt hat.
+ */
+function hoechster(stufe, wert) {
+  const z = zettel();
+  z.rekorde[stufe] = Math.max(z.rekorde[stufe] ?? 0, wert);
+  return z.rekorde[stufe];
 }
 
 /* --------------------------------------------------------- Warteschlange */
@@ -118,6 +170,10 @@ async function durchfuehren(pfad) {
     await schlaf(BREMSE.fenster - (jetzt - verlauf[0]) + 50);
   }
   if (verlauf.length) await schlaf(BREMSE.abstand);
+  // Noch einmal nachsehen: zwischen der ersten Pruefung und hier liegen bis
+  // zu zehn Sekunden Bremspause. Wer in dieser Zeit den Schalter ausmacht,
+  // will nicht, dass danach noch etwas hinausgeht.
+  if (!erlaubt || Date.now() < sperreBis) return null;
   verlauf.push(Date.now());
 
   const stop = new AbortController();
@@ -173,6 +229,13 @@ async function anlegen(name, wert) {
 
 /* ------------------------------------------------------------- Rekorde */
 
+/**
+ * So viele Nummern sucht das Lesen rueckwaerts. Mehr als noetig kostet nichts
+ * (die erste Nummer trifft im Normalfall sofort), aber jeder Schritt mehr
+ * verzeiht einen Zeiger, der dem hoechsten Stand vorausgelaufen ist.
+ */
+const RUECKWAERTS = 4;
+
 const zeiger = (stufe) => `best-${stufe}-gen`;
 const stand = (stufe, nr) => `best-${stufe}-v${nr}`;
 
@@ -192,7 +255,7 @@ const stand = (stufe, nr) => `best-${stufe}-v${nr}`;
 async function rekordLesen(stufe) {
   const nr = await holen(zeiger(stufe));
   if (nr === null) return null;                  // keine Antwort
-  for (let n = nr; n > Math.max(0, nr - 3); n--) {
+  for (let n = nr; n > Math.max(0, nr - RUECKWAERTS); n--) {
     const wert = await holen(stand(stufe, n));
     if (wert === null) return null;
     if (wert > 0) return { nr: n, wert };
@@ -215,7 +278,13 @@ async function rekordMelden(stufe, punkte) {
     if (punkte <= da.wert) return da.wert;
     const wie = await anlegen(stand(stufe, da.nr + 1), punkte);
     if (wie === 'neu') {
-      await hoch(zeiger(stufe));
+      // Der Stand liegt - aber gefunden wird er erst ueber den Zeiger. Geht
+      // dieser Ruf verloren, NICHT Erfolg melden: sonst merkt sich der
+      // Aufrufer den Rekord als erledigt und versucht es nie wieder, und der
+      // Stand bleibt Waise, bis irgendein anderer Browser einen Rekord
+      // eintraegt. So versucht es dasselbe Geraet beim naechsten Partieende
+      // noch einmal und holt den Zeiger dabei nach (der 409-Zweig unten).
+      if (await hoch(zeiger(stufe)) === null) return da.wert;
       return punkte;
     }
     if (wie !== 'schon-da') return da.wert;      // keine Antwort, spaeter wieder
@@ -227,7 +296,16 @@ async function rekordMelden(stufe, punkte) {
     // weitere Versuch prallt an derselben 409 ab.
     const dort = await holen(stand(stufe, da.nr + 1));
     if (dort === null) return da.wert;
-    await hoch(zeiger(stufe));                   // Zeiger nachholen
+    // Nachziehen NUR, wenn der Zeiger wirklich noch hinterherhaengt. Sonst
+    // laeuft er weg: hat der Gewinner des Wettlaufs ihn schon hochgesetzt und
+    // wir erhoehen ein zweites Mal, zeigt er auf eine Nummer, die es nicht
+    // gibt. Dieser Abstand heilt nicht von selbst - ein gewoehnlicher
+    // Rekordlauf legt hoechster+1 an und schiebt den Zeiger um genau eins
+    // weiter, der Abstand bleibt also und waechst mit jedem weiteren
+    // Zusammenstoss. Ab RUECKWAERTS Schritten findet rekordLesen nichts mehr,
+    // und dann gilt jede beliebige Punktzahl als neuer Weltrekord.
+    const jetzt = await holen(zeiger(stufe));
+    if (jetzt !== null && jetzt <= da.nr) await hoch(zeiger(stufe));
     da = { nr: da.nr + 1, wert: Math.max(da.wert, dort) };
   }
   return da.wert;
@@ -239,66 +317,71 @@ export const welt = {
   /** Schalter aus den Einstellungen. Aus heisst: keine einzige Anfrage. */
   schalten(an) { erlaubt = !!an; },
 
-  /** Was beim letzten Lesen herauskam – sofort da, auch ohne Netz. */
+  /** Der letzte bekannte Stand – sofort da, auch ohne Netz. */
   zwischenstand() {
-    const d = gelesen();
-    return { spiele: d.spiele, siege: d.siege, rekorde: d.rekorde ?? {},
-             alter: d.at ? Date.now() - d.at : Infinity };
+    const z = zettel();
+    return { spiele: z.spiele, siege: z.siege, rekorde: { ...z.rekorde }, alter: alter() };
   },
 
   /** Ob es sich lohnt, neu zu lesen. */
-  veraltet() { return this.zwischenstand().alter > FRISCH; },
+  veraltet() { return alter() > FRISCH; },
 
   /**
    * Eine Partie ist zu Ende. Zaehlt sie weltweit mit und traegt einen Rekord
    * ein, falls es einer ist. Laeuft nebenher; der Aufrufer wartet nicht.
+   *
+   * Gibt zurueck, ob die Partie weltweit wirklich gezaehlt wurde. Der
+   * Aufrufer merkt sich das an der Partie: geht der Ruf verloren (Netz weg,
+   * Strafpause nach einer 429), wird beim naechsten Ende derselben Partie
+   * nachgezaehlt statt gar nicht.
    */
   async partieBeendet({ stufe, punkte, gewonnen, zaehlt, neuePartie = true }) {
-    if (!erlaubt) return;
-    const d = gelesen();
-    // neuePartie ist falsch, wenn dieselbe Partie schon gezaehlt wurde (nach
-    // einer Rettung endet sie ein zweites Mal). Der Rekord darf trotzdem
-    // hinaus, der Zaehler nicht.
+    if (!erlaubt) return { gezaehlt: false };
+    const z = zettel();
+    let gezaehlt = false;
     if (neuePartie) {
       const spiele = await hoch('spiele');
-      if (spiele !== null) { d.spiele = spiele; d.at = Date.now(); }
+      if (spiele !== null) { z.spiele = spiele; gezaehlt = true; }
     }
     if (gewonnen) {
       const siege = await hoch('siege');
-      if (siege !== null) { d.siege = siege; d.at = Date.now(); }
+      if (siege !== null) z.siege = siege;
     }
     // Nur anklopfen, wenn der Punktestand ueberhaupt in Frage kommt. Das
     // spart bei fast jeder Partie zwei Anfragen.
-    const bekannt = d.rekorde?.[stufe] ?? 0;
-    if (zaehlt && punkte > bekannt) {
+    if (zaehlt && punkte > (z.rekorde[stufe] ?? 0)) {
       const neu = await rekordMelden(stufe, punkte);
-      if (neu !== null) {
-        d.rekorde = { ...d.rekorde, [stufe]: neu };
-        d.at = Date.now();
-      }
+      if (neu !== null) hoechster(stufe, neu);
     }
-    merken(d);
+    // gelesenAm bleibt unberuehrt: hier wurde geschrieben, nicht gelesen.
+    sichern();
+    return { gezaehlt };
   },
 
   /**
    * Liest Weltzahlen und Rekorde. `stufen` bestimmt, welche Rekorde geholt
    * werden – jede Stufe kostet zwei Anfragen.
+   *
+   * Der Lesezeitpunkt wird nur gesetzt, wenn ALLES angekommen ist. Sonst
+   * gaelte ein halber Stand fuenf Minuten lang als frisch, und die Anzeige
+   * behauptete "gerade geholt" fuer Zahlen, die nie kamen.
    */
   async lesen(stufen) {
     if (!erlaubt) return null;
-    const d = gelesen();
+    const z = zettel();
     const spiele = await holen('spiele');
     if (spiele === null) return null;            // kein Netz: alter Stand bleibt
-    d.spiele = spiele;
+    z.spiele = spiele;
+    let heil = true;
     const siege = await holen('siege');
-    if (siege !== null) d.siege = siege;
-    d.rekorde = { ...d.rekorde };
+    if (siege === null) heil = false; else z.siege = siege;
     for (const stufe of stufen) {
       const r = await rekordLesen(stufe);
-      if (r) d.rekorde[stufe] = r.wert;
+      if (!r) { heil = false; continue; }
+      hoechster(stufe, r.wert);
     }
-    d.at = Date.now();
-    merken(d);
-    return { spiele: d.spiele, siege: d.siege, rekorde: d.rekorde, alter: 0 };
+    if (heil) z.gelesenAm = Date.now();
+    sichern();
+    return this.zwischenstand();
   },
 };
