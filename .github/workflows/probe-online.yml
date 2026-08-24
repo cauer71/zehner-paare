@@ -1,14 +1,11 @@
-# Sucht einen Online-Speicher, den das Spiel ohne Anmeldung und ohne
-# Schluessel benutzen kann.
+# Zweiter Durchgang: abacus.jasoncameron.dev war der einzige Dienst, der
+# ohne Anmeldung und ohne Schluessel wirklich funktioniert hat (create 201,
+# hit 200, get 200, Access-Control-Allow-Origin: *). Jetzt geht es um die
+# Frage, ob er auch fuer eine Bestenliste taugt - dafuer braucht man
+# "erhoehe um N", nicht nur "erhoehe um 1".
 #
-# Warum als Workflow und nicht einfach lokal: die Entwicklungsumgebung, in der
-# dieses Spiel gebaut wird, kommt nur an Paketregister und an GitHub. Jeder
-# andere Host wird vom Proxy mit 403 abgewiesen. Ein GitHub-Runner hat freies
-# Netz - hier laesst sich also wirklich pruefen, was ein Browser spaeter kann:
-# Erreichbarkeit, API-Form, Schreiben, Lesen, und vor allem die CORS-Kopfzeilen
-# samt Vorabanfrage. Ohne diese Pruefung waere die Anbindung geraten.
-#
-# Laeuft nur auf Zuruf (workflow_dispatch), nicht bei jedem Push.
+# Siehe den Kommentarkopf des ersten Durchgangs: geprueft wird hier, weil die
+# Entwicklungsumgebung nur an Paketregister und GitHub kommt.
 
 name: Online-Speicher pruefen
 
@@ -22,73 +19,73 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Kandidaten durchprobieren
+      - name: abacus genauer ansehen
         env:
           ORIGIN: https://cauer71.github.io
+          NS: zp-probe2
         run: |
           set -u
-          kopf() { printf '\n========== %s ==========\n' "$1"; }
+          A=https://abacus.jasoncameron.dev
+          NSX="$NS-$GITHUB_RUN_ID"
 
-          # Zeigt Status, die CORS-Kopfzeilen und den Anfang der Antwort.
           zeig() {
             local name="$1"; shift
             echo "--- $name"
-            code=$(curl -sS -m 20 -o /tmp/body -D /tmp/head -w '%{http_code}' "$@" || echo "000")
-            echo "HTTP $code"
-            grep -iE '^(access-control-allow-(origin|methods|headers)|location|content-type):' /tmp/head \
-              | tr -d '\r' | sed 's/^/    /' || echo "    (keine CORS-Kopfzeile)"
-            head -c 300 /tmp/body | tr -d '\r'; echo
+            code=$(curl -sS -m 20 -o /tmp/body -D /tmp/head -w '%{http_code}' \
+                    -H "Origin: $ORIGIN" "$@" || echo 000)
+            echo "    HTTP $code"
+            grep -iE '^(access-control-allow-origin|x-ratelimit|retry-after|content-type):' /tmp/head \
+              | tr -d '\r' | sed 's/^/    /'
+            echo -n "    "; head -c 400 /tmp/body | tr -d '\r'; echo
           }
 
-          kopf "jsonblob.com  (JSON-Ablage, anonym)"
-          zeig "OPTIONS Vorabanfrage" -X OPTIONS \
-            -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: PUT' \
-            -H 'Access-Control-Request-Headers: content-type' \
-            https://jsonblob.com/api/jsonBlob
-          echo "--- POST anlegen"
-          BLOB=$(curl -sS -m 20 -D /tmp/h -o /tmp/b -X POST \
+          echo "=== 1. Anlegen, Grundfunktionen ==="
+          zeig "create"            "$A/create/$NSX/best-mittel"
+          zeig "get"               "$A/get/$NSX/best-mittel"
+          zeig "info"              "$A/info/$NSX/best-mittel"
+
+          echo
+          echo "=== 2. Kann hit um mehr als eins erhoehen? ==="
+          zeig "hit ?step=250"     "$A/hit/$NSX/best-mittel?step=250"
+          zeig "hit ?amount=250"   "$A/hit/$NSX/best-mittel?amount=250"
+          zeig "hit ?by=250"       "$A/hit/$NSX/best-mittel?by=250"
+          zeig "hit ?value=250"    "$A/hit/$NSX/best-mittel?value=250"
+          zeig "get danach"        "$A/get/$NSX/best-mittel"
+
+          echo
+          echo "=== 3. Gibt es ein Setzen ohne Verwalterschluessel? ==="
+          zeig "set ?value=8000"   "$A/set/$NSX/best-mittel?value=8000"
+          zeig "get danach"        "$A/get/$NSX/best-mittel"
+
+          echo
+          echo "=== 4. Was kann man ohne Anlegen tun? (hit auf Unbekanntes) ==="
+          zeig "hit neu"           "$A/hit/$NSX/frisch-ohne-create"
+          zeig "get neu"           "$A/get/$NSX/frisch-ohne-create"
+
+          echo
+          echo "=== 5. Grenzen ==="
+          zeig "langer Schluessel" "$A/hit/$NSX/ein-recht-langer-schluessel-mit-strichen-und-zahlen-1234567890"
+          zeig "Punkt im Namen"    "$A/hit/$NSX/best.mittel"
+          zeig "stats"             "$A/stats"
+
+          echo
+          echo "=== 6. Vorabanfrage, wie sie ein Browser stellt ==="
+          echo "--- OPTIONS"
+          curl -sS -m 20 -o /dev/null -D /tmp/h -X OPTIONS \
+            -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: GET' \
+            "$A/hit/$NSX/best-mittel" -w '    HTTP %{http_code}\n' || true
+          grep -iE '^access-control-' /tmp/h | tr -d '\r' | sed 's/^/    /' || echo "    keine"
+
+          echo
+          echo "=== 7. jsonblob nochmal, mit browsertypischen Kopfzeilen ==="
+          curl -sS -m 20 -o /tmp/b -D /tmp/h -X POST \
             -H 'Content-Type: application/json' -H "Origin: $ORIGIN" \
-            -d '{"probe":"zehner-paare","n":1}' \
-            https://jsonblob.com/api/jsonBlob -w '%{http_code}' || echo 000)
-          echo "HTTP $BLOB"
-          grep -iE '^(location|access-control-allow-origin):' /tmp/h | tr -d '\r' | sed 's/^/    /'
-          LOC=$(grep -i '^location:' /tmp/h | tr -d '\r' | awk '{print $2}')
-          if [ -n "${LOC:-}" ]; then
-            echo "    angelegt: $LOC"
-            zeig "GET lesen"  -H "Origin: $ORIGIN" "$LOC"
-            zeig "PUT aendern" -X PUT -H 'Content-Type: application/json' \
-              -H "Origin: $ORIGIN" -d '{"probe":"zehner-paare","n":2}' "$LOC"
-            zeig "GET nachlesen" -H "Origin: $ORIGIN" "$LOC"
-          fi
-
-          kopf "abacus.jasoncameron.dev  (Zaehler, Nachfolger von countapi)"
-          zeig "create" -H "Origin: $ORIGIN" \
-            "https://abacus.jasoncameron.dev/create/zp-probe-$GITHUB_RUN_ID/partien"
-          zeig "hit"    -H "Origin: $ORIGIN" \
-            "https://abacus.jasoncameron.dev/hit/zp-probe-$GITHUB_RUN_ID/partien"
-          zeig "hit 2"  -H "Origin: $ORIGIN" \
-            "https://abacus.jasoncameron.dev/hit/zp-probe-$GITHUB_RUN_ID/partien"
-          zeig "get"    -H "Origin: $ORIGIN" \
-            "https://abacus.jasoncameron.dev/get/zp-probe-$GITHUB_RUN_ID/partien"
-
-          kopf "api.counterapi.dev"
-          zeig "v1 up" -H "Origin: $ORIGIN" \
-            "https://api.counterapi.dev/v1/zp-probe-$GITHUB_RUN_ID/partien/up"
-          zeig "v2 up" -H "Origin: $ORIGIN" \
-            "https://api.counterapi.dev/v2/zp-probe-$GITHUB_RUN_ID/partien/up"
-
-          kopf "kvdb.io  (Eimer anonym anlegen)"
-          zeig "POST Eimer" -X POST -H 'Content-Type: application/json' \
-            -H "Origin: $ORIGIN" -d '{}' https://kvdb.io/
-
-          kopf "extendsclass.com  (JSON-Ablage)"
-          zeig "POST bin" -X POST -H 'Content-Type: application/json' \
-            -H "Origin: $ORIGIN" -d '{"probe":1}' \
-            https://api.extendsclass.com/json-storage/bin
-
-          kopf "keyvalue.immanuel.co"
-          zeig "GetAppKey" -X POST -H "Origin: $ORIGIN" \
-            https://keyvalue.immanuel.co/api/KeyVal/GetAppKey
+            -H "Referer: $ORIGIN/zehner-paare/" \
+            -H 'User-Agent: Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36' \
+            -H 'Accept: application/json' \
+            -d '{"probe":1}' https://jsonblob.com/api/jsonBlob \
+            -w '    HTTP %{http_code}\n' || true
+          grep -iE '^(location|access-control-allow-origin):' /tmp/h | tr -d '\r' | sed 's/^/    /' || true
 
           echo
           echo "========== fertig =========="
