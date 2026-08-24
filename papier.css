@@ -1,0 +1,1078 @@
+/* =========================================================================
+   Zehner-Paare – Skin "Papier & Bleistift"
+
+   Das Spiel kommt vom Papier: karierter Block, Bleistift, gestrichene
+   Zahlen. Genau so sieht dieser Stil aus. Zwei Dinge tragen ihn:
+
+   1. Die Ziffern sind handgeschrieben – eine eigens gezeichnete Schrift
+      (fonts/zp-hand.woff2, erzeugt von tools/gen-handfont.py). Sie kennt
+      nur Ziffern und Rechenzeichen, deshalb steht sie ausschliesslich
+      dort, wo nichts als Zahlen steht. Buchstaben bleiben in Nunito.
+   2. Gestrichene Zahlen verschwinden nicht, sie werden durchgestrichen.
+      Das Feld fuellt sich im Lauf einer Partie mit Bleistiftstrichen,
+      genau wie das Blatt, auf dem man es frueher gespielt hat.
+
+   Im Dunkeln wird aus dem Heft eine Schultafel: gruene Flaeche, Kreide.
+
+   Laeuft auf demselben Markup wie classic.css und material3.css.
+   ========================================================================= */
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('fonts/nunito-latin-var.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+                 U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Die Bleistiftziffern. Nur Ziffern, Doppelpunkt, Komma, Punkt und die
+   Rechenzeichen – alles andere faellt hinter der Schrift auf Nunito
+   zurueck, deshalb wird sie unten nur an rein numerischen Stellen gesetzt. */
+@font-face {
+  font-family: 'ZP Hand';
+  src: url('fonts/zp-hand.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0020, U+002B-002F, U+0030-003A, U+00D7, U+2013, U+2212;
+}
+
+/* Das hidden-Attribut muss immer stechen: .button, .snackbar und andere
+   Komponenten setzen selbst ein display und wuerden es sonst ueberschreiben. */
+[hidden] { display: none !important; }
+
+/* Bildroehre, Sternenfeld und Kombo-Einblendung gehoeren allein dem Arcade-Stil. */
+.scanlines, .combo-pop, .starfield, .crt-boot, .max-flash { display: none; }
+
+/* Reine Material-Zutaten hier ausblenden */
+.ripple, .sheet__handle, .chip__check, .segmented__check { display: none !important; }
+
+:root {
+  --paper: #fbf8f0;
+  --paper-2: #f4efe2;
+  --karo: rgba(120, 165, 200, .55);
+  --karo-stark: rgba(84, 132, 172, .85);
+  --rand: rgba(200, 110, 105, .55);
+
+  --bg: var(--paper);
+  --surface: rgba(255, 255, 255, .42);
+  --surface-solid: #fffdf6;
+  --felt: transparent;
+  --line: rgba(56, 65, 79, .26);
+  --ink: #2f3743;
+  --ink-soft: #5f6a7a;
+
+  /* Bleistift: die Ziffern selbst */
+  --graphit: #384250;
+  --graphit-weich: rgba(56, 66, 80, .62);
+  --radiert: rgba(56, 66, 80, .42);
+  --tile: transparent;
+  --tile-edge: transparent;
+  --tile-ink: var(--graphit);
+  --empty: rgba(56, 66, 80, .07);
+  --hole: transparent;
+
+  /* Stifte: rot korrigiert, gruen haekchen, blau Hinweis */
+  --accent: #c14338;
+  --accent-ink: #fffdf6;
+  --accent-soft: rgba(193, 67, 56, .16);
+  --good: #2c7a52;
+  --good-soft: rgba(44, 122, 82, .16);
+  --bad: #c14338;
+  --bad-soft: rgba(193, 67, 56, .14);
+  --hintc: #2a63a6;
+  --hint-soft: rgba(42, 99, 166, .18);
+
+  /* Ausgeschaltete Knoepfe bekommen eine eigene Farbe statt einer
+     Deckkraft: bei opacity .34 war "Zurueck" auf 1,9:1 heruntergerechnet
+     und praktisch verschwunden. So bleibt es bei rund 4:1 lesbar. */
+  --dim: rgba(47, 55, 67, .64);
+  --blatt-licht: rgba(255, 255, 255, .55);
+
+  --gap: 0px;
+  --cell-max: 58px;
+  --shadow-lift: 0 14px 34px rgba(70, 60, 40, .18);
+  /* Der Trick fuer den mit der Hand gezogenen Kasten: vier sehr
+     unterschiedliche Eckradien, einer je Ecke. */
+  --skizze: 14px 220px 18px 200px / 200px 16px 240px 14px;
+  --skizze-2: 200px 16px 240px 14px / 14px 220px 18px 200px;
+  color-scheme: light;
+}
+
+/* --- Im Dunkeln: Tafel und Kreide ----------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #22332b;
+    --paper-2: #1b2a23;
+    --karo: rgba(226, 240, 228, .10);
+    --karo-stark: rgba(226, 240, 228, .22);
+    --rand: rgba(255, 190, 180, .22);
+
+    --surface: rgba(255, 255, 255, .05);
+    --surface-solid: #26382f;
+    --line: rgba(232, 242, 232, .22);
+    --ink: #eef3ea;
+    --ink-soft: #ccd8cd;
+    --dim: rgba(238, 243, 234, .48);
+    /* Auf der Tafel gibt es keinen Lichtreflex vom Papier - der helle
+       Schleier hob den Hintergrund an und druckte die Beschriftung der
+       Karten auf 3,4:1. */
+    --blatt-licht: rgba(255, 255, 255, .05);
+
+    --graphit: #f4f7f0;
+    --graphit-weich: rgba(244, 247, 240, .58);
+    --radiert: rgba(244, 247, 240, .40);
+    --tile-ink: var(--graphit);
+    --empty: rgba(244, 247, 240, .09);
+
+    --accent: #ffd98a;
+    --accent-ink: #22332b;
+    --accent-soft: rgba(255, 217, 138, .18);
+    --good: #a5e2a8;
+    --good-soft: rgba(165, 226, 168, .18);
+    --bad: #ffab9d;
+    --bad-soft: rgba(255, 171, 157, .18);
+    --hintc: #a3d0ff;
+    --hint-soft: rgba(163, 208, 255, .20);
+    --shadow-lift: 0 14px 34px rgba(0, 0, 0, .55);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #22332b;
+  --paper-2: #1b2a23;
+  --karo: rgba(226, 240, 228, .10);
+  --karo-stark: rgba(226, 240, 228, .22);
+  --rand: rgba(255, 190, 180, .22);
+
+  --surface: rgba(255, 255, 255, .05);
+  --surface-solid: #26382f;
+  --line: rgba(232, 242, 232, .22);
+  --ink: #eef3ea;
+  --ink-soft: #ccd8cd;
+  --dim: rgba(238, 243, 234, .48);
+  --blatt-licht: rgba(255, 255, 255, .05);
+
+  --graphit: #f4f7f0;
+  --graphit-weich: rgba(244, 247, 240, .58);
+  --radiert: rgba(244, 247, 240, .40);
+  --tile-ink: var(--graphit);
+  --empty: rgba(244, 247, 240, .09);
+
+  --accent: #ffd98a;
+  --accent-ink: #22332b;
+  --accent-soft: rgba(255, 217, 138, .18);
+  --good: #a5e2a8;
+  --good-soft: rgba(165, 226, 168, .18);
+  --bad: #ffab9d;
+  --bad-soft: rgba(255, 171, 157, .18);
+  --hintc: #a3d0ff;
+  --hint-soft: rgba(163, 208, 255, .20);
+  --shadow-lift: 0 14px 34px rgba(0, 0, 0, .55);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; height: 100%; overscroll-behavior: none; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Nunito', ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+/* Der Papierton: ein Hauch Unregelmaessigkeit, sonst wirkt das Blatt wie
+   ein Bildschirm. Im Dunkeln ist es die matte Tafel. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60vmax 50vmax at 12% -8%, var(--blatt-licht), transparent 60%),
+    radial-gradient(70vmax 60vmax at 100% 108%, var(--paper-2), transparent 62%);
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.body-large { font-size: 1rem; }
+.body-medium, .body-small { font-size: .9rem; }
+
+/* --- Grundgeruest --------------------------------------------------------- */
+
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 620px;
+  margin-inline: auto;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Der rote Rand des Hefts. Auf breiten Bildschirmen faellt er mit dem
+   linken Blattrand zusammen, auf dem Handy sitzt er wie im Heft innen. */
+.app::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  left: max(10px, env(safe-area-inset-left));
+  width: 1px;
+  background: var(--rand);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.top-app-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: none;
+  padding: 10px 12px 6px;
+}
+
+.top-app-bar__title {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+  font-size: 1.42rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  rotate: -.5deg;
+}
+.brand-dot { color: var(--accent); }
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 44px; height: 44px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: var(--skizze);
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+  transition: background .18s, color .18s, transform .12s;
+}
+.icon-button:active { transform: scale(.92) rotate(-1deg); }
+@media (hover: hover) { .icon-button:hover { background: var(--empty); color: var(--ink); } }
+.icon-button:disabled { color: var(--dim); cursor: default; }
+
+.icon { width: 22px; height: 22px; display: block; fill: currentColor; }
+
+:focus-visible { outline: 3px solid var(--hintc); outline-offset: 2px; }
+
+/* --- Statuszeile ---------------------------------------------------------- */
+
+.hud {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  flex: none;
+  padding: 2px 12px 8px;
+}
+.stat-card {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  padding: 7px 6px 8px;
+  background: transparent;
+  border: 1.5px solid var(--line);
+  border-radius: var(--skizze);
+}
+.stat-card:nth-child(2) { border-radius: var(--skizze-2); rotate: .35deg; }
+.stat-card:nth-child(3) { rotate: -.3deg; }
+.stat-card__label {
+  font-size: .64rem; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-soft);
+}
+/* Zahlen von Hand: hier steht garantiert nur eine Zahl drin. */
+.stat-card__value {
+  font-family: 'ZP Hand', 'Nunito', monospace;
+  font-size: 1.5rem; font-weight: 400;
+  line-height: 1.05;
+  color: var(--graphit);
+  font-variant-numeric: tabular-nums;
+}
+.stat-card__value.bump { animation: bump .38s cubic-bezier(.2, 1.5, .4, 1); }
+@keyframes bump {
+  0% { transform: scale(1) rotate(0); }
+  40% { transform: scale(1.24) rotate(-3deg); color: var(--accent); }
+  100% { transform: scale(1) rotate(0); }
+}
+.stat-card__note {
+  font-size: .62rem;
+  letter-spacing: .02em;
+  color: var(--ink-soft);
+  margin-top: 1px;
+}
+.stat-card.beaten .stat-card__note { color: var(--accent); font-weight: 800; }
+.stat-card.beaten { border-color: var(--accent); }
+
+.combo-badge {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, calc(-50% - 6px)) scale(.82) rotate(-2deg);
+  padding: 3px 13px;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--skizze);
+  background: var(--surface-solid);
+  color: var(--accent);
+  font-size: .8rem; font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity .18s, transform .28s cubic-bezier(.2, 1.4, .4, 1);
+}
+.combo-badge.show { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-2deg); }
+
+/* Der Fortschritt ist ein Bleistiftstrich am Blattrand. */
+.progress {
+  flex: none;
+  height: 3px;
+  margin: 0 14px;
+  border-radius: 999px;
+  background: var(--empty);
+  overflow: hidden;
+}
+.progress__indicator {
+  display: block; height: 100%; width: 0;
+  border-radius: inherit;
+  background: var(--graphit-weich);
+  transition: width .45s cubic-bezier(.2, .9, .3, 1);
+}
+
+/* --- Feste Zeile fuer Kombo und Hinweise ---------------------------------- */
+
+.ticker {
+  position: relative;
+  flex: none;
+  height: 40px;
+  margin: 0 12px;
+}
+.ticker.hint .combo-badge { opacity: 0; }
+
+/* --- Spielfeld ------------------------------------------------------------ */
+
+.board-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px 14px 10px;
+  display: flex;
+  justify-content: center;
+  /* start statt stretch: das Blatt haengt oben, das Feld springt nicht,
+     wenn eine Zeile verschwindet. */
+  align-items: start;
+  scroll-padding-block: 12px;
+}
+.board-wrap.scrollable {
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14px, #000 calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 14px, #000 calc(100% - 20px), transparent 100%);
+}
+
+/* Das Karo entsteht aus den Zellen selbst: jede zeichnet ihre obere und
+   linke Kante, die Aussenkanten kommen vom Rahmen des Felds. So sitzt das
+   Karo immer exakt auf dem Raster – egal wie breit die Zellen gerade sind. */
+.board {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 9), 1fr);
+  gap: 0;
+  width: min(100%, calc(var(--cols, 9) * var(--cell-max)));
+  align-content: start;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--karo-stark);
+}
+
+.cell {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 1px 0 0 var(--karo), inset 0 1px 0 var(--karo);
+  color: var(--tile-ink);
+  font-family: 'ZP Hand', 'Nunito', monospace;
+  font-weight: 400;
+  font-size: clamp(18px, 8cqw, 38px);
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: color .16s, background-color .16s;
+}
+/* Gestrichen statt weg: die Zahl bleibt stehen und bekommt einen Strich.
+   Genau das macht man auf Papier auch - und man sieht am Ende, wie voll
+   das Blatt geworden ist. Die Ziffer liefert data-v, das app.js an jeder
+   Zelle mitfuehrt. */
+.cell.empty {
+  background: transparent;
+  color: transparent;
+  cursor: default;
+  pointer-events: none;
+  scale: 1;
+}
+.cell.empty::before {
+  content: attr(data-v);
+  color: var(--radiert);
+  font: inherit;
+}
+.cell.empty::after {
+  content: "";
+  position: absolute;
+  left: 15%; right: 15%;
+  top: 50%;
+  height: max(1.5px, .085em);
+  margin-top: -.04em;
+  border-radius: 999px;
+  background: var(--radiert);
+  rotate: -13deg;
+  transform-origin: left center;
+}
+
+/* Moegliche Partner: ein leichter Bleistiftstrich darunter. */
+.cell.partner { color: var(--good); }
+.cell.partner::after {
+  content: "";
+  position: absolute;
+  left: 22%; right: 22%; bottom: 15%;
+  height: 2px;
+  top: auto; margin-top: 0;
+  border-radius: 999px;
+  background: var(--good);
+  rotate: .8deg;
+}
+
+/* Tipp: eingekringelt und blinkend. */
+.cell.hinted { z-index: 2; }
+.cell.hinted::before {
+  content: "";
+  position: absolute;
+  inset: 6%;
+  border: 2px solid var(--hintc);
+  border-radius: 52% 48% 47% 53% / 48% 52% 48% 52%;
+  rotate: 5deg;
+  animation: tipp .75s ease-in-out 4;
+}
+@keyframes tipp {
+  0%, 100% { opacity: .25; scale: .94; }
+  50% { opacity: 1; scale: 1.04; }
+}
+
+/* Ausgewaehlt: mit dem Stift eingekringelt. Steht nach dem Tipp, damit die
+   Auswahl gewinnt, wenn man genau die vorgeschlagene Zahl antippt. */
+.cell.sel {
+  color: var(--accent);
+  z-index: 3;
+}
+.cell.sel::before {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  border: 2px solid var(--accent);
+  border-radius: 47% 53% 52% 48% / 53% 47% 53% 47%;
+  rotate: -6deg;
+  animation: kringel .22s cubic-bezier(.3, 1.4, .5, 1);
+}
+@keyframes kringel {
+  from { opacity: 0; scale: .6; rotate: -30deg; }
+  to { opacity: 1; scale: 1; rotate: -6deg; }
+}
+
+/* Danebengegriffen: die Zahl zuckt, in Rot. */
+.cell.bad {
+  color: var(--bad);
+  animation: wackel .34s cubic-bezier(.36, .07, .19, .97);
+}
+@keyframes wackel {
+  10%, 90% { transform: translateX(-2px) rotate(-1deg); }
+  20%, 80% { transform: translateX(3px) rotate(1.5deg); }
+  30%, 50%, 70% { transform: translateX(-4px) rotate(-2deg); }
+  40%, 60% { transform: translateX(4px) rotate(2deg); }
+}
+
+/* Der Strich wird gezogen. Steht ganz zuletzt, damit er jede andere
+   Markierung ueberschreibt - auch die eines markierten Partners. */
+.cell.clearing {
+  color: var(--good);
+  z-index: 4;
+  pointer-events: none;
+}
+.cell.clearing::after {
+  content: "";
+  position: absolute;
+  left: 15%; right: 15%;
+  top: 50%; bottom: auto;
+  height: max(1.5px, .085em);
+  margin-top: -.04em;
+  border-radius: 999px;
+  background: var(--good);
+  rotate: -13deg;
+  transform-origin: left center;
+  animation: strich .26s cubic-bezier(.4, 0, .3, 1) backwards;
+}
+@keyframes strich {
+  from { scale: 0 1; }
+  to { scale: 1 1; }
+}
+
+/* Neu geschrieben: die Zahl erscheint, als haette sie jemand hingesetzt. */
+.cell.enter { animation: schreiben .3s ease-out backwards; }
+@keyframes schreiben {
+  0% { opacity: 0; transform: translateY(-4px) rotate(-4deg); }
+  100% { opacity: 1; transform: none; }
+}
+
+.cell.rowout { animation: rowout .26s ease-in forwards; pointer-events: none; }
+@keyframes rowout {
+  0% { transform: scaleY(1); opacity: 1; }
+  100% { transform: scaleY(0); opacity: 0; }
+}
+
+/* --- Effektebene ---------------------------------------------------------- */
+
+.fx { position: absolute; left: 0; top: 0; width: 100%; height: 0; pointer-events: none; z-index: 5; }
+
+.burst {
+  position: absolute;
+  width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 48% 52% 51% 49% / 52% 48% 52% 48%;
+  border: 2px solid var(--good);
+  animation: burst .5s ease-out forwards;
+}
+@keyframes burst {
+  0% { transform: scale(.6) rotate(0); opacity: .85; }
+  100% { transform: scale(5.4) rotate(28deg); opacity: 0; }
+}
+
+.spark {
+  position: absolute;
+  width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px;
+  border-radius: 1px;
+  background: var(--graphit-weich);
+  animation: spark .55s ease-out forwards;
+}
+@keyframes spark {
+  0% { transform: translate(0, 0) scale(1); opacity: .9; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(.2) rotate(180deg); opacity: 0; }
+}
+
+.floater {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-weight: 800; font-size: .95rem;
+  color: var(--good);
+  text-shadow: 0 1px 8px var(--paper);
+  white-space: nowrap;
+  rotate: -4deg;
+  animation: floatup .95s cubic-bezier(.2, .8, .3, 1) forwards;
+}
+@keyframes floatup {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(.8); }
+  25% { opacity: 1; transform: translate(-50%, -70%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -180%) scale(1); }
+}
+
+/* --- Knopfleiste ---------------------------------------------------------- */
+
+.bottom-app-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  flex: none;
+  padding: 6px 12px 10px;
+  background: transparent;
+}
+.bottom-app-bar__actions { display: contents; }
+
+.bottom-app-bar .icon-button,
+.fab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: auto;
+  min-height: 56px;
+  height: auto;
+  padding: 7px 4px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--skizze);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: .74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .12s, background .18s, opacity .18s, border-color .18s;
+}
+#btn-hint { border-radius: var(--skizze-2); }
+#btn-new { border-radius: var(--skizze-2); }
+.bottom-app-bar .icon-button:active, .fab:active { transform: scale(.95) rotate(-.8deg); }
+.bottom-app-bar .icon-button .icon { width: 20px; height: 20px; color: var(--ink-soft); }
+.fab .icon { width: 20px; height: 20px; color: var(--accent); }
+.fab__label, .action-label { display: block; }
+.fab__count {
+  font-family: 'ZP Hand', 'Nunito', monospace;
+  font-size: 1.05em;
+  font-variant-numeric: tabular-nums;
+}
+.fab:disabled, .bottom-app-bar .icon-button:disabled {
+  color: var(--dim);
+  border-color: var(--dim);
+  cursor: default;
+}
+.fab:disabled .icon, .bottom-app-bar .icon-button:disabled .icon { color: var(--dim); }
+.fab.urge { animation: urge 1.2s ease-in-out infinite; }
+.fab--rescue { border-color: var(--accent); color: var(--accent); border-width: 2.5px; }
+.fab--rescue .icon { color: var(--accent); }
+@keyframes urge {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); }
+  50% { box-shadow: 0 0 0 6px var(--accent-soft); }
+}
+/* Reihenfolge wie im Original: Zurueck · Tipp · Auffuellen · Neu */
+#btn-undo { order: 1; }
+#btn-hint { order: 2; }
+.fab { order: 3; }
+#btn-new { order: 4; }
+
+.fab {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas: "icon icon" "label count";
+  justify-content: center;
+  align-content: center;
+  gap: 2px 5px;
+}
+.fab .icon { grid-area: icon; justify-self: center; }
+.fab__label { grid-area: label; }
+.fab__count { grid-area: count; margin: 0; }
+
+/* --- Hinweisstreifen ------------------------------------------------------ */
+
+.snackbar {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, calc(-50% - 10px));
+  z-index: 60;
+  width: max-content;
+  max-width: 100%;
+  padding: 7px 16px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--skizze);
+  background: var(--surface-solid);
+  box-shadow: 0 6px 18px rgba(70, 60, 40, .13);
+  color: var(--ink);
+  font-size: .86rem; font-weight: 600;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .24s cubic-bezier(.2, 1.3, .4, 1);
+}
+.snackbar.show { opacity: 1; transform: translate(-50%, -50%); }
+
+/* --- Blaetter und Dialoge ------------------------------------------------- */
+
+.sheet {
+  position: relative;
+  width: min(100%, 520px);
+  max-width: none;
+  max-height: 92dvh;
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  background: var(--surface-solid);
+  color: var(--ink);
+  box-shadow: var(--shadow-lift);
+  overflow: hidden;
+}
+.sheet[open] { display: flex; flex-direction: column; animation: sheetin .3s cubic-bezier(.2, .9, .3, 1); }
+.sheet.closing { animation: sheetout .2s ease-in forwards; }
+@keyframes sheetin { from { transform: translateY(24px); opacity: .4; } }
+@keyframes sheetout { to { transform: translateY(24px); opacity: 0; } }
+@media (min-width: 560px) { .sheet { margin: auto; border-radius: 6px; } }
+
+/* Auch die Blaetter sind Blaetter: roter Rand links. */
+.sheet::before, .dialog::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 13px;
+  width: 1px;
+  background: var(--rand);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sheet::backdrop, .dialog::backdrop { background: rgba(40, 34, 24, .48); backdrop-filter: blur(2px); }
+.sheet:focus, .dialog:focus { outline: none; }
+
+.sheet__close { position: absolute; top: 10px; right: 10px; z-index: 2; }
+.sheet__body { padding: 16px 20px 16px 26px; overflow-y: auto; }
+.sheet__headline {
+  margin: 0 0 14px;
+  padding-right: 44px;
+  font-size: 1.12rem; font-weight: 800;
+}
+.sheet__subhead { margin: 18px 0 8px; font-size: .96rem; font-weight: 800; }
+.sheet__body p { margin: 0 0 12px; line-height: 1.55; color: var(--ink-soft); }
+.sheet__body p b, .bullets b { color: var(--ink); }
+.sheet__actions, .dialog__actions {
+  display: flex; gap: 8px; justify-content: flex-end;
+  flex: none;
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1.5px solid var(--line);
+}
+
+.bullets { margin: 0 0 12px; padding-left: 20px; color: var(--ink-soft); line-height: 1.6; }
+.bullets li { margin-bottom: 6px; }
+
+.dialog {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: min(94%, 420px);
+  max-width: none;
+  margin: auto;
+  padding: 26px 20px 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--surface-solid);
+  color: var(--ink);
+  box-shadow: var(--shadow-lift);
+  text-align: center;
+}
+.dialog[open] { animation: sheetin .3s cubic-bezier(.2, .9, .3, 1); }
+.dialog.closing { animation: sheetout .2s ease-in forwards; }
+
+/* --- Belohnung fuer einen Bestwert ---------------------------------------- */
+
+.dialog__rays {
+  position: absolute;
+  top: -46px; left: 50%;
+  width: 230px; height: 230px;
+  margin-left: -115px;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, var(--accent) 0deg 3deg, transparent 3deg 22deg);
+  -webkit-mask-image: radial-gradient(circle, #000 6%, rgba(0, 0, 0, .4) 26%, transparent 52%);
+  mask-image: radial-gradient(circle, #000 6%, rgba(0, 0, 0, .4) 26%, transparent 52%);
+}
+.dialog.is-record .dialog__rays {
+  animation: rays-in .5s cubic-bezier(.2, .9, .3, 1) forwards,
+             rays-spin 26s linear .5s infinite;
+}
+@keyframes rays-in { from { opacity: 0; scale: .35; } to { opacity: .26; scale: 1; } }
+@keyframes rays-spin { to { rotate: 360deg; } }
+
+.record-ribbon[hidden] { display: none; }
+.record-ribbon {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 auto 14px;
+  padding: 5px 16px;
+  border: 2px solid var(--accent);
+  border-radius: var(--skizze);
+  background: transparent;
+  color: var(--accent);
+  font-size: .84rem;
+  font-weight: 800;
+  rotate: -1.6deg;
+}
+.dialog.is-record .record-ribbon {
+  animation: ribbon-pop .5s cubic-bezier(.2, 1.5, .4, 1) 200ms backwards;
+}
+@keyframes ribbon-pop {
+  0% { opacity: 0; scale: .4; }
+  65% { opacity: 1; scale: 1.14; }
+  100% { opacity: 1; scale: 1; }
+}
+.dialog.is-record .dialog__icon {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: badgein .55s cubic-bezier(.2, 1.5, .4, 1),
+             trophy-cheer 1.4s ease-in-out 500ms 2;
+}
+@keyframes trophy-cheer {
+  0%, 100% { rotate: 0deg; }
+  20% { rotate: -12deg; }
+  40% { rotate: 10deg; }
+  60% { rotate: -6deg; }
+  80% { rotate: 3deg; }
+}
+
+.dialog__icon {
+  width: 74px; height: 74px;
+  margin: 0 auto 12px;
+  padding: 18px;
+  display: block;
+  border: 2px solid var(--good);
+  border-radius: 48% 52% 51% 49% / 52% 48% 52% 48%;
+  background: transparent;
+  color: var(--good);
+  animation: badgein .55s cubic-bezier(.2, 1.5, .4, 1);
+}
+.dialog__icon.sad { border-color: var(--bad); color: var(--bad); background: transparent; }
+@keyframes badgein { 0% { transform: scale(0) rotate(-40deg); } 100% { transform: none; } }
+.dialog__headline { margin: 0 0 6px; font-size: 1.5rem; font-weight: 800; }
+.dialog__text { margin: 0; color: var(--ink-soft); line-height: 1.5; }
+.dialog__actions { margin-top: 18px; padding-inline: 0; }
+
+.end-stats {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  margin: 18px 0 0; text-align: left;
+}
+.end-stats div {
+  border: 1.5px solid var(--line);
+  border-radius: var(--skizze);
+  padding: 8px 12px 9px;
+}
+.end-stats div:nth-child(2n) { border-radius: var(--skizze-2); }
+.end-stats dt {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--ink-soft);
+}
+.end-stats dd {
+  margin: 1px 0 0;
+  font-family: 'ZP Hand', 'Nunito', monospace;
+  font-size: 1.3rem; font-weight: 400;
+  line-height: 1.1;
+  color: var(--graphit);
+  font-variant-numeric: tabular-nums;
+}
+
+.button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--skizze);
+  background: transparent;
+  color: var(--ink);
+  font: inherit; font-weight: 700;
+  cursor: pointer;
+  transition: transform .12s, background .18s, border-color .18s;
+}
+.button:active { transform: scale(.96) rotate(-.8deg); }
+.button--filled { border-color: var(--accent); border-width: 2.5px; color: var(--accent); }
+.button--text { border-color: transparent; color: var(--ink-soft); }
+
+/* --- Auswahlgruppen ------------------------------------------------------- */
+
+.chips, .segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  height: auto;
+}
+.chips .chip, .segmented button {
+  flex: 1 1 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 42px;
+  height: auto;
+  padding: 0 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--skizze);
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit; font-size: .84rem; font-weight: 700;
+  cursor: pointer;
+  transition: border-color .18s, color .18s;
+}
+.chips .chip:nth-child(2n), .segmented button:nth-child(2n) { border-radius: var(--skizze-2); }
+/* Stil und Farbschema sind zwei Gruppen - der Abstand muss das zeigen. */
+.segmented + .segmented { margin-top: 14px; }
+.chips .chip[aria-pressed="true"], .segmented button[aria-pressed="true"] {
+  border-color: var(--accent);
+  border-width: 2.5px;
+  color: var(--accent);
+}
+
+/* --- Schalter ------------------------------------------------------------- */
+
+.switch-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  cursor: pointer;
+  font-size: .94rem;
+}
+.switch { position: relative; flex: none; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch__track {
+  display: block;
+  position: relative;
+  width: 48px; height: 28px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1.5px solid var(--line);
+  transition: border-color .2s;
+}
+.switch__track::after {
+  content: "";
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  border-radius: 48% 52% 51% 49% / 52% 48% 52% 48%;
+  background: var(--graphit-weich);
+  transition: transform .22s cubic-bezier(.2, 1.3, .4, 1), background .2s;
+}
+.switch input:checked + .switch__track { border-color: var(--good); }
+.switch input:checked + .switch__track::after { transform: translateX(20px); background: var(--good); }
+.switch input:focus-visible + .switch__track { outline: 3px solid var(--hintc); outline-offset: 2px; }
+
+/* --- Felder und Listen ---------------------------------------------------- */
+
+.field { margin: 0 0 20px; }
+.field__title {
+  margin: 0 0 8px;
+  font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.field__note { margin: 8px 0 0; font-size: .8rem; color: var(--ink-soft); }
+
+.best-list { margin: 0; padding: 0; list-style: none; font-size: .9rem; }
+.best-list li {
+  display: flex; justify-content: space-between; align-items: center;
+  min-height: 40px;
+  padding: 7px 0;
+  border-bottom: 1.5px solid var(--line);
+}
+.best-list li:last-child { border-bottom: 0; }
+.best-list b {
+  font-family: 'ZP Hand', 'Nunito', monospace;
+  font-weight: 400; font-size: 1.15em;
+  color: var(--graphit);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Beispielraster in den Regeln ----------------------------------------- */
+
+.demo {
+  display: flex; align-items: center; gap: 16px;
+  margin: 4px 0 18px; padding: 14px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--skizze);
+}
+.demo__grid {
+  display: grid; grid-template-columns: repeat(3, 40px); gap: 0; flex: none;
+  border: 1.5px solid var(--karo-stark);
+}
+.demo__cell {
+  position: relative;
+  display: grid; place-items: center;
+  height: 40px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 1px 0 0 var(--karo), inset 0 1px 0 var(--karo);
+  background: transparent;
+  color: var(--graphit);
+  font-family: 'ZP Hand', 'Nunito', monospace;
+  font-weight: 400;
+  font-size: 1.3rem;
+}
+.demo__cell--a, .demo__cell--b { background: transparent; }
+.demo__cell--a { color: var(--good); }
+.demo__cell--b { color: var(--hintc); }
+.demo__cell--a::after, .demo__cell--b::after {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border: 2px solid currentColor;
+  border-radius: 47% 53% 52% 48% / 53% 47% 53% 47%;
+  rotate: -6deg;
+}
+.demo__legend {
+  margin: 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 8px;
+  font-size: .84rem; color: var(--ink-soft);
+}
+.demo__legend li { display: flex; align-items: center; gap: 7px; }
+.demo__swatch {
+  width: 13px; height: 13px; display: inline-block; flex: none;
+  border: 2px solid currentColor;
+  border-radius: 47% 53% 52% 48% / 53% 47% 53% 47%;
+  background: transparent;
+}
+.demo__swatch--a { color: var(--good); }
+.demo__swatch--b { color: var(--hintc); }
+
+/* --- Konfetti ------------------------------------------------------------- */
+
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 70; overflow: hidden; }
+.confetti[popover] { width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
+.confetti[popover]::backdrop { background: transparent; }
+.confetti i {
+  position: absolute; top: -14px;
+  width: 8px; height: 13px; border-radius: 1px;
+  animation: fall linear forwards;
+}
+@keyframes fall {
+  0% { transform: translateY(-10px) rotate(0); opacity: 1; }
+  100% { transform: translateY(105dvh) rotate(720deg); opacity: .9; }
+}
+
+/* --- Schmale Geraete ------------------------------------------------------ */
+
+@media (max-width: 359px) {
+  .board-wrap { padding-inline: 10px; }
+  .bottom-app-bar { gap: 5px; padding-inline: 8px; }
+  .bottom-app-bar .icon-button, .fab { font-size: .64rem; }
+  .action-label, .fab__label { white-space: nowrap; }
+  .top-app-bar__title { font-size: 1.06rem; }
+}
+
+@media (max-height: 460px) and (orientation: landscape) {
+  .top-app-bar { padding-block: 2px 0; }
+  .hud { padding-bottom: 4px; }
+  .stat-card { padding-block: 3px; }
+  .bottom-app-bar .icon-button, .fab { min-height: 46px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+  .cell.clearing::after { scale: 1 1; }
+}
+
+.version { text-align: center; opacity: .7; margin-top: 16px; }

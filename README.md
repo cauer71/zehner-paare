@@ -110,9 +110,9 @@ npm test           # oder: node --test game.test.js
 | `game.test.js` | Regeltests |
 | `app.js` | Oberfläche: Rendering, FLIP-Animationen, Ton, Speicher |
 | `index.html` | Markup inkl. Regel-, Einstellungs- und Enddialog |
-| `classic.css`, `material3.css`, `m3-colors.css` | die beiden Stile und die erzeugten M3-Farbrollen |
+| `classic.css`, `material3.css`, `m3-colors.css`, `arcade.css`, `papier.css`, `kontrast.css` | die fünf Stile und die erzeugten M3-Farbrollen |
 | `sw.js` | Offline-Cache |
-| `tools/` | Erzeuger: M3-Farbrollen, Pixelschrift, Pixel-Icons, App-Icons |
+| `tools/` | Erzeuger: M3-Farbrollen, Pixelschrift, Handschrift, Pixel-Icons, App-Icons |
 
 Die Logik in `game.js` kennt kein DOM: `createGame`, `canMatch`, `applyMatch`, `refill`,
 `rescue`, `nextRound`, `findPair`, `undo`. Wer eine andere Oberfläche bauen will, braucht nur
@@ -122,9 +122,9 @@ Kombo-Plakette und Hinweise haben eine eigene, feste Zeile zwischen Fortschritts
 Brett (`.ticker`). Vorher schwebten beide über dem Feld und verdeckten je nach Bildschirmhöhe
 bis zu 14 Kacheln – ausgerechnet die eben angehängten.
 
-## Drei Stile
+## Fünf Stile
 
-Unter **Einstellungen → Darstellung** lässt sich zwischen drei Oberflächen umschalten:
+Unter **Einstellungen → Darstellung** lässt sich zwischen fünf Oberflächen umschalten:
 
 * **Original** (Voreinstellung) – warmes Papierweiß, runde weiße Spielsteine, beschriftete
   Knopfleiste, Schrift Nunito.
@@ -133,8 +133,13 @@ Unter **Einstellungen → Darstellung** lässt sich zwischen drei Oberflächen u
   Schrift Roboto, Icons aus den Material Symbols (Rounded).
 * **Arcade** – ein Spielautomat von 1989: Neon auf Schwarz, eigene Pixelschrift, Pixel-Icons,
   Bildröhren-Raster, laufende Lichterkette, Sternenfeld, Chiptune. Siehe unten.
+* **Papier & Bleistift** – das Rechenheft, aus dem das Spiel kommt: Karo, handgeschriebene
+  Ziffern, gestrichene Zahlen bleiben stehen. Im Dunkeln Tafel und Kreide. Siehe unten.
+* **Hochkontrast** – schwarz, weiß, ein Gelb. Dicke Rahmen, große Ziffern, große
+  Tippflächen, keine Bewegung. Für die Sonne und für Augen, die nicht mehr zwanzig sind.
+  Siehe unten.
 
-Alle drei Stile laufen auf demselben Markup; umgeschaltet wird über `disabled` an den
+Alle Stile laufen auf demselben Markup; umgeschaltet wird über `disabled` an den
 Stylesheets, ein kleines Skript im `<head>` setzt die Wahl noch vor dem ersten Rendern, damit
 nichts aufblitzt. Die Wahl liegt wie alle Einstellungen im `localStorage`. Was sich über das
 Stylesheet hinaus unterscheidet – Icon-Satz und Tonstimme – steht in einer Tabelle `SKINS`
@@ -150,6 +155,14 @@ Quellton `#EF7D31` berechnet (Schema *Vibrant*, wie es Material You tut) – sie
 | `material3.css` | Skin „Material 3" |
 | `m3-colors.css` | erzeugte Farbrollen (hell und dunkel) |
 | `arcade.css` | Skin „Arcade" |
+| `papier.css` | Skin „Papier & Bleistift" |
+| `kontrast.css` | Skin „Hochkontrast" |
+
+Dass ein neuer Stil *vollständig* ist, wird nicht per Augenschein entschieden: ein Prüfskript
+erntet in allen Stilen jedes Element mit stabilem Pfad und vergleicht. Für die beiden neuen
+Stile: **296 Elemente, keines fehlt, keines unsichtbar, keines in einer fremden Schrift,
+keines ohne Fläche, Rahmen oder Linie** – bis auf das Brett im Hochkontrast, wo die Kacheln
+mit ihren 3-px-Rahmen bewusst alles allein tragen.
 
 ## Der Arcade-Stil
 
@@ -208,6 +221,60 @@ Absichtlich dick aufgetragen: Kitsch mit Regeln.
   Laufschrift, Flackern, Ruckeln, Einschaltblitz. Der Stil bleibt vollständig lesbar, er steht
   dann nur still.
 
+## Der Papier-Stil
+
+Das Spiel kommt vom Papier – die Schwierigkeit „Klassisch" ist genau das Original vom Block.
+Dieser Stil bringt es dorthin zurück.
+
+* **Handgeschriebene Ziffern.** Eine eigene Schrift `ZP Hand` (4,9 kB), erzeugt von
+  [`tools/gen-handfont.py`](tools/gen-handfont.py). Jede Ziffer ist eine Handvoll
+  Stützpunkte, durch die eine Catmull-Rom-Kurve gelegt wird; die wird abgetastet, leicht
+  gewellt, nach rechts geneigt und dann zur Strichkontur aufgeblasen – je Teilstück ein
+  Rechteck, an Enden und scharfen Knicken ein Kreis, alles im selben Drehsinn, damit die
+  Überlappungen unter der Nonzero-Regel zu einer Fläche verschmelzen. So sagt man dem
+  Erzeuger, **wo der Stift langfährt**, statt Bézier-Griffe zu raten. Die Schrift kennt nur
+  Ziffern und Rechenzeichen und steht darum ausschließlich an Stellen, an denen nichts als
+  Zahlen steht – Buchstaben bleiben Nunito.
+* **Gestrichen statt weg.** Der wichtigste Unterschied: eine aufgelöste Zahl verschwindet
+  nicht, sie bekommt einen Bleistiftstrich. Das Blatt füllt sich im Lauf einer Partie, und man
+  sieht am Ende, wie weit man gekommen ist. Dafür führt `app.js` an jeder Kachel ein
+  `data-v` mit; die anderen Stile lesen es nicht.
+* **Das Karo entsteht aus den Kacheln.** Jede zeichnet ihre obere und linke Kante als
+  Innenschatten, die Außenkanten kommen vom Rahmen des Bretts. Damit sitzt das Raster
+  *immer* exakt auf den Zellen, egal wie breit sie gerade sind – eine Hintergrundgrafik mit
+  gerechneter Schrittweite hätte man bei jeder Spaltenzahl neu justieren müssen.
+* **Der Stift markiert, statt zu füllen.** Ausgewählt = mit dem Stift eingekringelt (eine
+  unregelmäßige Ellipse aus vier verschiedenen Eckradien), Tipp = doppelt eingekringelt in
+  Blau, möglicher Partner = grüner Strich darunter, danebengegriffen = rot und zuckend.
+  Auch die Knöpfe, Karten und Kästchen sind mit demselben Kniff „von Hand gezogen".
+* **Im Dunkeln wird das Heft zur Tafel.** Dunkelgrün, Kreide, dasselbe Karo in Weiß. Der helle
+  Papierschein fällt weg – er hob den Hintergrund an und drückte die Kartenbeschriftung auf
+  3,4:1.
+
+## Der Hochkontrast-Stil
+
+Drei Farben, dicke Linien, nichts bewegt sich.
+
+* **Nur Papierweiß, Tiefschwarz und ein Signalgelb.** Kein Rot und kein Grün als einziges
+  Unterscheidungsmerkmal. Jeder Zustand hat zusätzlich eine eigene *Form*: gewählt = gelb
+  gefüllt, möglicher Partner = gestrichelter Rahmen, Tipp = gelb mit zweitem Innenrahmen,
+  danebengegriffen = umgekehrt (schwarze Fläche, weiße Zahl), gestrichen = flächig grau ohne
+  Rahmen. Gemessen aus den Bildpunkten des fertigen Bildes: **7:1 bis 21:1**, hell wie dunkel.
+* **Alles größer.** Ziffern bis 40 px, Bedienknöpfe ab 52 px, Kippschalter 56 × 40 px,
+  Rahmen 3 px. Die Kacheln selbst bleiben bei 9 Spalten auf einem 390-px-Bildschirm rund
+  38 px breit – das gibt das Raster vor, nicht der Stil.
+* **Kein Kippschalter, ein Kästchen.** An ist gefüllt *und* trägt einen Haken, aus ist leer –
+  das erkennt man auch ohne Farbe. Gewählte Chips sind gelb *und* unterstrichen.
+* **Nichts bewegt sich.** Alle Dauern gehen auf fast null – nicht auf `animation: none`:
+  `app.js` räumt Funken, Ringe und Wellen ab, wenn ihre Animation zu Ende ist; ohne Animation
+  bliebe das Ereignis aus und die Elemente sammelten sich an. (Dieselbe Falle steckte bisher
+  auch in den anderen Stilen: die Material-Welle ist dort auf `display:none` gesetzt und wurde
+  nie wieder entfernt. Jetzt gibt es zusätzlich einen Wecker.)
+* **Der Punktezuwachs fällt aus.** In den anderen Stilen schwebt „+70" weg und ist nach einer
+  Sekunde vorbei. Ohne Bewegung bliebe er als gelber Kasten mitten auf dem Feld stehen und
+  deckte gerade die Zahlen zu, um die es geht – bei schnellem Spiel sogar mehrere übereinander.
+  Der Punktestand oben ist groß, schwarz und sofort aktuell; das reicht.
+
 ## Schriften und Lizenzen
 
 * **Nunito** (`fonts/nunito-latin-var.woff2`, 39 kB) – SIL Open Font License 1.1,
@@ -215,8 +282,9 @@ Absichtlich dick aufgetragen: Kitsch mit Regeln.
 * **Roboto** (`fonts/roboto-latin-var.woff2`, 43 kB) und die **Material Symbols** im
   Icon-Sprite der `index.html` – Apache License 2.0, Volltext in
   [`fonts/APACHE-2.0.txt`](fonts/APACHE-2.0.txt).
-* **ZP Pixel** (`fonts/zp-pixel.woff2`, 1,8 kB) und die Pixel-Icons – für dieses Projekt
-  gezeichnet, gemeinfrei (CC0). Kein Nachladen von fremden Servern, keine Lizenzfrage.
+* **ZP Pixel** (`fonts/zp-pixel.woff2`, 1,8 kB), **ZP Hand** (`fonts/zp-hand.woff2`, 4,9 kB)
+  und die Pixel-Icons – für dieses Projekt gezeichnet, gemeinfrei (CC0). Kein Nachladen von
+  fremden Servern, keine Lizenzfrage.
 
 ## Herkunft
 

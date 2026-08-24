@@ -39,18 +39,23 @@
 <link rel="stylesheet" href="material3.css" id="css-m3">
 <link rel="stylesheet" href="classic.css" id="css-classic">
 <link rel="stylesheet" href="arcade.css" id="css-arcade">
+<link rel="stylesheet" href="papier.css" id="css-papier">
+<link rel="stylesheet" href="kontrast.css" id="css-kontrast">
 <script>
   // Skin und Farbschema vor dem ersten Rendern setzen, sonst blitzt der
   // falsche Stil kurz auf.
   (function () {
     var s = { skin: 'classic', theme: 'auto' };
     try { Object.assign(s, JSON.parse(localStorage.getItem('zp.settings.v1') || '{}')); } catch (e) {}
-    var skin = s.skin === 'm3' || s.skin === 'arcade' ? s.skin : 'classic';
+    var bekannt = { classic: 1, m3: 1, arcade: 1, papier: 1, kontrast: 1 };
+    var skin = bekannt[s.skin] ? s.skin : 'classic';
     document.documentElement.dataset.skin = skin;
     document.getElementById('css-m3').disabled = skin !== 'm3';
     document.getElementById('css-m3-colors').disabled = skin !== 'm3';
     document.getElementById('css-classic').disabled = skin !== 'classic';
     document.getElementById('css-arcade').disabled = skin !== 'arcade';
+    document.getElementById('css-papier').disabled = skin !== 'papier';
+    document.getElementById('css-kontrast').disabled = skin !== 'kontrast';
     // Der Arcade-Stil ist immer dunkel; das Farbschema gilt nur fuer die anderen.
     if (skin !== 'arcade' && (s.theme === 'light' || s.theme === 'dark')) {
       document.documentElement.dataset.theme = s.theme;
@@ -250,6 +255,8 @@
         <button type="button" data-value="classic"><svg class="segmented__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Original</span></button>
         <button type="button" data-value="m3"><svg class="segmented__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Material 3</span></button>
         <button type="button" data-value="arcade"><svg class="segmented__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Arcade</span></button>
+        <button type="button" data-value="papier"><svg class="segmented__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Papier</span></button>
+        <button type="button" data-value="kontrast"><svg class="segmented__check" aria-hidden="true"><use href="#i-check"></use></svg><span>Kontrast</span></button>
       </div>
       <p class="field__note" id="skin-note" hidden>Der Arcade-Stil leuchtet immer im Dunkeln – das Farbschema gilt für die anderen beiden.</p>
       <div class="segmented" id="seg-theme" role="group" aria-label="Farbschema">

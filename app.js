@@ -10,7 +10,7 @@ import {
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.6.1';
+export const VERSION = '1.7.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2', seen: 'zp.seen.v1' };
 
@@ -33,7 +33,7 @@ const store = {
 };
 
 const DEFAULT_SETTINGS = {
-  skin: 'classic',          // 'classic' oder 'm3'
+  skin: 'classic',          // classic | m3 | arcade | papier | kontrast
   difficulty: 'mittel',
   diagonal: true,
   wrap: true,
@@ -55,12 +55,14 @@ if (!store.get('zp.migrated.partners.v1')) {
 }
 let best = store.get(KEY.best) ?? {};
 
-// Die drei Stile liegen als eigene Stylesheets vor. Was sich darueber hinaus
+// Die Stile liegen als eigene Stylesheets vor. Was sich darueber hinaus
 // unterscheidet, steht hier: Anzeigename, Icon-Satz und Tonstimme.
 const SKINS = {
-  classic: { label: 'Original', icons: 'i', voice: 'soft' },
-  m3:      { label: 'Material 3', icons: 'i', voice: 'soft' },
-  arcade:  { label: 'Arcade', icons: 'px', voice: 'chip' },
+  classic:  { label: 'Original', icons: 'i', voice: 'soft' },
+  m3:       { label: 'Material 3', icons: 'i', voice: 'soft' },
+  arcade:   { label: 'Arcade', icons: 'px', voice: 'chip' },
+  papier:   { label: 'Papier & Bleistift', icons: 'i', voice: 'soft' },
+  kontrast: { label: 'Hochkontrast', icons: 'i', voice: 'soft' },
 };
 
 
@@ -515,6 +517,8 @@ function applyAppearance() {
   toggle('css-m3', skin === 'm3');
   toggle('css-m3-colors', skin === 'm3');
   toggle('css-arcade', skin === 'arcade');
+  toggle('css-papier', skin === 'papier');
+  toggle('css-kontrast', skin === 'kontrast');
   applyIconSet(skin);
   // Der Automat geht an: einmal die Roehre aufreissen lassen. Nur beim echten
   // Wechsel - beim Laden liefe der Blitz sonst bei jedem Start.
@@ -605,6 +609,10 @@ function renderBoard({ enterFrom = -1 } = {}) {
     }
     el.dataset.i = String(i);
     el.textContent = cell.cleared ? '' : String(cell.v);
+    // Der Stil "Papier" streicht gestrichene Zahlen durch, statt sie
+    // wegzunehmen; dafuer muss der Wert an der Zelle bleiben. Die anderen
+    // Stile lesen das Attribut nicht.
+    el.dataset.v = String(cell.v);
     // Reste abgelaufener Animationen entfernen – sonst haelt "forwards" die
     // Zelle unsichtbar, statt sie als Luecke zu zeigen.
     el.classList.remove('clearing', 'bad', 'rowout');
@@ -732,6 +740,19 @@ function centerOf(el) {
   };
 }
 
+/**
+ * Nimmt ein Effektelement wieder weg, sobald seine Animation zu Ende ist.
+ * Der Wecker daneben ist kein Luxus: setzt ein Stil das Element auf
+ * display:none - so wie alle ausser Material 3 die Wellen -, laeuft nie
+ * eine Animation, animationend bleibt aus und die Elemente sammeln sich
+ * an. Bisher tat das die Welle bei jedem Antippen.
+ */
+function abraeumen(el, spaetestens) {
+  const weg = () => el.remove();
+  el.addEventListener('animationend', weg, { once: true });
+  setTimeout(weg, spaetestens);
+}
+
 function burstAt(el) {
   if (reduceMotion.matches || !el) return;
   const { x, y } = centerOf(el);
@@ -740,7 +761,7 @@ function burstAt(el) {
   ring.style.left = `${x}px`;
   ring.style.top = `${y}px`;
   fx.appendChild(ring);
-  ring.addEventListener('animationend', () => ring.remove(), { once: true });
+  abraeumen(ring, 1200);
 
   for (let k = 0; k < 6; k++) {
     const s = document.createElement('span');
@@ -752,7 +773,7 @@ function burstAt(el) {
     s.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
     s.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
     fx.appendChild(s);
-    s.addEventListener('animationend', () => s.remove(), { once: true });
+    abraeumen(s, 1200);
   }
 }
 
@@ -765,7 +786,7 @@ function floaterAt(el, text) {
   f.style.left = `${x}px`;
   f.style.top = `${y}px`;
   fx.appendChild(f);
-  f.addEventListener('animationend', () => f.remove(), { once: true });
+  abraeumen(f, 2000);
 }
 
 /* ------------------------------------------- Kombo-Level-Up (Coin-Op) --- */
@@ -1515,7 +1536,7 @@ document.addEventListener('pointerdown', (e) => {
   ripple.style.left = `${e.clientX - box.left - size / 2}px`;
   ripple.style.top = `${e.clientY - box.top - size / 2}px`;
   el.appendChild(ripple);
-  ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
+  abraeumen(ripple, 1200);
 }, { passive: true });
 
 /* ------------------------------------------------- Installation als App */
