@@ -1,11 +1,14 @@
-# Zweiter Durchgang: abacus.jasoncameron.dev war der einzige Dienst, der
-# ohne Anmeldung und ohne Schluessel wirklich funktioniert hat (create 201,
-# hit 200, get 200, Access-Control-Allow-Origin: *). Jetzt geht es um die
-# Frage, ob er auch fuer eine Bestenliste taugt - dafuer braucht man
-# "erhoehe um N", nicht nur "erhoehe um 1".
+# Dritter Durchgang. Zwei Befunde stehen fest:
+#   hit erhoeht immer nur um 1 (step/amount/by/value werden ignoriert),
+#   /set gibt es ohne Verwalterschluessel nicht (308 auf die Doku).
+# Damit ist abacus ein reiner Zaehler. Fuer den Entwurf fehlen noch drei
+# harte Angaben, und die stehen am besten in der Doku selbst:
+#   1. Verlaengert ein Zugriff die Haltbarkeit? (info sagt 4032 h)
+#   2. Wie streng ist die Ratenbegrenzung?
+#   3. Gibt es ein Sammel-Lesen, damit eine Verteilung nicht N Anfragen kostet?
 #
-# Siehe den Kommentarkopf des ersten Durchgangs: geprueft wird hier, weil die
-# Entwicklungsumgebung nur an Paketregister und GitHub kommt.
+# Geprueft wird hier, weil die Entwicklungsumgebung nur an Paketregister und
+# GitHub kommt. Wird nach der Auswahl wieder entfernt.
 
 name: Online-Speicher pruefen
 
@@ -19,10 +22,10 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: abacus genauer ansehen
+      - name: Doku und Grenzen von abacus
         env:
           ORIGIN: https://cauer71.github.io
-          NS: zp-probe2
+          NS: zp-probe3
         run: |
           set -u
           A=https://abacus.jasoncameron.dev
@@ -34,58 +37,82 @@ jobs:
             code=$(curl -sS -m 20 -o /tmp/body -D /tmp/head -w '%{http_code}' \
                     -H "Origin: $ORIGIN" "$@" || echo 000)
             echo "    HTTP $code"
-            grep -iE '^(access-control-allow-origin|x-ratelimit|retry-after|content-type):' /tmp/head \
+            grep -iE '^(access-control-allow-origin|x-ratelimit|ratelimit|retry-after):' /tmp/head \
               | tr -d '\r' | sed 's/^/    /'
-            echo -n "    "; head -c 400 /tmp/body | tr -d '\r'; echo
+            echo -n "    "; head -c 500 /tmp/body | tr -d '\r'; echo
           }
 
-          echo "=== 1. Anlegen, Grundfunktionen ==="
-          zeig "create"            "$A/create/$NSX/best-mittel"
-          zeig "get"               "$A/get/$NSX/best-mittel"
-          zeig "info"              "$A/info/$NSX/best-mittel"
+          echo "=== 1. Die Doku im Klartext ==="
+          curl -sS -m 25 -L https://jasoncameron.dev/abacus/ -o /tmp/doku.html \
+            -w 'HTTP %{http_code}, %{size_download} Bytes\n' || true
+          # Auszeichnung entfernen, damit der Text lesbar im Protokoll steht.
+          python3 - <<'PY'
+          import re, html, pathlib
+          p = pathlib.Path('/tmp/doku.html')
+          if not p.exists() or not p.stat().st_size:
+              print('    keine Doku geladen'); raise SystemExit
+          s = p.read_text('utf-8', 'replace')
+          s = re.sub(r'(?is)<(script|style|nav|footer|svg)[^>]*>.*?</\1>', ' ', s)
+          s = re.sub(r'(?i)<br\s*/?>|</(p|div|li|h[1-6]|tr|pre)>', '\n', s)
+          s = re.sub(r'<[^>]+>', ' ', s)
+          s = html.unescape(s)
+          zeilen = [re.sub(r'[ \t]+', ' ', z).strip() for z in s.split('\n')]
+          zeilen = [z for z in zeilen if z]
+          print('    ' + '\n    '.join(zeilen[:400]))
+          PY
 
           echo
-          echo "=== 2. Kann hit um mehr als eins erhoehen? ==="
-          zeig "hit ?step=250"     "$A/hit/$NSX/best-mittel?step=250"
-          zeig "hit ?amount=250"   "$A/hit/$NSX/best-mittel?amount=250"
-          zeig "hit ?by=250"       "$A/hit/$NSX/best-mittel?by=250"
-          zeig "hit ?value=250"    "$A/hit/$NSX/best-mittel?value=250"
-          zeig "get danach"        "$A/get/$NSX/best-mittel"
+          echo "=== 2. Maschinenlesbare Beschreibung? ==="
+          for pfad in /docs /openapi.json /swagger.json /docs/openapi.json /healthcheck; do
+            zeig "$pfad" "$A$pfad"
+          done
 
           echo
-          echo "=== 3. Gibt es ein Setzen ohne Verwalterschluessel? ==="
-          zeig "set ?value=8000"   "$A/set/$NSX/best-mittel?value=8000"
-          zeig "get danach"        "$A/get/$NSX/best-mittel"
+          echo "=== 3. Verlaengert ein Zugriff die Haltbarkeit? ==="
+          zeig "hit (legt an)"  "$A/hit/$NSX/haltbarkeit"
+          zeig "info sofort"    "$A/info/$NSX/haltbarkeit"
+          sleep 12
+          zeig "info +12 s"     "$A/info/$NSX/haltbarkeit"
+          zeig "hit nochmal"    "$A/hit/$NSX/haltbarkeit"
+          zeig "info danach"    "$A/info/$NSX/haltbarkeit"
 
           echo
-          echo "=== 4. Was kann man ohne Anlegen tun? (hit auf Unbekanntes) ==="
-          zeig "hit neu"           "$A/hit/$NSX/frisch-ohne-create"
-          zeig "get neu"           "$A/get/$NSX/frisch-ohne-create"
+          echo "=== 4. Ratenbegrenzung: 60 Anfragen so schnell wie moeglich ==="
+          fehler=0; erste_kopf=""
+          for i in $(seq 1 60); do
+            c=$(curl -sS -m 10 -o /dev/null -D /tmp/rh -w '%{http_code}' \
+                  -H "Origin: $ORIGIN" "$A/hit/$NSX/rate" || echo 000)
+            if [ "$i" = 1 ]; then
+              erste_kopf=$(grep -iE '^(x-)?ratelimit' /tmp/rh | tr -d '\r' | tr '\n' ' ')
+            fi
+            case "$c" in 200) ;; *) fehler=$((fehler+1)); echo "    Anfrage $i: HTTP $c";
+              grep -iE '^(retry-after|(x-)?ratelimit)' /tmp/rh | tr -d '\r' | sed 's/^/      /' ;; esac
+          done
+          echo "    60 Anfragen, davon nicht 200: $fehler"
+          echo "    Ratenkopfzeilen der ersten: ${erste_kopf:-keine}"
+          zeig "Endstand" "$A/get/$NSX/rate"
 
           echo
-          echo "=== 5. Grenzen ==="
-          zeig "langer Schluessel" "$A/hit/$NSX/ein-recht-langer-schluessel-mit-strichen-und-zahlen-1234567890"
-          zeig "Punkt im Namen"    "$A/hit/$NSX/best.mittel"
-          zeig "stats"             "$A/stats"
+          echo "=== 5. Sammel-Lesen? ==="
+          for pfad in "/get/$NSX" "/list/$NSX" "/keys/$NSX" "/get/$NSX/a,b" "/getall/$NSX"; do
+            zeig "$pfad" "$A$pfad"
+          done
 
           echo
-          echo "=== 6. Vorabanfrage, wie sie ein Browser stellt ==="
-          echo "--- OPTIONS"
-          curl -sS -m 20 -o /dev/null -D /tmp/h -X OPTIONS \
-            -H "Origin: $ORIGIN" -H 'Access-Control-Request-Method: GET' \
-            "$A/hit/$NSX/best-mittel" -w '    HTTP %{http_code}\n' || true
-          grep -iE '^access-control-' /tmp/h | tr -d '\r' | sed 's/^/    /' || echo "    keine"
-
-          echo
-          echo "=== 7. jsonblob nochmal, mit browsertypischen Kopfzeilen ==="
-          curl -sS -m 20 -o /tmp/b -D /tmp/h -X POST \
-            -H 'Content-Type: application/json' -H "Origin: $ORIGIN" \
-            -H "Referer: $ORIGIN/zehner-paare/" \
-            -H 'User-Agent: Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36' \
-            -H 'Accept: application/json' \
-            -d '{"probe":1}' https://jsonblob.com/api/jsonBlob \
-            -w '    HTTP %{http_code}\n' || true
-          grep -iE '^(location|access-control-allow-origin):' /tmp/h | tr -d '\r' | sed 's/^/    /' || true
+          echo "=== 6. Setzen mit Verwalterschluessel (nur zur Kenntnis) ==="
+          neu=$(curl -sS -m 20 -H "Origin: $ORIGIN" "$A/create/$NSX/gesetzt")
+          echo "    create: $neu"
+          AK=$(printf '%s' "$neu" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("admin_key",""))')
+          for v in "POST /set" "PUT /set" "POST /update"; do
+            m=${v%% *}; p=${v##* }
+            echo "--- $v"
+            curl -sS -m 20 -o /tmp/b -D /tmp/h -X "$m" -H "Origin: $ORIGIN" \
+              -H 'Content-Type: application/json' \
+              "$A$p/$NSX/gesetzt?admin_key=$AK&value=8000" \
+              -w '    HTTP %{http_code}\n' || true
+            echo -n "    "; head -c 300 /tmp/b | tr -d '\r'; echo
+          done
+          zeig "get danach" "$A/get/$NSX/gesetzt"
 
           echo
           echo "========== fertig =========="
