@@ -82,8 +82,9 @@ Vorlage war, zeigt nur waagrecht und senkrecht.
   erst auf einen Knopf: der Enddialog lässt sich wegtippen, und ein Kürzel, das dabei
   verloren geht, tippt niemand ein zweites Mal. Kleinbuchstaben werden groß geschrieben,
   alles andere fällt weg – die Zeichenmenge ist die der eigenen Pixelschrift, und was die
-  nicht kennt, stünde im Arcade-Stil still als leerer Rahmen da. Das Kürzel bleibt auf dem
-  Gerät: hinaus geht weiterhin kein Name (siehe [Weltweite Zähler](#weltweite-zähler)).
+  nicht kennt, stünde im Arcade-Stil still als leerer Rahmen da. Wer einen **Weltrekord**
+  aufstellt, nimmt sein Kürzel mit in die Weltliste – sonst bleibt es auf dem Gerät (siehe
+  [Weltweite Zähler](#weltweite-zähler)).
 
 Die **Einstellungen** stehen in fünf aufklappbaren Gruppen – Spiel, Darstellung, Ton &
 Vibration, Sprache, Bestwerte. Vorher war es eine Liste von sieben Abschnitten am Stück, die
@@ -129,7 +130,7 @@ Regeltests (21 Stück, decken Nachbarschaften, Zeilenentfernung, Auffüllen, Und
 Serialisierung ab):
 
 ```bash
-npm test               # Regeltests und Woerterbuchtests
+npm test               # Regeltests, Woerterbuchtests und die Kuerzel-Umrechnung
 npm run check:platz    # wie viel Platz hat jedes Feld? (braucht playwright-core)
 npm run check:ueberlauf  # laeuft irgendwo Text aus seinem Feld?
 npm run gen:manifests  # die drei Manifeste aus i18n.js neu schreiben
@@ -147,6 +148,7 @@ npm run gen:manifests  # die drei Manifeste aus i18n.js neu schreiben
 | `i18n.js` | die drei Sprachen und der Platzhalter-Ersetzer |
 | `online.js` | die weltweiten Zähler (anonym, abschaltbar) |
 | `i18n.test.js` | prüft die Wörterbücher gegeneinander |
+| `online.test.js` | prüft die Umrechnung des Kürzels für die Weltliste |
 | `index.html` | Markup inkl. Regel-, Einstellungs- und Enddialog |
 | `classic.css`, `material3.css`, `m3-colors.css`, `arcade.css`, `papier.css`, `kontrast.css` | die fünf Stile und die erzeugten M3-Farbrollen |
 | `sw.js` | Offline-Cache |
@@ -419,13 +421,12 @@ Drei Farben, dicke Linien, nichts bewegt sich.
 ## Weltweite Zähler
 
 In den Einstellungen unter **Bestwerte** stehen zwei Listen: die Bestwerte dieses Geräts und
-die Weltrekorde je Stufe, dazu die Zahl der weltweit gespielten und gewonnenen Partien. Alles
-anonym – hinaus geht ein Zählimpuls, kein Name, kein Gerät, keine Kennung. Ein Schalter in
-derselben Gruppe stellt das ganz ab; dann geht keine einzige Anfrage hinaus.
-
-Das gilt auch für das Kürzel neben den eigenen Bestwerten: es liegt im `localStorage` dieses
-Geräts, ist kein Konto und geht in keinen Zähler ein. Ein Zähler könnte es auch nicht tragen –
-er kennt nur Zahlen, siehe unten. Die Weltliste zeigt darum Punktestände ohne Namen.
+die Weltrekorde je Stufe – beide mit dem Kürzel dessen, der sie hält –, dazu die Zahl der
+weltweit gespielten und gewonnenen Partien. Ohne Anmeldung, ohne Konto, ohne Gerätemerkmal:
+hinaus geht ein Zählimpuls, und bei einem **Weltrekord** der Punktestand samt Stufe und den
+drei Zeichen, die der Spieler selbst gesetzt hat. Ein Schalter in derselben Gruppe stellt das
+ganz ab; dann geht keine einzige Anfrage hinaus – und ohne eigenes Kürzel geht auch keines
+hinaus, dann fehlt der Ruf einfach.
 
 Der Dienst dahinter ist `abacus.jasoncameron.dev`, ein öffentlicher Zähler ohne Anmeldung und
 mit offenem CORS. Er war der einzige von acht geprüften Kandidaten, der ohne Schlüssel und ohne
@@ -433,12 +434,57 @@ Anmeldung wirklich antwortet (jsonblob 403, kvdb.io „email required", countera
 extendsclass 404, keyvalue.immanuel.co 411). Geprüft wurde auf einem GitHub-Läufer, weil die
 Entwicklungsumgebung nur an Paketregister und GitHub kommt.
 
+Bevor das Kürzel in den Zähler gerechnet wurde, noch einmal nachgesehen, ob inzwischen ein
+Dienst die Liste **samt Namen** führen könnte. Ergebnis: es bleibt beim Zähler.
+
+* **dreamlo.com** wäre genau der richtige Dienst – Bestenlisten ohne Anmeldung, Name und Punkte,
+  offenes CORS, „derselbe Name zweimal → der höhere Wert gilt", alles über einfache
+  GET-Adressen. Nur liegen die kostenlosen Listen auf `http`, und **SSL kostet eine Spende**
+  („Want to use https (SSL)? Donate $5 or more and let me know"). Gemessen: über `https`
+  antwortet er `ERROR:SSL not enabled for this leaderboard.`, über `http` läuft der ganze
+  Ablauf durch. Eine Seite auf GitHub Pages ist `https`, und gemischte Inhalte blockiert jeder
+  Browser – damit fällt er aus, solange die Spende nicht geflossen ist. Dazu: höchstens 25
+  Einträge je Liste, und der private Code müsste im Quelltext stehen; wer ihn liest, kann die
+  Liste leeren.
+* **jsonblob.com** – voller JSON-Speicher, offenes CORS, kein Schlüssel – antwortet Nicht-Browsern
+  mit einer Cloudflare-Sperre (403), und ungenutzte Blobs verfallen.
+* **jsonstorage.net** („Create operation requires API key"), **json.extendsclass.com** („Wrong
+  API key"), **npoint.io** (500 beim Anlegen), **getpantry.cloud** (kein anonymes Anlegen) und
+  **keyvalue.immanuel.co** (API weg, 404) verlangen heute ein Konto oder existieren nicht mehr.
+* **LEADR, LootLocker, PlayFab, GameJolt** und ebenso **Firebase, Supabase oder ein eigener
+  Cloudflare-Worker** sind haltbar und für diese Größenordnung kostenlos – setzen aber ein Konto
+  und einen selbst betriebenen Dienst voraus. Das wäre der Weg für eine echte Top-10-Liste mit
+  Namen; für drei Zeichen neben dem Weltrekord braucht es ihn nicht.
+
 **Ein Zähler kennt nur „plus eins" – wie steht dann ein genauer Punktestand darin?** Über den
 Startwert beim Anlegen: `create/:raum/:name?initializer=8450` legt einen Namen mit genau diesem
 Wert an und antwortet beim zweiten Mal mit 409, ohne den Wert anzutasten. Also zeigt ein Zähler
 `best-mittel-gen` auf die laufende Nummer des Rekords, und jede Nummer ist ein eigener Name
-`best-mittel-v3` mit dem Punktestand als Startwert. Lesen kostet zwei Anfragen, ein neuer Rekord
-drei. Wer gleichzeitig einträgt, bekommt 409 und versucht es beim nächsten Partieende erneut.
+`best-mittel-v3` mit dem Punktestand als Startwert. Wer gleichzeitig einträgt, bekommt 409 und
+versucht es beim nächsten Partieende erneut.
+
+**Und ein Kürzel? Der Dienst hält doch nur Zahlen.** Dann muss das Kürzel eine Zahl sein: drei
+Zeichen zur Basis 37, wobei 0 „kein Zeichen" heißt, 1–10 die Ziffern und 11–36 die Buchstaben
+sind. `CAU` wird so zu 18235, größter Wert ist 50652. Die Null muss frei bleiben, weil ein
+fehlender Zähler beim Lesen als 0 zurückkommt – „kein Kürzel" und `AAA` dürfen nicht dasselbe
+sein. Die Zahl liegt in einem eigenen Namen `best-mittel-k3` **neben** dem Punktestand und
+nicht in ihn hineingerechnet: in `best-mittel-v3` stehen Werte aus der Zeit vor dem Kürzel, und
+eine Zahl allein sagt nicht, nach welcher Regel sie zu lesen ist. So bleiben alte Rekorde
+gültig und haben eben kein Kürzel. Angelegt wird das Kürzel **vor** dem Nachziehen des Zeigers:
+wer den Rekord findet, findet den Namen dazu schon vorliegen. Geht der Ruf verloren, steht der
+Rekord ohne Namen da – der Punktestand ist die Pflicht, das Kürzel die Kür.
+
+Das kostet eine Anfrage je Stufe: Lesen sind jetzt 17 Anfragen (zwei Zähler, je Stufe Zeiger,
+Stand und Kürzel), ein neuer Rekord vier statt drei. Beides liegt unter der eigenen Bremse von
+18 je 10 Sekunden; wer die Bestwerte zweimal kurz hintereinander aufschlägt, wartet ein paar
+Sekunden länger auf frische Zahlen, sieht aber sofort den letzten bekannten Stand.
+
+Die Umrechnung selbst ist die einzige Stelle, an der aus Zeichen eine Zahl wird – und geht sie
+schief, steht in der Weltliste still ein falscher Name. Deshalb prüft sie
+[`online.test.js`](online.test.js) für **alle 47 988 möglichen Kürzel** (ein, zwei und drei
+Zeichen) auf den Rundweg, dazu die leere Eingabe, Kleinbuchstaben, Überlanges und
+unbrauchbare Werte vom Dienst. Der erste Wurf fiel dabei durch: `indexOf('')` gibt 0 und nicht
+−1, eine leere Stelle wurde damit zur `0` und aus dem leeren Kürzel die Zahl 1407.
 
 Gemessene Grenzen, die den Entwurf bestimmt haben:
 
@@ -460,10 +506,13 @@ Gemessene Grenzen, die den Entwurf bestimmt haben:
 was er will – das steht auch so in der Oberfläche. Und es ist ein Einzelstück ohne Zusage:
 fällt der Dienst aus, bleibt das Spiel unverändert spielbar, die Weltwerte fehlen dann einfach.
 Beides ist geprüft (`tools/check-welt.mjs`): der Dienst ist dort im Browser nachgebaut, mit
-genau der gemessenen Semantik, und zwölf Abschnitte werden abgenommen – erster Rekord,
+genau der gemessenen Semantik, und dreizehn Abschnitte werden abgenommen – erster Rekord,
 besserer Rekord, schwächere Partie (samt Übernahme eines fremden, höheren Rekords),
 verfallener Schlüssel, 429, Netzausfall, abgeschalteter Schalter, die Anzeige selbst, eine
-Partie mit Rettung (die genau *einmal* zählen darf, obwohl das Spielende zweimal durchläuft)
+Partie mit Rettung (die genau *einmal* zählen darf, obwohl das Spielende zweimal durchläuft),
+das Kürzel auf dem ganzen Weg (eintippen, hinausgehen, zurückkommen, angezeigt werden – dazu
+der alte Rekord ohne Kürzel, das leere Kürzel, das gar keinen Ruf auslösen darf, und ein
+unbrauchbarer Wert vom Dienst, der keine erfundenen Zeichen ergeben darf)
 und der Klemmfall: geht das Netz zwischen „Stand anlegen" und „Zeiger nachziehen" verloren,
 zeigt der Zeiger auf den alten Stand und jeder weitere Versuch trifft auf eine belegte Nummer.
 Wer dort aufgibt, kommt nie wieder durch – also wird die belegte Nummer gelesen, der Zeiger

@@ -67,6 +67,14 @@ jobs:
           cat > live.mjs <<'JS'
           import { chromium } from 'playwright-core';
           import { execSync } from 'node:child_process';
+          import { readFileSync } from 'node:fs';
+
+          // Die erwartete Fassung steht nicht hier, sondern in der Quelle des
+          // gerade ausgecheckten Stands: eine fest eingetippte Nummer haette
+          // beim naechsten Versionssprung falschen Alarm gegeben.
+          const sollFassung = readFileSync('app.js', 'utf8')
+            .match(/VERSION = '([^']+)'/)?.[1] ?? null;
+          console.log('Erwartete Fassung:', sollFassung);
 
           // Den Pfad des gerade installierten Chromium finden.
           const pfad = execSync(
@@ -106,7 +114,9 @@ jobs:
           await page.waitForTimeout(600);
           await page.evaluate(() => { const g = document.getElementById('grp-best');
             if (!g.open) g.querySelector('summary').click(); });
-          await page.waitForTimeout(9000);          // 12 Leserufe mit Abstand
+          // 17 Leserufe mit Abstand: zwei Zaehler und je Stufe Zeiger, Stand
+          // und Kuerzel.
+          await page.waitForTimeout(13000);
 
           const sicht = await page.evaluate(() => ({
             eigen: document.querySelector('#own-count')?.textContent,
@@ -132,7 +142,8 @@ jobs:
 
           // Urteil
           const probleme = [];
-          if (fassung !== '1.9.0') probleme.push(`Fassung ${fassung}, erwartet 1.9.0`);
+          if (sollFassung && fassung !== sollFassung)
+            probleme.push(`Fassung ${fassung}, erwartet ${sollFassung}`);
           if (!rufe.length) probleme.push('kein einziger Ruf ging an den Dienst');
           if (rufe.some((r) => r.startsWith('0') || r.startsWith('5'))) probleme.push('Dienst antwortete mit Fehler');
           if (!/\d/.test(sicht.welt ?? '')) probleme.push('keine Weltzahl in der Anzeige');
@@ -147,7 +158,7 @@ jobs:
         if: always()
         run: |
           set -u
-          for name in spiele siege best-mittel-gen best-mittel-v1; do
+          for name in spiele siege best-mittel-gen best-mittel-v1 best-mittel-k1; do
             printf '  %-18s ' "$name"
             curl -sS -m 20 "$DIENST/get/$RAUM/$name" || true
             echo

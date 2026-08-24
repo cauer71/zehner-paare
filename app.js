@@ -1353,6 +1353,7 @@ function zaehlePartie(won, zaehlt) {
   // (Netz weg, oder Strafpause nach einer 429), soll das naechste Ende
   // derselben Partie nachzaehlen. Der eigene Zaehler stimmt ohnehin.
   welt.partieBeendet({ stufe: state.difficulty, punkte: state.score, zaehlt,
+                       kuerzel: sauberesKuerzel(settings.kuerzel),
                        neuePartie: !state.weltGezaehlt, gewonnen: ersterSieg })
     .then((ergebnis) => {
       if (ergebnis?.gezaehlt) { state.weltGezaehlt = true; saveNow(); }
@@ -1676,7 +1677,11 @@ function renderWorld() {
   const w = welt.zwischenstand();
   liste.innerHTML = Object.keys(DIFFICULTIES).map((key) => {
     const r = w.rekorde[key];
-    return `<li><span>${diffName(key)}</span><b>${r ? zahl(r) : '–'}</b></li>`;
+    // Auch hier gefiltert: der Wert kommt vom fremden Dienst und geht ohne
+    // Umweg ins Markup.
+    const wer = r ? sauberesKuerzel(w.wer?.[key]) : '';
+    return `<li><span>${diffName(key)}</span><span class="best-list__who">${wer}</span>`
+      + `<b>${r ? zahl(r) : '–'}</b></li>`;
   }).join('');
 
   if (!settings.world) { note.textContent = t('set.worldOff'); return; }

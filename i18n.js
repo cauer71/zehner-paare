@@ -181,7 +181,7 @@ const TEXTE = {
     'rules.points2': 'Im Modus <b>Endlos</b> ist ein leeres Feld nicht das Ende: es kommen '
       + 'drei frische Zeilen, ein Auffüllen zurück ins Guthaben und 200 Punkte. Der Lauf '
       + 'endet erst, wenn nichts mehr geht – wie weit kommst du?',
-    'rules.world': 'Weltweit wird anonym mitgezählt: gespielte Partien, Siege und die Rekorde je Stufe. Was dabei hinausgeht, steht in den Einstellungen unter Bestwerte – dort lässt es sich auch abschalten.',
+    'rules.world': 'Weltweit wird mitgezählt: gespielte Partien, Siege und die Rekorde je Stufe – ein Weltrekord nimmt dein Kürzel mit, sonst geht kein Name hinaus. Was dabei hinausgeht, steht in den Einstellungen unter Bestwerte – dort lässt es sich auch abschalten.',
     'rules.footnote': 'Diagonale und Zeilenumbruch lassen sich in den Einstellungen '
       + 'abschalten.',
     'rules.go': 'Los geht’s',
@@ -197,10 +197,11 @@ const TEXTE = {
     // Kuerzel in der Bestenliste: drei Zeichen, mehr passt nicht in die Spalte
     'set.initials': 'Dein Kürzel',
     'set.initialsNote': 'Drei Zeichen, Buchstaben oder Ziffern. Sie stehen neben '
-      + 'deinen Bestwerten und bleiben auf diesem Gerät: hinaus geht kein Name.',
+      + 'deinen Bestwerten – und wenn du einen Weltrekord aufstellst, auch in der '
+      + 'Weltliste. Sonst bleiben sie auf diesem Gerät.',
     'set.bestWorld': 'Weltweit',
     'set.optWorld': 'Weltweit mitzählen',
-    'set.worldNote': 'Hinaus geht nur, was gezählt wird: eine Partie, ein Sieg – und bei einem Rekord der Punktestand samt Stufe. Kein Name, kein Gerät, keine Kennung; die IP-Adresse sieht der Dienst wie jeder Server im Netz. Weil niemand angemeldet ist, kann jeder eintragen, was er will: nimm die Weltwerte als Anhaltspunkt, nicht als Urkunde.',
+    'set.worldNote': 'Hinaus geht nur, was gezählt wird: eine Partie, ein Sieg – und bei einem Weltrekord der Punktestand samt Stufe und dein Kürzel. Kein Gerät, keine Kennung, kein Konto; die IP-Adresse sieht der Dienst wie jeder Server im Netz. Weil niemand angemeldet ist, kann jeder eintragen, was er will: nimm die Weltwerte als Anhaltspunkt, nicht als Urkunde.',
     'set.ownCount': 'Hier gespielt: {n} · gewonnen: {g}',
     'set.worldCount': 'Weltweit gespielt: {n} · gewonnen: {g}',
     'set.worldGames': 'Weltweit gespielt: {n}',
@@ -400,7 +401,7 @@ const TEXTE = {
     'rules.points2': 'In modalità <b>Infinito</b> il campo vuoto non è la fine: arrivano tre righe '
       + 'nuove, una ricarica torna nel credito e 200 punti. La corsa finisce solo '
       + 'quando non si muove più niente – fin dove arrivi?',
-    'rules.world': 'Il conteggio mondiale è anonimo: partite giocate, vittorie e i record per livello. Che cosa esce sta nelle impostazioni sotto Record – e lì si può anche disattivare.',
+    'rules.world': 'Il conteggio mondiale: partite giocate, vittorie e i record per livello – un record mondiale porta con sé la tua sigla, altrimenti non esce nessun nome. Che cosa esce sta nelle impostazioni sotto Record – e lì si può anche disattivare.',
     'rules.footnote': 'Diagonale e fine riga si possono disattivare nelle impostazioni.',
     'rules.go': 'Iniziamo',
     // Einstellungen – die Gruppentitel stehen in aufklappbaren Abschnitten
@@ -413,10 +414,11 @@ const TEXTE = {
     'set.bestHere': 'Su questo dispositivo',
     'set.initials': 'La tua sigla',
     'set.initialsNote': 'Tre caratteri, lettere o cifre. Compaiono accanto ai tuoi '
-      + 'record e restano su questo dispositivo: nessun nome esce da qui.',
+      + 'record – e se stabilisci un record mondiale anche nella lista mondiale. '
+      + 'Altrimenti restano su questo dispositivo.',
     'set.bestWorld': 'Nel mondo',
     'set.optWorld': 'Conta nel mondo',
-    'set.worldNote': 'Esce solo ciò che viene contato: una partita, una vittoria – e per un record il punteggio con il livello. Nessun nome, nessun dispositivo, nessun codice; l’indirizzo IP lo vede il servizio come ogni server in rete. Poiché nessuno è registrato, chiunque può scrivere ciò che vuole: prendi i valori mondiali come indicazione, non come certificato.',
+    'set.worldNote': 'Esce solo ciò che viene contato: una partita, una vittoria – e per un record mondiale il punteggio con il livello e la tua sigla. Nessun dispositivo, nessun codice, nessun account; l’indirizzo IP lo vede il servizio come ogni server in rete. Poiché nessuno è registrato, chiunque può scrivere ciò che vuole: prendi i valori mondiali come indicazione, non come certificato.',
     'set.ownCount': 'Giocate qui: {n} · vinte: {g}',
     'set.worldCount': 'Giocate nel mondo: {n} · vinte: {g}',
     'set.worldGames': 'Giocate nel mondo: {n}',
@@ -614,7 +616,7 @@ const TEXTE = {
     'rules.points2': 'In <b>Endless</b> mode an empty board is not the end: you get three fresh '
       + 'rows, one refill back in credit and 200 points. The run only ends when '
       + 'nothing works any more – how far can you get?',
-    'rules.world': 'Worldwide counting is anonymous: games played, wins and the records per level. What goes out is spelled out in Settings under Best scores – and can be switched off there.',
+    'rules.world': 'Worldwide counting: games played, wins and the records per level – a world record takes your initials along, otherwise no name goes out. What goes out is spelled out in Settings under Best scores – and can be switched off there.',
     'rules.footnote': 'Diagonals and line wrap can be switched off in the settings.',
     'rules.go': 'Let’s go',
     // Einstellungen – die Gruppentitel stehen in aufklappbaren Abschnitten
@@ -627,10 +629,11 @@ const TEXTE = {
     'set.bestHere': 'On this device',
     'set.initials': 'Your initials',
     'set.initialsNote': 'Three characters, letters or digits. They sit next to your '
-      + 'best scores and stay on this device: no name ever leaves it.',
+      + 'best scores – and if you set a world record, in the world list as well. '
+      + 'Otherwise they stay on this device.',
     'set.bestWorld': 'Worldwide',
     'set.optWorld': 'Count worldwide',
-    'set.worldNote': 'Only what gets counted goes out: a game, a win – and for a record the score together with the level. No name, no device, no identifier; the service sees your IP address like any server on the net. Since nobody signs in, anyone can write anything: treat the world figures as a pointer, not a certificate.',
+    'set.worldNote': 'Only what gets counted goes out: a game, a win – and for a world record the score together with the level and your initials. No device, no identifier, no account; the service sees your IP address like any server on the net. Since nobody signs in, anyone can write anything: treat the world figures as a pointer, not a certificate.',
     'set.ownCount': 'Played here: {n} · won: {g}',
     'set.worldCount': 'Played worldwide: {n} · won: {g}',
     'set.worldGames': 'Played worldwide: {n}',

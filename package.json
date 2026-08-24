@@ -5,7 +5,7 @@
   "description": "Zahlen-Streichspiel: gleiche Zahlen oder Summe 10 wegstreichen.",
   "type": "module",
   "scripts": {
-    "test": "node --test game.test.js i18n.test.js",
+    "test": "node --test game.test.js i18n.test.js online.test.js",
     "start": "python3 -m http.server 4173",
     "check:ueberlauf": "node tools/check-ueberlauf.mjs de it en",
     "check:platz": "node tools/check-platz.mjs",

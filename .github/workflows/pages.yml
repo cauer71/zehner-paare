@@ -23,8 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Spiellogik testen
-        run: node --test game.test.js
+      - name: Spiellogik, Woerterbuecher und Kuerzel-Umrechnung testen
+        run: npm test
 
   deploy:
     name: Veröffentlichen

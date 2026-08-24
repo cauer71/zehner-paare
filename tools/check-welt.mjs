@@ -6,7 +6,9 @@
  * und zwar mit genau der Semantik, die vier Pruefdurchgaenge auf einem
  * GitHub-Laeufer am echten Dienst ergeben haben. Damit ist pruefbar, was am
  * echten Dienst gar nicht pruefbar waere: Gleichstand, verfallene Schluessel,
- * Ratenbegrenzung, Netzausfall, abgeschalteter Schalter.
+ * Ratenbegrenzung, Netzausfall, abgeschalteter Schalter - und das Kuerzel in
+ * der Weltliste, samt der Faelle "alter Rekord ohne Kuerzel" und
+ * "unbrauchbarer Wert vom Dienst".
  *
  * Aufruf:  node tools/check-welt.mjs
  * Braucht: npm i -D playwright-core  und einen Chromium (PLAYWRIGHT_BROWSERS_PATH)
@@ -488,6 +490,101 @@ pruefe(nachher.rettungen === 1, 'die Rettung muesste genommen worden sein');
 pruefe(zuwachs === 1, `der Weltzaehler muesste um genau 1 steigen, nicht um ${zuwachs}`);
 pruefe(nachher.eigen === vorEigen + 1,
   `der eigene Zaehler muesste um genau 1 steigen (${vorEigen} -> ${nachher.eigen})`);
+
+console.log('\n=== 11. Das Kuerzel in der Weltliste ===');
+// Der Dienst haelt nur Zahlen. Das Kuerzel geht darum als Zahl zur Basis 37
+// hinaus (siehe online.js), unter einem eigenen Namen neben dem Punktestand.
+// Geprueft wird der ganze Weg: eintippen, hinausgehen, zurueckkommen,
+// angezeigt werden - und was passiert, wenn es fehlt oder unbrauchbar ist.
+D.setModus('normal');
+await zuDialog();
+
+// Erstens: mit Kuerzel gewinnen. Es muss als Zahl neben dem Stand liegen.
+await stelleEin([['best-mittel-gen', 20], ['best-mittel-v20', 100]]);
+await page.evaluate(() => {
+  const s = JSON.parse(localStorage.getItem('zp.settings.v1') ?? '{}');
+  s.kuerzel = 'CAU';
+  localStorage.setItem('zp.settings.v1', JSON.stringify(s));
+});
+await page.reload(); await page.waitForTimeout(700);
+let marke11 = D.protokoll.length;
+pruefe(await gewonnenePartie(), 'Abschnitt 11: keine gewonnene Partie');
+await ruhe();
+console.log('   hinaus:', D.protokoll.slice(marke11).join(' ') || '(nichts)');
+const k21 = D.werte.get(`${raum}/best-mittel-k21`);
+const v21 = D.werte.get(`${raum}/best-mittel-v21`);
+// 'CAU' = (12+1)*37^2 + (10+1)*37 + (30+1) = 18235
+console.log(`v21 ${v21} · k21 ${k21}`);
+pruefe(k21 === 18235, `k21 muesste 18235 sein ("CAU"), ist ${k21}`);
+pruefe(v21 > 100, `v21 muesste den Rekord tragen (ist ${v21})`);
+// Der Merkzettel muss das Kuerzel gleich mitbekommen, ohne noch einmal zu
+// lesen: sonst stuende nach dem eigenen Weltrekord bis zum naechsten Lesen
+// der alte Name daneben.
+const gemerkt = await page.evaluate(() => JSON.parse(localStorage.getItem('zp.welt.v1') ?? '{}'));
+console.log('Merkzettel:', JSON.stringify({ rekorde: gemerkt.rekorde, wer: gemerkt.wer }));
+pruefe(gemerkt.wer?.mittel === 'CAU',
+  `der Merkzettel muesste CAU tragen (ist ${JSON.stringify(gemerkt.wer)})`);
+
+// Und in der Anzeige steht der Name neben der Zahl.
+await stelleEin();
+await zuDialog(); await page.tap('#btn-settings'); await page.waitForTimeout(300);
+await page.evaluate(() => { const g = document.getElementById('grp-best');
+  if (!g.open) g.querySelector('summary').click(); });
+await ruhe();
+const weltliste = () => page.evaluate(() =>
+  [...document.querySelectorAll('#world-list li')].map((l) => ({
+    text: l.textContent.trim(), wer: l.querySelector('.best-list__who')?.textContent })));
+const mitKuerzel = await weltliste();
+console.log('Weltliste:', JSON.stringify(mitKuerzel));
+pruefe(mitKuerzel.some((z) => z.wer === 'CAU'),
+  'in der Weltliste muesste CAU neben dem Rekord stehen');
+await page.evaluate(() => document.querySelector('#dlg-settings [data-close]')?.click());
+await page.waitForTimeout(300);
+
+// Zweitens: ein Rekord aus der Zeit vor dem Kuerzel. Der Stand steht da, der
+// Name fehlt - angezeigt wird der Rekord trotzdem, nur ohne Namen.
+await stelleEin([['best-schwer-gen', 3], ['best-schwer-v3', 4321]]);
+await zuDialog(); await page.tap('#btn-settings'); await page.waitForTimeout(300);
+await page.evaluate(() => { const g = document.getElementById('grp-best');
+  if (!g.open) g.querySelector('summary').click(); });
+await ruhe();
+const ohneKuerzel = await weltliste();
+console.log('alter Rekord ohne Kuerzel:', JSON.stringify(ohneKuerzel));
+pruefe(ohneKuerzel.some((z) => z.text.includes('4321') && !z.wer),
+  'ein Rekord ohne Kuerzel muesste ohne Namen angezeigt werden');
+await page.evaluate(() => document.querySelector('#dlg-settings [data-close]')?.click());
+await page.waitForTimeout(300);
+
+// Drittens: ohne eigenes Kuerzel geht auch keines hinaus - kein Ruf, kein
+// leerer Name, nichts.
+await page.evaluate(() => {
+  const s = JSON.parse(localStorage.getItem('zp.settings.v1') ?? '{}');
+  s.kuerzel = '';
+  localStorage.setItem('zp.settings.v1', JSON.stringify(s));
+});
+await stelleEin([['best-mittel-gen', 30], ['best-mittel-v30', 100]]);
+marke11 = D.protokoll.length;
+pruefe(await gewonnenePartie(), 'Abschnitt 11: keine dritte gewonnene Partie');
+await ruhe();
+const rufe = D.protokoll.slice(marke11);
+console.log('   hinaus:', rufe.join(' ') || '(nichts)');
+pruefe(!rufe.some((r) => r.includes('-k31')),
+  'ohne Kuerzel darf kein Kuerzel-Zaehler angelegt werden');
+pruefe(D.werte.get(`${raum}/best-mittel-v31`) > 100,
+  'der Rekord selbst muesste trotzdem stehen');
+
+// Viertens: ein unbrauchbarer Wert vom Dienst darf keine erfundenen Zeichen
+// ergeben - 50653 passt nicht mehr in drei Stellen.
+await stelleEin([['best-leicht-gen', 5], ['best-leicht-v5', 7777], ['best-leicht-k5', 50653]]);
+await zuDialog(); await page.tap('#btn-settings'); await page.waitForTimeout(300);
+await page.evaluate(() => { const g = document.getElementById('grp-best');
+  if (!g.open) g.querySelector('summary').click(); });
+await ruhe();
+const kaputt = await weltliste();
+console.log('unbrauchbarer Wert:', JSON.stringify(kaputt));
+pruefe(kaputt.some((z) => z.text.includes('7777') && !z.wer),
+  'ein unbrauchbarer Kuerzelwert muesste als kein Name gelten');
+pruefe(fehler.length === 0, `keine Seitenfehler im Kuerzel-Abschnitt: ${fehler.join(' | ')}`);
 
 await browser.close(); server.close();
 console.log('\n=== Probleme ===');

@@ -2,9 +2,10 @@
  * Zehner-Paare – weltweite Zaehler.
  *
  * Was hier passiert: gespielte und gewonnene Partien werden weltweit gezaehlt,
- * und je Stufe steht ein Weltrekord online. Anonym, ohne Anmeldung, ohne
- * Namen, ohne Kennung – es gehen nur Zaehlbefehle hinaus, kein Wort ueber den
- * Spieler. Wer den Schalter in den Einstellungen ausmacht, schickt gar nichts.
+ * und je Stufe steht ein Weltrekord online – mit dem dreistelligen Kuerzel
+ * dessen, der ihn haelt. Ohne Anmeldung, ohne Kennung, ohne Geraetemerkmal; das
+ * Kuerzel setzt der Spieler selbst, und nur ein WELTREKORD traegt es hinaus. Wer
+ * den Schalter in den Einstellungen ausmacht, schickt gar nichts.
  *
  * Der Dienst: abacus.jasoncameron.dev, ein oeffentlicher Zaehlerdienst, der
  * ohne Schluessel und mit offenem CORS antwortet. Vier Pruefdurchgaenge auf
@@ -35,10 +36,15 @@
  *     geht nur beim ANLEGEN eines neuen Namens (initializer). Deshalb zeigt
  *     ein Zaehler auf die laufende Nummer des Rekords, und jede Nummer ist ein
  *     eigener Name mit dem Punktestand als Startwert.
+ *   - Ein Zaehler haelt nur Zahlen, keine Buchstaben. Das Kuerzel liegt darum
+ *     als Zahl daneben: drei Zeichen zur Basis 37 (siehe alsZahl). Mehr als
+ *     drei Zeichen und mehr als A-Z 0-9 traegt dieses Verfahren nicht - und
+ *     mehr braucht es auch nicht, die Pixelschrift des Arcade-Stils kennt
+ *     genau das.
  *   - Wer schreibt, wird nicht geprueft. Ein geuebter Besucher kann also
- *     einen erfundenen Rekord eintragen. Gegen Spass unter Bekannten reicht
- *     das; als Wettkampfliste taugt es nicht, und das steht auch so in der
- *     Oberflaeche.
+ *     einen erfundenen Rekord unter einem beliebigen Kuerzel eintragen. Gegen
+ *     Spass unter Bekannten reicht das; als Wettkampfliste taugt es nicht, und
+ *     das steht auch so in der Oberflaeche.
  *   - Der Dienst ist ein Einzelstueck ohne Zusage. Faellt er aus, bleibt das
  *     Spiel unveraendert spielbar; die Weltwerte fehlen dann einfach.
  */
@@ -108,6 +114,9 @@ function zettel() {
     spiele: typeof roh?.spiele === 'number' ? roh.spiele : null,
     siege: typeof roh?.siege === 'number' ? roh.siege : null,
     rekorde: roh?.rekorde && typeof roh.rekorde === 'object' ? { ...roh.rekorde } : {},
+    // Wer den Rekord haelt, je Stufe. Steht neben den Punkten und nicht in
+    // ihnen: ein Rekord aus der Zeit vor dem Kuerzel hat eben keines.
+    wer: roh?.wer && typeof roh.wer === 'object' ? { ...roh.wer } : {},
   };
   return merkzettel;
 }
@@ -142,9 +151,15 @@ function alter() {
  * eine Zahl, die kleiner ist als der Rekord, den derselbe Browser vorher
  * schon gezeigt hat.
  */
-function hoechster(stufe, wert) {
+function hoechster(stufe, wert, kuerzel = '') {
   const z = zettel();
-  z.rekorde[stufe] = Math.max(z.rekorde[stufe] ?? 0, wert);
+  const alt = z.rekorde[stufe] ?? 0;
+  z.rekorde[stufe] = Math.max(alt, wert);
+  // Das Kuerzel gehoert zum hoeheren Wert. Bei Gleichstand wird ein bekanntes
+  // nicht durch ein leeres ersetzt: dass eine Anfrage ausgeblieben ist, heisst
+  // nicht, dass der Rekord seinen Namen verloren hat.
+  if (wert > alt) z.wer[stufe] = kuerzel;
+  else if (wert === alt && kuerzel && !z.wer[stufe]) z.wer[stufe] = kuerzel;
   return z.rekorde[stufe];
 }
 
@@ -254,6 +269,52 @@ const RUECKWAERTS = 4;
 
 const zeiger = (stufe) => `best-${stufe}-gen`;
 const stand = (stufe, nr) => `best-${stufe}-v${nr}`;
+/**
+ * Das Kuerzel zum Stand derselben Nummer. Ein eigener Name und nicht in den
+ * Punktestand hineingerechnet: dort stehen Werte aus der Zeit vor dem Kuerzel,
+ * und eine Zahl allein sagt nicht, nach welcher Regel sie zu lesen ist. Wer
+ * die Regel wechselt, liest alte Rekorde falsch - so bleiben sie gueltig und
+ * haben eben kein Kuerzel.
+ */
+const wessen = (stufe, nr) => `best-${stufe}-k${nr}`;
+
+/**
+ * Drei Zeichen als eine Zahl, zur Basis 37: 0 heisst "kein Zeichen", 1-10 sind
+ * die Ziffern, 11-36 die Buchstaben. Die 0 muss frei bleiben, weil ein
+ * fehlender Zaehler beim Lesen als 0 zurueckkommt - "kein Kuerzel" und "AAA"
+ * duerfen nicht dasselbe sein. Groesster Wert: 36*37² + 36*37 + 36 = 50652.
+ */
+const ZEICHEN = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+/**
+ * Ausdruecklich exportiert, obwohl nur hier gebraucht: die zwei Umrechner
+ * beschreiben, was auf der Leitung liegt, und was auf der Leitung liegt,
+ * gehoert in einen Test (online.test.js). Von aussen ruft sie niemand.
+ */
+export function alsZahl(kuerzel) {
+  const k = String(kuerzel ?? '').toUpperCase().slice(0, 3);
+  let n = 0;
+  for (let i = 0; i < 3; i++) {
+    // Die leere Stelle ausdruecklich abfangen: indexOf('') gibt 0 und nicht
+    // -1, ein fehlendes Zeichen waere sonst eine '0' geworden - und aus dem
+    // leeren Kuerzel die Zahl 1407.
+    const zeichen = k[i];
+    const pos = zeichen ? ZEICHEN.indexOf(zeichen) : -1;
+    n = n * 37 + (pos < 0 ? 0 : pos + 1);
+  }
+  return n;
+}
+
+export function alsKuerzel(zahl) {
+  if (!Number.isFinite(zahl) || zahl <= 0) return '';
+  let n = Math.floor(zahl);
+  const zeichen = [];
+  for (let i = 0; i < 3; i++) { zeichen.unshift(n % 37); n = Math.floor(n / 37); }
+  // Ein Wert von aussen kann alles sein; was nicht in die drei Stellen passt,
+  // gilt als kein Kuerzel.
+  if (n !== 0) return '';
+  return zeichen.map((z) => (z > 0 ? ZEICHEN[z - 1] : '')).join('');
+}
 
 /**
  * Liest den Weltrekord einer Stufe: erst den Zeiger auf die laufende Nummer,
@@ -274,9 +335,15 @@ async function rekordLesen(stufe) {
   for (let n = nr; n > Math.max(0, nr - RUECKWAERTS); n--) {
     const wert = await holen(stand(stufe, n));
     if (wert === null) return null;
-    if (wert > 0) return { nr: n, wert };
+    if (wert > 0) {
+      // Das Kuerzel kostet eine Anfrage je Stufe und ist der Kuer, nicht die
+      // Pflicht: bleibt sie aus (kein Netz mehr, Strafpause, alter Rekord ohne
+      // Kuerzel), gilt der Rekord trotzdem und steht eben ohne Namen da.
+      const wer = await holen(wessen(stufe, n));
+      return { nr: n, wert, kuerzel: wer === null ? '' : alsKuerzel(wer) };
+    }
   }
-  return { nr, wert: 0 };
+  return { nr, wert: 0, kuerzel: '' };
 }
 
 /**
@@ -287,23 +354,30 @@ async function rekordLesen(stufe) {
  * 409 und laesst es dabei. Sein Ergebnis geht nicht verloren – beim naechsten
  * Partieende versucht er es wieder, dann mit der neuen Nummer.
  */
-async function rekordMelden(stufe, punkte) {
+async function rekordMelden(stufe, punkte, kuerzel = '') {
+  const stehend = (d) => ({ wert: d.wert, kuerzel: d.kuerzel ?? '' });
   let da = await rekordLesen(stufe);
   if (!da) return null;
   for (let versuch = 0; versuch < 3; versuch++) {
-    if (punkte <= da.wert) return da.wert;
+    if (punkte <= da.wert) return stehend(da);
     const wie = await anlegen(stand(stufe, da.nr + 1), punkte);
     if (wie === 'neu') {
+      // Das Kuerzel gehoert zum Stand und wird VOR dem Zeiger angelegt: wer
+      // den Rekord ueber den Zeiger findet, findet den Namen dazu schon
+      // vorliegen. Geht dieser Ruf verloren, ist das kein Grund, den Rekord
+      // fallen zu lassen - er steht dann eben ohne Kuerzel da.
+      const code = alsZahl(kuerzel);
+      if (code > 0) await anlegen(wessen(stufe, da.nr + 1), code);
       // Der Stand liegt - aber gefunden wird er erst ueber den Zeiger. Geht
       // dieser Ruf verloren, NICHT Erfolg melden: sonst merkt sich der
       // Aufrufer den Rekord als erledigt und versucht es nie wieder, und der
       // Stand bleibt Waise, bis irgendein anderer Browser einen Rekord
       // eintraegt. So versucht es dasselbe Geraet beim naechsten Partieende
       // noch einmal und holt den Zeiger dabei nach (der 409-Zweig unten).
-      if (await hoch(zeiger(stufe)) === null) return da.wert;
-      return punkte;
+      if (await hoch(zeiger(stufe)) === null) return stehend(da);
+      return { wert: punkte, kuerzel: alsKuerzel(code) };
     }
-    if (wie !== 'schon-da') return da.wert;      // keine Antwort, spaeter wieder
+    if (wie !== 'schon-da') return stehend(da);  // keine Antwort, spaeter wieder
     // Die Nummer ist belegt. Zwei Moeglichkeiten, und beide muessen weiter
     // gehen koennen: ein anderer Browser war schneller - oder wir selbst haben
     // sie beim letzten Mal angelegt und danach den Zeiger nicht mehr
@@ -311,7 +385,7 @@ async function rekordMelden(stufe, punkte) {
     // klemmt fuer immer: der Zeiger zeigt auf den alten Stand, und jeder
     // weitere Versuch prallt an derselben 409 ab.
     const dort = await holen(stand(stufe, da.nr + 1));
-    if (dort === null) return da.wert;
+    if (dort === null) return stehend(da);
     // Nachziehen NUR, wenn der Zeiger wirklich noch hinterherhaengt. Sonst
     // laeuft er weg: hat der Gewinner des Wettlaufs ihn schon hochgesetzt und
     // wir erhoehen ein zweites Mal, zeigt er auf eine Nummer, die es nicht
@@ -322,9 +396,17 @@ async function rekordMelden(stufe, punkte) {
     // und dann gilt jede beliebige Punktzahl als neuer Weltrekord.
     const jetzt = await holen(zeiger(stufe));
     if (jetzt !== null && jetzt <= da.nr) await hoch(zeiger(stufe));
-    da = { nr: da.nr + 1, wert: Math.max(da.wert, dort) };
+    // Gewinnt der fremde Stand, gehoert auch sein Kuerzel dazu - sonst stuende
+    // ein fremder Rekord unter dem Namen, den wir zuletzt kannten. Nur dann
+    // gefragt: verliert er, aendert sich am Angezeigten nichts.
+    let wer = da.kuerzel ?? '';
+    if (dort > da.wert) {
+      const fremd = await holen(wessen(stufe, da.nr + 1));
+      wer = fremd === null ? '' : alsKuerzel(fremd);
+    }
+    da = { nr: da.nr + 1, wert: Math.max(da.wert, dort), kuerzel: wer };
   }
-  return da.wert;
+  return stehend(da);
 }
 
 /* -------------------------------------------------------------- nach aussen */
@@ -336,7 +418,8 @@ export const welt = {
   /** Der letzte bekannte Stand – sofort da, auch ohne Netz. */
   zwischenstand() {
     const z = zettel();
-    return { spiele: z.spiele, siege: z.siege, rekorde: { ...z.rekorde }, alter: alter() };
+    return { spiele: z.spiele, siege: z.siege, rekorde: { ...z.rekorde },
+             wer: { ...z.wer }, alter: alter() };
   },
 
   /** Ob es sich lohnt, neu zu lesen. */
@@ -351,7 +434,7 @@ export const welt = {
    * Strafpause nach einer 429), wird beim naechsten Ende derselben Partie
    * nachgezaehlt statt gar nicht.
    */
-  async partieBeendet({ stufe, punkte, gewonnen, zaehlt, neuePartie = true }) {
+  async partieBeendet({ stufe, punkte, gewonnen, zaehlt, kuerzel = '', neuePartie = true }) {
     if (!erlaubt) return { gezaehlt: false };
     const z = zettel();
     let gezaehlt = false;
@@ -366,8 +449,8 @@ export const welt = {
     // Nur anklopfen, wenn der Punktestand ueberhaupt in Frage kommt. Das
     // spart bei fast jeder Partie zwei Anfragen.
     if (zaehlt && punkte > (z.rekorde[stufe] ?? 0)) {
-      const neu = await rekordMelden(stufe, punkte);
-      if (neu !== null) hoechster(stufe, neu);
+      const neu = await rekordMelden(stufe, punkte, kuerzel);
+      if (neu !== null) hoechster(stufe, neu.wert, neu.kuerzel);
     }
     // gelesenAm bleibt unberuehrt: hier wurde geschrieben, nicht gelesen.
     sichern();
@@ -394,7 +477,7 @@ export const welt = {
     for (const stufe of stufen) {
       const r = await rekordLesen(stufe);
       if (!r) { heil = false; continue; }
-      hoechster(stufe, r.wert);
+      hoechster(stufe, r.wert, r.kuerzel);
     }
     if (heil) z.gelesenAm = Date.now();
     sichern();

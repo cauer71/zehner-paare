@@ -192,7 +192,16 @@ for (const sprache of SPRACHEN) {
       await page.evaluate((s) => { localStorage.setItem('zp.seen.v1', 'true');
         localStorage.setItem('zp.settings.v1', JSON.stringify(
           { skin: s.skin, difficulty: 'endlos', sound: false, lang: s.lang, partners: true,
-            kuerzel: 'WWW' })); },
+            kuerzel: 'WWW' }));
+        // Auch die Weltliste soll mit dem breitesten Fall gemessen werden:
+        // Kuerzel und sechsstellige Zahl in jeder Zeile.
+        localStorage.setItem('zp.welt.v1', JSON.stringify({
+          gelesenAm: Date.now(), spiele: 888888, siege: 777777,
+          rekorde: { leicht: 999999, mittel: 999999, schwer: 999999,
+                     klassisch: 999999, endlos: 999999 },
+          wer: { leicht: 'WWW', mittel: 'WWW', schwer: 'WWW',
+                 klassisch: 'WWW', endlos: 'WWW' },
+        })); },
         { skin, lang: sprache });
       await page.reload(); await page.waitForTimeout(700);
 
