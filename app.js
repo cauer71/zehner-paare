@@ -10,7 +10,7 @@ import {
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.7.0';
+export const VERSION = '1.7.1';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2', seen: 'zp.seen.v1' };
 
@@ -1166,6 +1166,11 @@ function newGame(difficulty = settings.difficulty) {
   startTimer(true);
   save();
   announce(`Neues Spiel: ${DIFFICULTIES[difficulty].label}`);
+  // "Warum kommen immer dieselben Zahlen?" - weil das in Klassisch so
+  // gehoert: das Startfeld ist die Ziffernfolge 1 bis 19 ohne 10, jedes Mal
+  // dieselbe. Das steht zwar unter den Schwierigkeiten, aber wer auf "Neu"
+  // tippt, schaut nicht in die Einstellungen. Also hier, im Moment der Frage.
+  if (difficulty === 'klassisch') toast('Klassisch: immer dasselbe Startfeld');
 }
 
 /** Laesst eine Zahl hochlaufen – der kleine Trommelwirbel am Spielende. */

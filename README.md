@@ -32,8 +32,22 @@ Guthaben dafür ist begrenzt. Wer das Feld leer räumt, gewinnt.
 | Leicht | 6 × 9 | 5× | paarweise aufgebaut, geht immer auf |
 | Mittel | 8 × 9 | 4× | paarweise aufgebaut |
 | Schwer | 10 × 9 | 3× | gleichverteilt zufällig |
-| Klassisch | 3 × 9 | 5× | Papier-Original: Ziffern von 1 bis 19 ohne 10 – immer dasselbe Feld |
+| Klassisch | 3 × 9 | 5× | Papier-Original: Ziffern von 1 bis 19 ohne 10 – **immer dasselbe Feld** |
 | Endlos | 6 × 9 | 3× | leeres Feld heißt neue Runde: 3 frische Zeilen, ein Auffüllen zurück, +200 Punkte |
+
+„Klassisch" ist mit Absicht kein Zufallsfeld: auf dem Papier schreibt man 1 bis 19 (ohne die
+10) der Reihe nach ins Raster, und genau das steht dort – Zeile für Zeile
+
+```
+1 2 3 4 5 6 7 8 9
+1 1 1 2 1 3 1 4 1
+5 1 6 1 7 1 8 1 9
+```
+
+Dieselbe Aufgabe jedes Mal heißt: der Bestwert dieser Stufe vergleicht wirklich das Können und
+nicht das Glück. Weil das nach einem Fehler aussieht, wenn man mehrmals auf „Neu" tippt, sagt
+das Spiel es beim Start einer Klassisch-Partie kurz an. Die vier anderen Stufen würfeln jedes
+Mal neu.
 
 Diagonale und Zeilenumbruch lassen sich in den Einstellungen abschalten – das Video, das die
 Vorlage war, zeigt nur waagrecht und senkrecht.

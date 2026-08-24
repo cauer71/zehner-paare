@@ -1,6 +1,6 @@
 /* Einfacher Offline-Cache: beim Aktivieren alles Noetige ablegen,
    danach Netz zuerst, Cache als Rueckfalloption. */
-const CACHE = 'zehner-paare-1.7.0';
+const CACHE = 'zehner-paare-1.7.1';
 const ASSETS = [
   './', 'index.html',
   'classic.css', 'material3.css', 'm3-colors.css', 'arcade.css', 'papier.css', 'kontrast.css',
