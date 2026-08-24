@@ -454,6 +454,16 @@ zerstört hätte:
   die späteren Stände noch leben. Dann liest sich der Rekord kurzzeitig zu klein. Ein bekannter
   Wert wird deshalb nie durch einen kleineren ersetzt.
 
+Und weil die Entwicklungsumgebung weder an `cauer71.github.io` noch an den Dienst kommt (der
+Proxy weist beides mit 403 ab), gibt es dafür eine eigene Abnahme auf einem Läufer:
+[`.github/workflows/abnahme-live.yml`](.github/workflows/abnahme-live.yml) öffnet die fertige
+Seite mit einem echten Browser, schlägt **Bestwerte** auf und prüft, dass die Leserufe wirklich
+beim Dienst ankommen, dass die Fassung stimmt und dass **keine einzige Konsolenmeldung**
+entsteht. Sie läuft nur auf Zuruf und **schreibt bewusst nichts**: ein Zählruf würde die
+Weltzahlen mit einer Partie füllen, die niemand gespielt hat, und womöglich den ersten
+Weltrekord auf einen Botwert setzen. Nach dem Lauf wird nachgesehen, dass der Namensraum
+unberührt ist.
+
 Gefunden hat das eine gegnerische Durchsicht des fertigen Codes durch fünf unabhängige
 Leser mit verschiedenen Blickwinkeln (Protokoll, Ausfälle, Zählung, Privatheit, Oberfläche),
 deren Funde einzeln widerlegt werden mussten, bevor sie gelten durften: von zwanzig
