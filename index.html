@@ -40,14 +40,13 @@
 <link rel="stylesheet" href="classic.css" id="css-classic">
 <link rel="stylesheet" href="arcade.css" id="css-arcade">
 <link rel="stylesheet" href="papier.css" id="css-papier">
-<link rel="stylesheet" href="kontrast.css" id="css-kontrast">
 <script>
   // Skin und Farbschema vor dem ersten Rendern setzen, sonst blitzt der
   // falsche Stil kurz auf.
   (function () {
     var s = { skin: 'classic', theme: 'auto' };
     try { Object.assign(s, JSON.parse(localStorage.getItem('zp.settings.v1') || '{}')); } catch (e) {}
-    var bekannt = { classic: 1, m3: 1, arcade: 1, papier: 1, kontrast: 1 };
+    var bekannt = { classic: 1, m3: 1, arcade: 1, papier: 1 };
     var skin = bekannt[s.skin] ? s.skin : 'classic';
     document.documentElement.dataset.skin = skin;
     // Sprache schon hier setzen: lang steuert Trennregeln und die Auswahl der
@@ -72,7 +71,6 @@
     document.getElementById('css-classic').disabled = skin !== 'classic';
     document.getElementById('css-arcade').disabled = skin !== 'arcade';
     document.getElementById('css-papier').disabled = skin !== 'papier';
-    document.getElementById('css-kontrast').disabled = skin !== 'kontrast';
     // Der Arcade-Stil ist immer dunkel; das Farbschema gilt nur fuer die anderen.
     if (skin !== 'arcade' && (s.theme === 'light' || s.theme === 'dark')) {
       document.documentElement.dataset.theme = s.theme;
@@ -235,7 +233,7 @@
 <!-- Modales Bottom Sheet: Einstellungen -->
 <!--
   Fuenf aufklappbare Gruppen statt einer langen Liste. Warum aufklappbar:
-  mit Sprache und fuenf Stilen waren es sieben Abschnitte am Stueck, das
+  mit Sprache und vier Stilen waren es sieben Abschnitte am Stueck, das
   passte auf kein Handy mehr auf einen Blick. <details> kann das von Haus
   aus - ohne Skript, mit Tastatur und Vorlesehilfe.
 
@@ -297,14 +295,13 @@
       <div class="group__body">
         <section class="field">
           <h3 class="field__title" data-i18n="set.style">Stil</h3>
-          <!-- Chips, nicht ein einzeiliges Segment: fuenf Stile passen auf 320 px
+          <!-- Chips, nicht ein einzeiliges Segment: vier Stile passen auf 320 px
                in keine Zeile, und in Material 3 klippt das Segment den Text. -->
           <div class="chips" id="seg-skin" role="group" data-i18n-aria="a11y.style" aria-label="Stil">
             <button class="chip" type="button" data-value="classic"><svg class="chip__check" aria-hidden="true"><use href="#i-check"></use></svg><span data-i18n="skin.classic">Original</span></button>
             <button class="chip" type="button" data-value="m3"><svg class="chip__check" aria-hidden="true"><use href="#i-check"></use></svg><span data-i18n="skin.m3">Material 3</span></button>
             <button class="chip" type="button" data-value="arcade"><svg class="chip__check" aria-hidden="true"><use href="#i-check"></use></svg><span data-i18n="skin.arcade">Arcade</span></button>
             <button class="chip" type="button" data-value="papier"><svg class="chip__check" aria-hidden="true"><use href="#i-check"></use></svg><span data-i18n="skin.papier">Papier</span></button>
-            <button class="chip" type="button" data-value="kontrast"><svg class="chip__check" aria-hidden="true"><use href="#i-check"></use></svg><span data-i18n="skin.kontrast">Kontrast</span></button>
           </div>
           <p class="field__note" id="skin-note" hidden data-i18n="skin.note">Der Arcade-Stil leuchtet immer im Dunkeln – das Farbschema gilt für die anderen.</p>
         </section>

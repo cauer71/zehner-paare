@@ -150,7 +150,7 @@ npm run gen:manifests  # die drei Manifeste aus i18n.js neu schreiben
 | `i18n.test.js` | prüft die Wörterbücher gegeneinander |
 | `online.test.js` | prüft die Umrechnung des Kürzels für die Weltliste |
 | `index.html` | Markup inkl. Regel-, Einstellungs- und Enddialog |
-| `classic.css`, `material3.css`, `m3-colors.css`, `arcade.css`, `papier.css`, `kontrast.css` | die fünf Stile und die erzeugten M3-Farbrollen |
+| `classic.css`, `material3.css`, `m3-colors.css`, `arcade.css`, `papier.css` | die vier Stile und die erzeugten M3-Farbrollen |
 | `sw.js` | Offline-Cache |
 | `manifest.{de,it,en}.webmanifest` | erzeugt aus `i18n.js`, je Sprache eines |
 | `tools/` | Erzeuger (M3-Farbrollen, Pixelschrift, Handschrift, Pixel-Icons, App-Icons, Manifeste) und Prüfungen (`check-ueberlauf.mjs`, `check-platz.mjs`, `check-welt.mjs`) |
@@ -215,10 +215,10 @@ Knopfleiste bei 320 px, wo die Beschriftung auf `nowrap` steht:
 
 Diese Zahlen standen als harte Vorgabe in der Übersetzung, und dieselben Grenzen prüft
 `i18n.test.js` bei jedem Testlauf nach. Danach wird jede einzelne Beschriftung **im Browser
-eingesetzt** und geprüft, ob sie anschlägt – über 320/360/390 px und alle fünf Stile.
+eingesetzt** und geprüft, ob sie anschlägt – über 320/360/390 px und alle vier Stile.
 
 Zum Schluss die Abnahme über alles ([`tools/check-ueberlauf.mjs`](tools/check-ueberlauf.mjs)):
-**drei Sprachen × vier Bildschirmbreiten × fünf Stile × sieben Spiellagen = 420 Zustände.** Je
+**drei Sprachen × vier Bildschirmbreiten × vier Stile × sieben Spiellagen = 336 Zustände.** Je
 Zustand fünf Fragen ohne Auslegungsspielraum:
 
 1. Scrollt die Seite waagrecht? Das ist die wichtigste Frage – siehe oben, bei `1fr` und
@@ -265,9 +265,9 @@ Dabei fiel auch auf, dass „★ EINWURF FREI ★" als deutscher Text mitten in 
 und beim Sprachwechsel stehenblieb. Die beiden Attract-Sprüche kommen jetzt aus dem
 Wörterbuch, über CSS-Eigenschaften.
 
-## Fünf Stile
+## Vier Stile
 
-Unter **Einstellungen → Darstellung** lässt sich zwischen fünf Oberflächen umschalten:
+Unter **Einstellungen → Darstellung** lässt sich zwischen vier Oberflächen umschalten:
 
 * **Original** (Voreinstellung) – warmes Papierweiß, runde weiße Spielsteine, beschriftete
   Knopfleiste, Schrift Nunito.
@@ -278,9 +278,6 @@ Unter **Einstellungen → Darstellung** lässt sich zwischen fünf Oberflächen 
   Bildröhren-Raster, laufende Lichterkette, Sternenfeld, Chiptune. Siehe unten.
 * **Papier & Bleistift** – das Rechenheft, aus dem das Spiel kommt: Karo, handgeschriebene
   Ziffern, gestrichene Zahlen bleiben stehen. Im Dunkeln Tafel und Kreide. Siehe unten.
-* **Hochkontrast** – schwarz, weiß, ein Gelb. Dicke Rahmen, große Ziffern, große
-  Tippflächen, keine Bewegung. Für die Sonne und für Augen, die nicht mehr zwanzig sind.
-  Siehe unten.
 
 Alle Stile laufen auf demselben Markup; umgeschaltet wird über `disabled` an den
 Stylesheets, ein kleines Skript im `<head>` setzt die Wahl noch vor dem ersten Rendern, damit
@@ -299,13 +296,21 @@ Quellton `#EF7D31` berechnet (Schema *Vibrant*, wie es Material You tut) – sie
 | `m3-colors.css` | erzeugte Farbrollen (hell und dunkel) |
 | `arcade.css` | Skin „Arcade" |
 | `papier.css` | Skin „Papier & Bleistift" |
-| `kontrast.css` | Skin „Hochkontrast" |
 
 Dass ein neuer Stil *vollständig* ist, wird nicht per Augenschein entschieden: ein Prüfskript
-erntet in allen Stilen jedes Element mit stabilem Pfad und vergleicht. Für die beiden neuen
-Stile: **296 Elemente, keines fehlt, keines unsichtbar, keines in einer fremden Schrift,
-keines ohne Fläche, Rahmen oder Linie** – bis auf das Brett im Hochkontrast, wo die Kacheln
-mit ihren 3-px-Rahmen bewusst alles allein tragen.
+erntet in allen Stilen jedes Element mit stabilem Pfad und vergleicht. Für „Papier & Bleistift"
+hieß das: **296 Elemente, keines fehlt, keines unsichtbar, keines in einer fremden Schrift,
+keines ohne Fläche, Rahmen oder Linie.**
+
+Beim Bau der Stile fiel noch eine Falle auf, die alle angeht: Ein Effektelement wird
+abgeräumt, wenn seine Animation zu Ende ist – setzt ein Stil es aber auf `display:none`, wie
+alle außer Material 3 die Material-Welle, läuft nie eine Animation, `animationend` bleibt aus
+und die Elemente sammeln sich an. `abraeumen()` in `app.js` hat darum zusätzlich einen Wecker.
+
+Einen fünften Stil gab es eine Zeit lang: **Hochkontrast** – schwarz, weiß, ein Gelb, dicke
+Rahmen, große Ziffern, keine Bewegung. Mit 1.11.0 ist er entfallen; wer ihn eingestellt hatte,
+steht nach dem Update wieder auf „Original". Weiter oben im Text kommt er noch als Fundstelle
+zweier Prüfungen vor – die Geschichten dazu stimmen, den Stil selbst gibt es nicht mehr.
 
 ## Der Arcade-Stil
 
@@ -393,30 +398,6 @@ Dieser Stil bringt es dorthin zurück.
 * **Im Dunkeln wird das Heft zur Tafel.** Dunkelgrün, Kreide, dasselbe Karo in Weiß. Der helle
   Papierschein fällt weg – er hob den Hintergrund an und drückte die Kartenbeschriftung auf
   3,4:1.
-
-## Der Hochkontrast-Stil
-
-Drei Farben, dicke Linien, nichts bewegt sich.
-
-* **Nur Papierweiß, Tiefschwarz und ein Signalgelb.** Kein Rot und kein Grün als einziges
-  Unterscheidungsmerkmal. Jeder Zustand hat zusätzlich eine eigene *Form*: gewählt = gelb
-  gefüllt, möglicher Partner = gestrichelter Rahmen, Tipp = gelb mit zweitem Innenrahmen,
-  danebengegriffen = umgekehrt (schwarze Fläche, weiße Zahl), gestrichen = flächig grau ohne
-  Rahmen. Gemessen aus den Bildpunkten des fertigen Bildes: **7:1 bis 21:1**, hell wie dunkel.
-* **Alles größer.** Ziffern bis 40 px, Bedienknöpfe ab 52 px, Kippschalter 56 × 40 px,
-  Rahmen 3 px. Die Kacheln selbst bleiben bei 9 Spalten auf einem 390-px-Bildschirm rund
-  38 px breit – das gibt das Raster vor, nicht der Stil.
-* **Kein Kippschalter, ein Kästchen.** An ist gefüllt *und* trägt einen Haken, aus ist leer –
-  das erkennt man auch ohne Farbe. Gewählte Chips sind gelb *und* unterstrichen.
-* **Nichts bewegt sich.** Alle Dauern gehen auf fast null – nicht auf `animation: none`:
-  `app.js` räumt Funken, Ringe und Wellen ab, wenn ihre Animation zu Ende ist; ohne Animation
-  bliebe das Ereignis aus und die Elemente sammelten sich an. (Dieselbe Falle steckte bisher
-  auch in den anderen Stilen: die Material-Welle ist dort auf `display:none` gesetzt und wurde
-  nie wieder entfernt. Jetzt gibt es zusätzlich einen Wecker.)
-* **Der Punktezuwachs fällt aus.** In den anderen Stilen schwebt „+70" weg und ist nach einer
-  Sekunde vorbei. Ohne Bewegung bliebe er als gelber Kasten mitten auf dem Feld stehen und
-  deckte gerade die Zahlen zu, um die es geht – bei schnellem Spiel sogar mehrere übereinander.
-  Der Punktestand oben ist groß, schwarz und sofort aktuell; das reicht.
 
 ## Weltweite Zähler
 
