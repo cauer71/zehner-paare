@@ -37,7 +37,7 @@ const store = {
 };
 
 const DEFAULT_SETTINGS = {
-  skin: 'classic',          // classic | m3 | arcade | papier | kontrast
+  skin: 'classic',          // classic | m3 | arcade | papier
   difficulty: 'mittel',
   diagonal: true,
   wrap: true,
@@ -58,6 +58,14 @@ let settings = { ...DEFAULT_SETTINGS, ...(store.get(KEY.settings) ?? {}) };
 if (!store.get('zp.migrated.partners.v1')) {
   settings.partners = false;
   store.set('zp.migrated.partners.v1', true);
+  store.set(KEY.settings, settings);
+}
+// Den Stil "Hochkontrast" gibt es nicht mehr. Wer ihn eingestellt hatte, saehe
+// sonst weiter "kontrast" im Speicher stehen: das Brett fiele auf "Original"
+// zurueck, die Zeile "Aussehen" nennte aber einen Stil, den kein Chip anbietet.
+// Darum die Wahl einmalig zurueckstellen.
+if (settings.skin === 'kontrast') {
+  settings.skin = DEFAULT_SETTINGS.skin;
   store.set(KEY.settings, settings);
 }
 // Vor allem anderen: die Sprache. Danach liefert t() die richtigen Saetze,
@@ -84,7 +92,6 @@ const SKINS = {
   m3:       { icons: 'i', voice: 'soft' },
   arcade:   { icons: 'px', voice: 'chip' },
   papier:   { icons: 'i', voice: 'soft' },
-  kontrast: { icons: 'i', voice: 'soft' },
 };
 
 /** Langer Name eines Stils, fuer die Meldung nach dem Umschalten. */
@@ -645,7 +652,6 @@ function applyAppearance() {
   toggle('css-m3-colors', skin === 'm3');
   toggle('css-arcade', skin === 'arcade');
   toggle('css-papier', skin === 'papier');
-  toggle('css-kontrast', skin === 'kontrast');
   applyIconSet(skin);
   // Der Automat geht an: einmal die Roehre aufreissen lassen. Nur beim echten
   // Wechsel - beim Laden liefe der Blitz sonst bei jedem Start.

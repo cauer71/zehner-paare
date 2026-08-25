@@ -110,7 +110,7 @@ const kandidaten = auftragDatei ? JSON.parse(await readFile(auftragDatei, 'utf8'
 
 const ergebnis = {};
 for (const [w, h] of [[320, 568], [360, 640], [390, 844]]) {
-  for (const skin of ['classic', 'm3', 'arcade', 'papier', 'kontrast']) {
+  for (const skin of ['classic', 'm3', 'arcade', 'papier']) {
     const ctx = await browser.newContext({ viewport: { width: w, height: h },
       deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'de-DE' });
     const page = await ctx.newPage();
@@ -162,7 +162,7 @@ if (kandidaten) {
       const p = eng[name];
       if (!p || v.nZeichen < p.nZeichen) eng[name] = { ...v, wo: marke };
     }
-  console.log('Groesstes Budget je Feld (engster Fall aus 320/360/390 px x 5 Stile)\n');
+  console.log('Groesstes Budget je Feld (engster Fall aus 320/360/390 px x 4 Stile)\n');
   console.log('Feld          Zeichen    px  Schrift   Umbruch   engster Fall');
   for (const [name, v] of Object.entries(eng))
     console.log(`${name.padEnd(13)} ${String(v.nZeichen).padStart(7)} ${String(v.px).padStart(5)}`
