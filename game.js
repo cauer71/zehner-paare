@@ -76,34 +76,62 @@ function shuffle(list, rng) {
 }
 
 /**
- * Erzeugt die Startzahlen.
+ * Erzeugt die Startzahlen – und dazu, in welcher Reihenfolge sie entstanden
+ * sind.
+ *
  * - classic:  das Papier-Original – die Ziffernfolge der Zahlen 1..19 ohne 10.
  * - balanced: paarweise aufgebaut (x,x) oder (x,10-x), danach gemischt.
  *             Dadurch geht die Rechnung im Prinzip immer auf.
  * - random:   gleichverteilt 1..9.
+ *
+ * `gruppen[i]` sagt, aus welchem Erzeugungsschritt die Zahl an Stelle i kommt.
+ * Im ausgewogenen Modus teilen die beiden Haelften eines Paares dieselbe
+ * Nummer – und nur deshalb kann die Oberflaeche ein neues Feld so aufbauen,
+ * dass zusammengehoerende Zahlen gemeinsam erscheinen (siehe aufbauPlan() in
+ * app.js). In den anderen Modi gibt es keine Paare, dort ist die Gruppe
+ * einfach die Stelle selbst, also die Leserichtung.
  */
-export function generateValues({ rows, cols, mode }, rng) {
+export function generateBoard({ rows, cols, mode }, rng) {
   const count = rows * cols;
+  const nachLeserichtung = (werte) => ({ werte, gruppen: werte.map((_, i) => i) });
+
   if (mode === 'classic') {
     const out = [];
     for (let n = 1; n <= 19; n++) {
       if (n === 10) continue;
       for (const d of String(n)) out.push(Number(d));
     }
-    return out;
+    return nachLeserichtung(out);
   }
   if (mode === 'balanced') {
     const out = [];
+    const paare = [];
+    let gruppe = 0;
     while (out.length + 1 < count) {
       const x = 1 + Math.floor(rng() * 9);
       if (rng() < 0.45) out.push(x, x);
       else out.push(x, 10 - x);
+      paare.push(gruppe, gruppe);
+      gruppe += 1;
     }
     // Bei ungerader Feldgroesse bleibt zwangslaeufig eine Zahl ohne Partner.
-    while (out.length < count) out.push(1 + Math.floor(rng() * 9));
-    return shuffle(out, rng);
+    while (out.length < count) {
+      out.push(1 + Math.floor(rng() * 9));
+      paare.push(gruppe++);
+    }
+    // Gemischt wird die Reihenfolge, nicht die Liste: so bleibt der Griff in
+    // den Zufallsgenerator Zug um Zug derselbe wie vorher – gleiche Saat,
+    // gleiches Feld – und die Paarnummern wandern mit ihren Zahlen mit.
+    const folge = shuffle(out.map((_, i) => i), rng);
+    return { werte: folge.map((k) => out[k]), gruppen: folge.map((k) => paare[k]) };
   }
-  return Array.from({ length: count }, () => 1 + Math.floor(rng() * 9));
+  return nachLeserichtung(
+    Array.from({ length: count }, () => 1 + Math.floor(rng() * 9)));
+}
+
+/** Nur die Zahlen, ohne ihre Entstehungsreihenfolge. */
+export function generateValues(preset, rng) {
+  return generateBoard(preset, rng).werte;
 }
 
 export function createGame({
@@ -114,7 +142,7 @@ export function createGame({
 } = {}) {
   const preset = DIFFICULTIES[difficulty] ?? DIFFICULTIES.mittel;
   const rng = createRng(seed);
-  const values = generateValues(preset, rng);
+  const { werte: values, gruppen } = generateBoard(preset, rng);
   return {
     version: 1,
     difficulty,
@@ -122,7 +150,7 @@ export function createGame({
     diagonal,
     wrap,
     seed: rng.seed,
-    cells: values.map((v, i) => ({ id: i, v, cleared: false })),
+    cells: values.map((v, i) => ({ id: i, v, cleared: false, paar: gruppen[i] })),
     nextId: values.length,
     seen: values.length,        // wie viele Zahlen insgesamt aufs Feld kamen
     // Aufgeteilt danach, WER die Zahlen aufs Feld gebracht hat: das Spiel
@@ -272,11 +300,12 @@ export function canMatch(state, i, j) {
  */
 export function nextRound(state, seed) {
   if (!state.endless) return null;
-  const values = generateValues(
+  const { werte: values, gruppen } = generateBoard(
     { rows: state.newRows, cols: state.cols, mode: 'balanced' },
     createRng(seed),
   );
-  state.cells = values.map((v, i) => ({ id: state.nextId + i, v, cleared: false }));
+  state.cells = values.map((v, i) =>
+    ({ id: state.nextId + i, v, cleared: false, paar: gruppen[i] }));
   state.nextId += values.length;
   state.seen += values.length;
   state.ausgeteilt += values.length;

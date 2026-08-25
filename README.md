@@ -52,6 +52,44 @@ Mal neu.
 Diagonale und Zeilenumbruch lassen sich in den Einstellungen abschalten – das Video, das die
 Vorlage war, zeigt nur waagrecht und senkrecht.
 
+## Wie ein neues Feld entsteht
+
+Ein neues Feld liegt nicht einfach da, es baut sich über **1,5 Sekunden** auf – und die
+Reihenfolge ist der eigentliche Witz daran. Sie ist ausdrücklich *nicht* die Leserichtung,
+sondern die, in der die Zahlen erzeugt wurden. In „Leicht", „Mittel" und „Endlos" ist das
+paarweise: erst entsteht (x, x) oder (x, 10−x), dann werden die Paare über das Feld gestreut.
+Beide Hälften eines Paares bekommen darum **dieselbe Verzögerung** und erscheinen im selben
+Augenblick, an zwei weit auseinanderliegenden Stellen.
+
+Was da aufblitzt, ist also keine Zierde, sondern die Lösung. Wer beim Aufbau genau hinsieht,
+sieht, welche zwei Zahlen zusammengehören – und weiß es noch, wenn das Feld ruhig daliegt und
+alle Kacheln gleich aussehen. Ein Geheimnis, das man erraten kann, ohne dass es jemand
+erklären muss. Weil die Paare gestreut liegen, verrät das noch keinen *Zug*: gebraucht wird
+zusätzlich die Nachbarschaft. Der Hinweis hilft, er spielt nicht für einen.
+
+In „Klassisch" ist die Entstehungsreihenfolge die Leserichtung – dort schreibt sich die
+Ziffernfolge 1 bis 19 der Reihe nach hin, so wie man sie auf dem Papier hingeschrieben hätte.
+In „Schwer" gibt es keine Paare, also auch nichts zu verraten.
+
+Ein paar Dinge, die dazugehören:
+
+* **Die Uhr läuft erst danach.** Während des Aufbaus lässt sich nichts spielen, also darf er
+  auch nicht auf die Zeit gehen – sonst kostete jede Partie 1,5 Sekunden Bestwert.
+* **Abkürzen jederzeit.** Ein Tipp aufs Feld oder eine beliebige Taste stellt alles sofort
+  hin. Dieser erste Tipp wählt bewusst noch **keine** Kachel: man soll nicht auf eine Zahl
+  treffen, die man im selben Augenblick erst zu sehen bekommt.
+* **Gesperrt, solange es läuft.** Die Kacheln liegen schon im DOM und wären sonst
+  anklickbar, bevor man ihre Zahl sehen kann.
+* **Wer keine Bewegung will, bekommt keine.** Bei `prefers-reduced-motion` liegt das Feld
+  sofort vollständig da.
+* **Nur beim Neuanfang.** Beim Öffnen der App und beim Wiederaufnehmen eines Spielstands
+  baut sich nichts auf – da will man sein Feld sehen. Auffüllen und Rettung hängen ihre
+  Zahlen weiter in Leserichtung an, damit man vorausplanen kann.
+
+Jeder Stil bringt seine eigene Handschrift mit, weil der Aufbau die vorhandene
+`.cell.enter`-Animation benutzt: im Original fallen die Kacheln herein, im Arcade-Stil
+rasten sie in vier Stufen ein, auf dem Papier werden die Ziffern geschrieben.
+
 ## Bedienung
 
 * Zahl antippen, Partner antippen. Nochmal auf dieselbe Zahl tippen hebt die Auswahl auf.
