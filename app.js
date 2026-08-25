@@ -5,7 +5,7 @@
 import {
   DIFFICULTIES, createGame, canMatch, applyMatch, refill, hint, undo, canUndo,
   breakCombo, remaining, serialize, deserialize, valuesMatch, findPair, progress,
-  wertFaktor,
+  wertFaktor, aufbauSchritte, createRng,
   partnersOf, refreshStatus, POINTS, rescue,
 } from './game.js';
 import { welt } from './online.js';
@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.13.0';
+export const VERSION = '1.14.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2',
               seen: 'zp.seen.v1', count: 'zp.count.v1' };
@@ -737,6 +737,25 @@ const AUFBAU_MS = 1500;
  * die Zahlen nicht paarweise entstanden sind, denn Paare liegen trotzdem im
  * Feld.
  */
+/**
+ * Legt die Aufbauschritte fuer einen fortgesetzten Spielstand neu fest.
+ *
+ * Die Schrittnummern im Spielstand gehoeren zum URSPRUNGLICHEN Feld. Nach
+ * einer halben Partie ist von vielen Paaren nur noch eine Haelfte da, und aus
+ * Spielstaenden vor 1.12 fehlen sie ganz - dort fiele der Aufbau auf die
+ * Leserichtung zurueck, also genau auf das Zeilenweise, das er nicht sein
+ * soll. Darum wird beim Fortsetzen ueber die Zahlen geteilt, die noch DA
+ * sind: was jetzt gleichzeitig erscheint, ist auch jetzt ein Paar.
+ */
+function aufbauNeuOrdnen() {
+  const gruppen = aufbauSchritte(
+    state.cells.map((c) => c.v),
+    createRng(),
+    (i) => !state.cells[i].cleared,
+  );
+  state.cells.forEach((c, i) => { c.paar = gruppen[i]; });
+}
+
 function aufbauPlan(cells) {
   const gruppen = [...new Set(cells.map((c, i) => c.paar ?? i))].sort((a, b) => a - b);
   const rang = new Map(gruppen.map((g, n) => [g, n]));
@@ -2184,6 +2203,8 @@ function difficultyFromUrl() {
 
 const requested = difficultyFromUrl();
 if (requested) settings.difficulty = requested;
+const ersterBesuch = !store.get(KEY.seen);
+let fortgesetzt = false;
 if (requested || !load()) {
   state = createGame({
     difficulty: settings.difficulty,
@@ -2191,10 +2212,17 @@ if (requested || !load()) {
     wrap: settings.wrap,
   });
   if (requested) saveSettings();
+} else {
+  fortgesetzt = true;
 }
 applyTexts();         // muss vor dem ersten Zeichnen laufen
 initGruppen();
-renderBoard();
+// Auch beim Start baut sich das Feld auf, statt fertig dazustehen. Zwei
+// Ausnahmen, und in beiden waere der Aufbau nur nicht zu sehen: beim ersten
+// Besuch liegt das Regelblatt darueber, in der Sackgasse der Enddialog.
+const zeigeAufbau = !ersterBesuch && state.status === 'playing';
+if (zeigeAufbau && fortgesetzt) aufbauNeuOrdnen();
+renderBoard({ aufbau: zeigeAufbau });
 updateStats();
 renderSettings();
 syncComboLevel();     // ein geladener Spielstand kann mitten in einer Kombo stehen

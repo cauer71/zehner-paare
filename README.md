@@ -89,9 +89,19 @@ Ein paar Dinge, die dazugehören:
   anklickbar, bevor man ihre Zahl sehen kann.
 * **Wer keine Bewegung will, bekommt keine.** Bei `prefers-reduced-motion` liegt das Feld
   sofort vollständig da.
-* **Nur beim Neuanfang.** Beim Öffnen der App und beim Wiederaufnehmen eines Spielstands
-  baut sich nichts auf – da will man sein Feld sehen. Auffüllen und Rettung hängen ihre
-  Zahlen weiter in Leserichtung an, damit man vorausplanen kann.
+* **Auch beim Start.** Nicht nur nach „Neu": wer die App öffnet, sieht das Feld ebenso
+  entstehen, statt es fertig vorgesetzt zu bekommen. Bei einem fortgesetzten Spielstand
+  werden die Schritte über die Zahlen neu geteilt, die noch **da** sind – die im Spielstand
+  gespeicherten gehören zum ursprünglichen Feld, und nach einer halben Partie ist von vielen
+  Paaren nur noch eine Hälfte übrig. Gestrichene Zahlen kommen als eigene Schritte mit; ein
+  Paar mit einer Zahl, die es nicht mehr gibt, wäre gelogen. (Das rettet auch Spielstände aus
+  Fassungen vor 1.12, denen die Schrittnummern ganz fehlen – die fielen sonst auf die
+  Leserichtung zurück.)
+* **Zwei Ausnahmen**, und in beiden wäre der Aufbau schlicht nicht zu sehen: beim allerersten
+  Besuch liegt das Regelblatt darüber, und wer in der Sackgasse aufgehört hat, bekommt zuerst
+  den Enddialog.
+* **Auffüllen und Rettung** hängen ihre Zahlen weiter in Leserichtung an, damit man
+  vorausplanen kann – das ist dort Absicht und bleibt.
 
 Jeder Stil bringt seine eigene Handschrift mit, weil der Aufbau die vorhandene
 `.cell.enter`-Animation benutzt: im Original fallen die Kacheln herein, im Arcade-Stil
