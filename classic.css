@@ -660,6 +660,18 @@ body::before {
 .dialog.is-record .record-ribbon {
   animation: ribbon-pop .5s cubic-bezier(.2, 1.5, .4, 1) 200ms backwards;
 }
+/* Weltrekord: dasselbe Band in Gold, mit einem laufenden Schimmer darauf. */
+.dialog.is-world .record-ribbon {
+  background: linear-gradient(180deg, #f5c451, #e8a33d);
+  color: #3a2606;
+  box-shadow: 0 4px 16px rgba(245, 196, 81, .5);
+  animation: ribbon-pop .5s cubic-bezier(.2, 1.5, .4, 1) 200ms backwards,
+             ribbon-shine 1.6s ease-in-out 600ms 2;
+}
+@keyframes ribbon-shine {
+  0%, 100% { filter: none; }
+  50% { filter: brightness(1.2); }
+}
 @keyframes ribbon-pop {
   0% { opacity: 0; scale: .4; }
   65% { opacity: 1; scale: 1.14; }
@@ -983,5 +995,92 @@ body::before {
 }
 .stat-card.beaten .stat-card__note { color: var(--accent); font-weight: 800; }
 .stat-card.beaten { border-color: var(--accent); }
+
+/* --- Der Weltrekord, gleich neben dem eigenen Bestwert -------------------- */
+
+/*
+ * Zweite Zeile im Punktekaertchen, eine Spur leiser als die erste: der eigene
+ * Bestwert ist das naechste Ziel, der Weltrekord das uebernaechste. Sehen soll
+ * man ihn, draengen soll er nicht - darum kleiner und blasser statt bunt.
+ *
+ * Das Gold ist bewusst ein fester Wert und keine Themenfarbe: es ist dieselbe
+ * Farbe, die das goldene Konfetti traegt (siehe confetti() in app.js), und die
+ * liegt dort aus demselben Grund fest.
+ */
+.stat-card__note--world {
+  font-size: .64rem;
+  font-weight: 600;
+  opacity: .74;
+}
+/* Ist der eigene Bestwert gefallen, faerbt sich die ganze Karte. Die Weltzeile
+   behaelt dann ihre eigene Farbe - sonst waeren die zwei Marken nicht mehr zu
+   unterscheiden, und genau darauf kommt es in dem Augenblick an. */
+.stat-card.beaten .stat-card__note--world { color: var(--ink-soft); font-weight: 600; }
+.stat-card__note--world.is-beaten,
+.stat-card.beaten .stat-card__note--world.is-beaten {
+  color: #b8801f;
+  opacity: 1;
+  font-weight: 800;
+}
+
+/* --- Wenn ein Rekord faellt ---------------------------------------------- */
+
+/* Die Punktekarte schlaegt einmal aus - dort ist die Zahl eingeschlagen. */
+.stat-card.record-pop { animation: record-pop .9s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes record-pop {
+  0% { transform: scale(1); }
+  22% { transform: scale(1.07); }
+  100% { transform: scale(1); }
+}
+
+/*
+ * Die Welle ueber dem Feld. Deckungsgleich mit dem Brett (dieselbe
+ * Breitenformel, --cols setzt app.js auch auf den Rahmen), faengt keinen Tipp
+ * ab und ist ohne Klasse voellig unsichtbar - im Ruhezustand kostet sie nichts.
+ */
+.record-wave {
+  position: absolute;
+  top: 6px; bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 12px),
+             calc(var(--cols, 9) * var(--cell-max) + (var(--cols, 9) - 1) * var(--gap) + 16px));
+  border-radius: 24px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 6;
+}
+.record-wave.run {
+  background: linear-gradient(100deg, transparent 34%,
+    color-mix(in srgb, var(--accent) 38%, transparent) 50%, transparent 66%);
+  background-size: 260% 100%;
+  animation: record-wave .9s linear forwards;
+}
+/* Der Weltrekord: dieselbe Welle in Gold, langsamer, und das Feld glueht nach. */
+.record-wave.run--welt {
+  background: linear-gradient(100deg, transparent 30%,
+    rgba(245, 196, 81, .58) 50%, transparent 70%);
+  background-size: 260% 100%;
+  animation: record-wave 1.6s linear forwards,
+             record-glow 1.6s ease-in-out forwards;
+}
+/*
+ * Der Streifen faehrt einmal von links nach rechts durch. Die Prozente sind
+ * gerechnet, nicht geraten: bei background-size 260 % verschiebt 100 %
+ * Position um -1,6 Bildbreiten, der Streifen sitzt in der Mitte der Bahn. Bei
+ * 130 % steht er also gerade eben links ausserhalb, bei -30 % rechts
+ * ausserhalb - dazwischen ist er die ganze Zeit zu sehen. Mit einer weiteren
+ * Spanne stuende er die halbe Laufzeit im Nichts.
+ */
+@keyframes record-wave {
+  0%   { opacity: 1; background-position: 130% 0; }
+  92%  { opacity: 1; }
+  100% { opacity: 0; background-position: -30% 0; }
+}
+@keyframes record-glow {
+  0%, 100% { box-shadow: none; }
+  28%, 72% { box-shadow: inset 0 0 0 3px rgba(245, 196, 81, .9),
+                         0 0 34px rgba(245, 196, 81, .45); }
+}
 
 .version { text-align: center; opacity: .7; margin-top: 16px; }

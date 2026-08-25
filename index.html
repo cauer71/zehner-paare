@@ -127,6 +127,9 @@
       <span class="stat-card__label" data-i18n="hud.score">Punkte</span>
       <span class="stat-card__value" id="stat-score">0</span>
       <span class="stat-card__note" id="stat-best"></span>
+      <!-- Der Weltrekord: zweite, leisere Zeile unter dem eigenen Bestwert.
+           Ohne bekannten Weltwert bleibt sie ganz weg. -->
+      <span class="stat-card__note stat-card__note--world" id="stat-world" hidden></span>
     </div>
     <div class="stat-card">
       <span class="stat-card__label" data-i18n="hud.left">Übrig</span>
@@ -150,6 +153,8 @@
   <main class="board-wrap" id="board-wrap">
     <div class="board" id="board" role="group" data-i18n-aria="a11y.board" aria-label="Zahlenfeld"></div>
     <div class="fx" id="fx" aria-hidden="true"></div>
+    <!-- Faellt ein Rekord, laeuft hier einmal eine Welle ueber das Feld. -->
+    <div class="record-wave" id="record-wave" aria-hidden="true"></div>
   </main>
 
   <p class="sr-only" id="live" role="status" aria-live="polite"></p>

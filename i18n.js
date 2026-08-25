@@ -65,6 +65,8 @@ const TEXTE = {
     'hud.recordBeaten': 'Rekord {score} geknackt',
     'hud.recordArcade': 'HI {score}',
     'hud.recordBeatenArcade': 'HI {score} geknackt',
+    'hud.world': 'Welt {score}',
+    'hud.worldArcade': 'WR {score}',
 
     // Knopfleiste unten – die engste Stelle im ganzen Spiel.
     // Gemessen bleiben der Beschriftung 48 px (Zurück/Tipp/Neu) bzw. rund
@@ -97,6 +99,7 @@ const TEXTE = {
     'msg.rescue': 'Rettung! Noch eine Chance.',
     'msg.round': 'Runde {n} · +{bonus} · ein Auffüllen zurück',
     'msg.recordLive': 'Rekord! {score} Punkte übertroffen',
+    'msg.worldLive': 'Weltrekord! {score} Punkte übertroffen',
     'msg.pairNotAdjacent': '{a} und {b} passen – nur nicht benachbart.',
     'msg.pairNoMatch': '{a} und {b} – weder gleich noch Summe 10.',
     'msg.classicFixed': 'Klassisch: immer dasselbe Startfeld',
@@ -257,6 +260,8 @@ const TEXTE = {
     'end.statCombo': 'Beste Kombo',
     'end.record': '★ Neuer Bestwert',
     'end.recordPlus': '★ Neuer Bestwert · +{plus}',
+    'end.world': '★ Neuer Weltrekord',
+    'end.worldPlus': '★ Neuer Weltrekord · +{plus}',
     'end.undo': 'Zug zurück',
     'end.rescue': 'Rettung',
     'end.again': 'Nochmal',
@@ -293,6 +298,8 @@ const TEXTE = {
     'hud.recordBeaten': 'Record {score} battuto',
     'hud.recordArcade': 'HI {score}',
     'hud.recordBeatenArcade': 'HI {score} battuto',
+    'hud.world': 'Mondo {score}',
+    'hud.worldArcade': 'WR {score}',
     // Knopfleiste unten – die engste Stelle im ganzen Spiel.
     // Gemessen bleiben der Beschriftung 48 px (Zurück/Tipp/Neu) bzw. rund
     // 60 px (Auffüllen/Rettung) bei 320 px. Nicht länger werden.
@@ -322,6 +329,7 @@ const TEXTE = {
     'msg.rescue': 'Recupero! Un’altra occasione.',
     'msg.round': 'Turno {n} · +{bonus} · una ricarica in più',
     'msg.recordLive': 'Record! Superati {score} punti',
+    'msg.worldLive': 'Record mondiale! Superati {score} punti',
     'msg.pairNotAdjacent': '{a} e {b} vanno bene, ma non sono vicini.',
     'msg.pairNoMatch': '{a} e {b} – né uguali né somma 10.',
     'msg.classicFixed': 'Classico: campo iniziale sempre uguale',
@@ -470,6 +478,8 @@ const TEXTE = {
     'end.statCombo': 'Combo max',
     'end.record': '★ Nuovo record',
     'end.recordPlus': '★ Nuovo record · +{plus}',
+    'end.world': '★ Nuovo record mondiale',
+    'end.worldPlus': '★ Nuovo record mondiale · +{plus}',
     'end.undo': 'Annulla mossa',
     'end.rescue': 'Recupero',
     'end.again': 'Ancora',
@@ -506,6 +516,8 @@ const TEXTE = {
     'hud.recordBeaten': 'Best {score} beaten',
     'hud.recordArcade': 'HI {score}',
     'hud.recordBeatenArcade': 'HI {score} beaten',
+    'hud.world': 'World {score}',
+    'hud.worldArcade': 'WR {score}',
     // Knopfleiste unten – die engste Stelle im ganzen Spiel.
     // Gemessen bleiben der Beschriftung 48 px (Zurück/Tipp/Neu) bzw. rund
     // 60 px (Auffüllen/Rettung) bei 320 px. Nicht länger werden.
@@ -535,6 +547,7 @@ const TEXTE = {
     'msg.rescue': 'Rescue! One more chance.',
     'msg.round': 'Round {n} · +{bonus} · one refill back',
     'msg.recordLive': 'New best! {score} points beaten',
+    'msg.worldLive': 'World record! {score} points beaten',
     'msg.pairNotAdjacent': '{a} and {b} match – just not adjacent.',
     'msg.pairNoMatch': '{a} and {b} – neither equal nor adding up to 10.',
     'msg.classicFixed': 'Classic: always the same starting board',
@@ -683,6 +696,8 @@ const TEXTE = {
     'end.statCombo': 'Best combo',
     'end.record': '★ New best',
     'end.recordPlus': '★ New best · +{plus}',
+    'end.world': '★ New world record',
+    'end.worldPlus': '★ New world record · +{plus}',
     'end.undo': 'Undo move',
     'end.rescue': 'Rescue',
     'end.again': 'Play again',

@@ -340,6 +340,87 @@ body::before {
   animation: arc-blink .6s steps(1) infinite;
 }
 
+/* --- Der Weltrekord, gleich neben dem eigenen Bestwert -------------------- */
+
+/*
+ * Zweite Zeile im Punktekaertchen - am Automaten die Zeile unter HI, eine
+ * Nummer kleiner und gedaempft: der eigene Bestwert ist das naechste Ziel, der
+ * Weltrekord das uebernaechste. Sehen soll man ihn, blinken soll er nicht.
+ */
+.stat-card__note--world {
+  font-size: 7px;
+  letter-spacing: 1px;
+  color: var(--dim);
+}
+/* Ist der eigene Bestwert gefallen, blinkt die erste Zeile. Die Weltzeile
+   bleibt dann ruhig - sonst waeren die zwei Marken nicht auseinanderzuhalten,
+   und genau darauf kommt es in dem Augenblick an. */
+.stat-card.beaten .stat-card__note--world { color: var(--dim); animation: none; }
+/* Gefallen: gold und ruhig. Bewusst OHNE Blinken - die Zeile darueber blinkt
+   schon, und zwei Zeilen im Gleichtakt loeschen das Kaertchen jede halbe
+   Sekunde ganz aus. Eine blinkt, eine steht. */
+.stat-card__note--world.is-beaten,
+.stat-card.beaten .stat-card__note--world.is-beaten {
+  color: var(--yellow);
+  animation: none;
+}
+
+/* --- Wenn ein Rekord faellt ---------------------------------------------- */
+
+/* Die Punktekarte schlaegt einmal aus - hart gerastert, ohne Zwischenwerte. */
+.stat-card.record-pop { animation: arc-record-pop .9s steps(3); }
+@keyframes arc-record-pop {
+  0% { transform: none; }
+  20% { transform: scale(1.08); }
+  100% { transform: none; }
+}
+
+/*
+ * Die Welle ueber dem Feld: ein Balken, der in harten Schritten durchs Bild
+ * faehrt - kein weicher Verlauf, das waere ein anderer Automat. Deckungsgleich
+ * mit dem Brett (dieselbe Breitenformel, --cols setzt app.js auch auf den
+ * Rahmen), faengt keinen Tipp ab, ohne Klasse voellig unsichtbar.
+ */
+.record-wave {
+  position: absolute;
+  top: 4px; bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 16px),
+             calc(var(--cols, 9) * var(--cell-max) + (var(--cols, 9) - 1) * var(--gap) + 16px));
+  border-radius: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 6;
+}
+.record-wave.run {
+  background: linear-gradient(90deg, transparent 0 44%,
+    color-mix(in srgb, var(--magenta) 55%, transparent) 44% 56%, transparent 56%);
+  background-size: 240% 100%;
+  animation: arc-record-wave .9s steps(12) forwards;
+}
+/* Der Weltrekord: derselbe Balken in Gold, laenger, und der Rahmen blinkt mit. */
+.record-wave.run--welt {
+  background: linear-gradient(90deg, transparent 0 42%,
+    color-mix(in srgb, var(--yellow) 55%, transparent) 42% 50%,
+    color-mix(in srgb, var(--amber) 55%, transparent) 50% 58%, transparent 58%);
+  background-size: 240% 100%;
+  animation: arc-record-wave 1.6s steps(16) forwards,
+             arc-record-frame .2s steps(1) 8;
+}
+/* Von links nach rechts, in harten Schritten. 240 % Bahnbreite heisst: 100 %
+   Position verschiebt um -1,4 Bildbreiten, 110 % ist gerade links draussen,
+   -10 % gerade rechts draussen. */
+@keyframes arc-record-wave {
+  0%   { opacity: 1; background-position: 110% 0; }
+  99%  { opacity: 1; }
+  100% { opacity: 0; background-position: -10% 0; }
+}
+@keyframes arc-record-frame {
+  0%, 49%   { box-shadow: inset 0 0 0 var(--px) var(--yellow); }
+  50%, 100% { box-shadow: inset 0 0 0 var(--px) var(--amber); }
+}
+
 /* --- Fortschritt: ein LED-Balken mit fester Blockrasterung ---------------- */
 
 .progress {
@@ -866,6 +947,14 @@ body::before {
 }
 @keyframes arc-band { to { background-position: 32px 0; } }
 .dialog.is-record .record-ribbon { animation: arc-blink .3s steps(1) 8; }
+/* Weltrekord: derselbe Laufschrift-Streifen, aber in Gold. */
+.dialog.is-world .record-ribbon {
+  background: repeating-linear-gradient(90deg,
+    var(--yellow) 0 8px, var(--amber) 8px 16px);
+  background-size: 32px 100%;
+  box-shadow: var(--hard), 0 0 18px color-mix(in srgb, var(--yellow) 65%, transparent);
+  animation: arc-band 1.2s linear infinite, arc-blink .3s steps(1) 8;
+}
 
 .dialog__icon {
   width: 48px; height: 48px;

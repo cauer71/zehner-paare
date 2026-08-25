@@ -331,6 +331,90 @@ body::before {
 .stat-card.beaten .stat-card__note { color: var(--accent); font-weight: 800; }
 .stat-card.beaten { border-color: var(--accent); }
 
+/* --- Der Weltrekord, gleich neben dem eigenen Bestwert -------------------- */
+
+/*
+ * Zweite Zeile im Punktekaertchen, eine Spur leiser als die erste: der eigene
+ * Bestwert ist das naechste Ziel, der Weltrekord das uebernaechste. Wie mit
+ * einem spitzeren Bleistift danebengeschrieben - sehen soll man ihn, draengen
+ * soll er nicht.
+ */
+.stat-card__note--world {
+  font-size: .56rem;
+  opacity: .78;
+}
+/* Ist der eigene Bestwert gefallen, faerbt sich die ganze Karte. Die Weltzeile
+   behaelt dann ihre eigene Farbe - sonst waeren die zwei Marken nicht mehr zu
+   unterscheiden, und genau darauf kommt es in dem Augenblick an. */
+.stat-card.beaten .stat-card__note--world { color: var(--ink-soft); font-weight: 400; }
+.stat-card__note--world.is-beaten,
+.stat-card.beaten .stat-card__note--world.is-beaten {
+  color: #9a6a12;
+  opacity: 1;
+  font-weight: 800;
+}
+
+/* --- Wenn ein Rekord faellt ---------------------------------------------- */
+
+/* Die Punktekarte schlaegt einmal aus - dort ist die Zahl eingeschlagen. */
+.stat-card.record-pop { animation: record-pop .9s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes record-pop {
+  0% { transform: scale(1); }
+  22% { transform: scale(1.06) rotate(-.6deg); }
+  100% { transform: scale(1); }
+}
+
+/*
+ * Die Welle ueber dem Feld - hier ein Textmarker, der einmal quer ueber die
+ * Seite gezogen wird. Deckungsgleich mit dem Brett (dieselbe Breitenformel,
+ * --cols setzt app.js auch auf den Rahmen), faengt keinen Tipp ab und ist ohne
+ * Klasse voellig unsichtbar.
+ */
+.record-wave {
+  position: absolute;
+  top: 6px; bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 28px), calc(var(--cols, 9) * var(--cell-max)));
+  border-radius: var(--skizze, 2px);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 6;
+  mix-blend-mode: multiply;
+}
+.record-wave.run {
+  background: linear-gradient(100deg, transparent 34%,
+    rgba(193, 67, 56, .20) 46%, rgba(193, 67, 56, .26) 54%, transparent 66%);
+  background-size: 260% 100%;
+  animation: record-wave .9s linear forwards;
+}
+/* Der Weltrekord: derselbe Strich in Gelb, langsamer, und die Seite bekommt
+   einen Rand aus demselben Stift. */
+.record-wave.run--welt {
+  background: linear-gradient(100deg, transparent 30%,
+    rgba(246, 208, 96, .48) 44%, rgba(240, 190, 60, .60) 56%, transparent 70%);
+  background-size: 260% 100%;
+  animation: record-wave 1.6s linear forwards,
+             record-glow 1.6s ease-in-out forwards;
+}
+/*
+ * Der Streifen faehrt einmal von links nach rechts durch. Die Prozente sind
+ * gerechnet, nicht geraten: bei background-size 260 % verschiebt 100 %
+ * Position um -1,6 Bildbreiten, der Streifen sitzt in der Mitte der Bahn. Bei
+ * 130 % steht er also gerade eben links ausserhalb, bei -30 % rechts
+ * ausserhalb - dazwischen ist er die ganze Zeit zu sehen. Mit einer weiteren
+ * Spanne stuende er die halbe Laufzeit im Nichts.
+ */
+@keyframes record-wave {
+  0%   { opacity: 1; background-position: 130% 0; }
+  92%  { opacity: 1; }
+  100% { opacity: 0; background-position: -30% 0; }
+}
+@keyframes record-glow {
+  0%, 100% { box-shadow: none; }
+  28%, 72% { box-shadow: inset 0 0 0 3px rgba(214, 165, 44, .8); }
+}
+
 .combo-badge {
   position: absolute;
   left: 50%; top: 50%;
@@ -832,6 +916,18 @@ body::before {
 }
 .dialog.is-record .record-ribbon {
   animation: ribbon-pop .5s cubic-bezier(.2, 1.5, .4, 1) 200ms backwards;
+}
+/* Weltrekord: dasselbe Band, aber mit dem Textmarker ausgemalt. */
+.dialog.is-world .record-ribbon {
+  border-color: #c8961f;
+  color: #6b4a08;
+  background: rgba(246, 208, 96, .5);
+  animation: ribbon-pop .5s cubic-bezier(.2, 1.5, .4, 1) 200ms backwards,
+             ribbon-shine 1.6s ease-in-out 600ms 2;
+}
+@keyframes ribbon-shine {
+  0%, 100% { rotate: -1.6deg; }
+  50% { rotate: 1.2deg; }
 }
 @keyframes ribbon-pop {
   0% { opacity: 0; scale: .4; }

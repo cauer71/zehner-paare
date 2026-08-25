@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.15.0';
+export const VERSION = '1.16.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2',
               seen: 'zp.seen.v1', count: 'zp.count.v1' };
@@ -117,6 +117,8 @@ const elScore = $('#stat-score');
 const elLeft = $('#stat-left');
 const elTime = $('#stat-time');
 const elCombo = $('#combo');
+const elWorld = $('#stat-world');
+const welleEl = $('#record-wave');
 const btnUndo = $('#btn-undo');
 const btnHint = $('#btn-hint');
 const btnRefill = $('#btn-refill');
@@ -147,7 +149,17 @@ let tickBase = 0;
 let endHandled = false;    // Spielende nur einmal auswerten
 let hintTimer = null;      // laufendes Tipp-Blinken
 let hintIds = [];          // welche Kacheln blinken gerade
-let recordHit = false;     // Rekord waehrend der Partie schon gefeiert?
+let recordHit = false;     // eigener Bestwert waehrend der Partie schon gefeiert?
+let weltHit = false;       // und der Weltrekord?
+/*
+ * Der Punktestand beim letzten Blick auf die Rekorde. Gefeiert wird nur, wenn
+ * er GESTIEGEN ist - eine Feier gehoert zu einem Zug und nicht zu einem
+ * Neuzeichnen. Ohne das feuerte sie zweimal aus dem Nichts: beim Fortsetzen
+ * einer laufenden Partie, deren Stand schon ueber dem Rekord liegt, und wenn
+ * die Weltzahlen mitten im Spiel eintreffen und der Stand schon darueber ist.
+ * null heisst "noch nie geschaut" - der allererste Blick feiert nie.
+ */
+let punkteZuletzt = null;
 let kuerzelStufe = null;   // zu welchem Bestwert das Feld im Enddialog gehoert
 
 /* ---------------------------------------------------------------- Kuerzel */
@@ -435,6 +447,14 @@ const VOICES = {
       tone({ freq: 1046, dur: 0.16, gain: 0.04 });
       tone({ freq: 1568, dur: 0.22, delay: 0.12, gain: 0.035 });
     },
+    // Weltrekord mitten im Spiel: dieselbe Idee eine Etage hoeher und mit
+    // Nachklang - der groessere Anlass darf laenger stehen. Bleibt trotzdem
+    // unter der Siegfanfare, die gehoert dem Spielende.
+    worldLive: () => {
+      [1046, 1319, 1568, 2093].forEach((f, i) =>
+        tone({ freq: f, dur: 0.2, delay: i * 0.08, gain: 0.042, type: 'triangle' }));
+      tone({ freq: 2637, dur: 0.5, delay: 0.34, gain: 0.022 });
+    },
     hint: () => tone({ freq: 880, dur: 0.09, gain: 0.03 }),
     undo: () => tone({ freq: 300, dur: 0.1, gain: 0.03, type: 'triangle' }),
     rescue: () => [392, 523, 659].forEach((f, i) => tone({ freq: f, dur: 0.18, delay: i * 0.09, gain: 0.04, type: 'triangle' })),
@@ -512,6 +532,13 @@ const VOICES = {
       chip({ freq: 1568, dur: 0.12, duty: 0.25, gain: 0.028, delay: 0.09 });
       noise({ dur: 0.06, gain: 0.014, freq: 5000, q: 1, delay: 0.09 });
     },
+    // Weltrekord mitten im Spiel: das Extend-Signal als ganzer Lauf, oben ein
+    // stehender Ton und ein Beckenschlag.
+    worldLive: () => {
+      melodie('C5:1 G5:1 C6:1 E6:1 G6:2', { schritt: 0.07, duty: 0.25, gain: 0.03 });
+      chip({ freq: hz('C7'), dur: 0.3, duty: 0.5, gain: 0.024, delay: 0.42, vibrato: 0.012 });
+      noise({ dur: 0.14, gain: 0.016, freq: 5600, q: 1, delay: 0.42 });
+    },
     /*
      * Kombo: ein kurzes Motiv, das mit der Stufe eine Sprosse hoeher rueckt.
      * Die Versetzung folgt einer Durtonleiter (0 2 4 5 7 9 11 12 Halbtoene),
@@ -556,6 +583,7 @@ const sfx = {
   record: () => voice().record(),
   lose: () => voice().lose(),
   recordLive: () => voice().recordLive(),
+  worldLive: () => voice().worldLive(),
   hint: () => voice().hint(),
   undo: () => voice().undo(),
   rescue: () => voice().rescue(),
@@ -847,6 +875,11 @@ function aufbauBeenden() {
 
 function renderBoard({ aufbau = false } = {}) {
   board.style.setProperty('--cols', state.cols);
+  // Die Rekordwelle liegt neben dem Feld, nicht darin (renderBoard sortiert
+  // die Kacheln nach Position und wuerde ein fremdes Kind staendig
+  // umhaengen). Damit sie trotzdem genau so breit ist wie das Feld,
+  // bekommt der Rahmen dieselbe Spaltenzahl.
+  boardWrap.style.setProperty('--cols', state.cols);
   // Lag der Fokus im Feld? Nach dem Entfernen von Zellen faellt er sonst auf <body>.
   const hadFocus = board.contains(document.activeElement);
   normalizeFocus();
@@ -941,6 +974,23 @@ function zahl(n, stellen = 6) {
   return settings.skin === 'arcade' ? String(n).padStart(stellen, '0') : String(n);
 }
 
+/**
+ * Der bekannte Weltrekord einer Stufe - oder null, wenn keiner bekannt ist.
+ *
+ * "Bekannt" heisst: aus dem letzten Lesen gemerkt, siehe online.js. Ohne Netz
+ * steht der letzte Stand da; mit ausgeschaltetem Schalter gar keiner - dann
+ * weiss das Spiel nichts von der Welt und soll auch nicht so tun.
+ */
+function weltRekord(stufe) {
+  if (!settings.world) return null;
+  const w = welt.zwischenstand();
+  const wert = w.rekorde?.[stufe] ?? 0;
+  if (!(wert > 0)) return null;
+  // Auch hier gefiltert: das Kuerzel kommt vom fremden Dienst und geht ohne
+  // Umweg in die Anzeige.
+  return { wert, wer: sauberesKuerzel(w.wer?.[stufe]) };
+}
+
 function updateStats({ bumpScore = false } = {}) {
   elScore.textContent = zahl(state.score);
   elLeft.textContent = zahl(remaining(state), 3);
@@ -968,26 +1018,62 @@ function updateStats({ bumpScore = false } = {}) {
   const record = best[state.difficulty];
   const note = $('#stat-best');
   const card = $('#card-score');
+  const arcade = settings.skin === 'arcade';
   if (note) {
     if (!record) {
       note.textContent = t('hud.noRecord');
       card?.classList.remove('beaten');
     } else if (state.score > record.score) {
-      note.textContent = settings.skin === 'arcade'
+      note.textContent = arcade
         ? t('hud.recordBeatenArcade', { score: zahl(record.score) })
         : t('hud.recordBeaten', { score: record.score });
       card?.classList.add('beaten');
-      if (!recordHit && state.status === 'playing') {
-        recordHit = true;
-        toast(t('msg.recordLive', { score: record.score }));
-        sfx.recordLive();
-        buzz([15, 40, 15]);
-      }
     } else {
-      note.textContent = settings.skin === 'arcade'
+      note.textContent = arcade
         ? t('hud.recordArcade', { score: zahl(record.score) })
         : t('hud.record', { score: record.score });
       card?.classList.remove('beaten');
+    }
+  }
+
+  // Der Weltrekord steht als zweite, leisere Zeile im selben Kaertchen. Dort
+  // und nicht anderswo, weil es dieselbe Groesse ist wie der eigene Bestwert -
+  // ein Punktestand, den es zu schlagen gilt -, nur eine Nummer groesser. Ist
+  // keiner bekannt (Schalter aus, noch nie gelesen, Stufe ohne Eintrag), faellt
+  // die Zeile ganz weg statt eine leere Luecke aufzuspannen.
+  const drau = weltRekord(state.difficulty);
+  if (elWorld) {
+    elWorld.hidden = !drau;
+    if (drau) {
+      // Immer derselbe, kurze Satz - auch wenn der Wert gefallen ist. Ein
+      // angehaengtes "geknackt" braeuchte im schmalen Kaertchen eine zweite
+      // Zeile und schoebe das Feld nach unten; dass die Marke gefallen ist,
+      // sagt hier die Farbe, und im Augenblick selbst sagt es die Feier.
+      const satz = t(arcade ? 'hud.worldArcade' : 'hud.world',
+                     { score: arcade ? zahl(drau.wert) : drau.wert });
+      elWorld.textContent = drau.wer ? `${satz} ${drau.wer}` : satz;
+      elWorld.classList.toggle('is-beaten', state.score > drau.wert);
+    }
+  }
+
+  // Gefeiert wird der groessere Anlass, und jeder hoechstens einmal je Partie.
+  // Ein Weltrekord ist immer auch ein eigener Bestwert: steht der eigene noch
+  // ueber dem bekannten Weltwert - alte Weltzahlen, ein Eintrag, der nie
+  // durchging -, faellt der Weltrekord erst mit dem eigenen.
+  const eigenerFaellt = !!record && state.score > record.score;
+  const weltFaellt = !!drau && state.score > drau.wert && (!record || eigenerFaellt);
+  const vorher = punkteZuletzt;
+  punkteZuletzt = state.score;
+  if (vorher !== null && state.score > vorher && state.status === 'playing') {
+    if (weltFaellt && !weltHit) {
+      weltHit = true;
+      recordHit = true;                 // die groessere Feier deckt die kleinere ab
+      toast(t('msg.worldLive', { score: drau.wert }));
+      feiereRekord('welt');
+    } else if (eigenerFaellt && !recordHit) {
+      recordHit = true;
+      toast(t('msg.recordLive', { score: record.score }));
+      feiereRekord('eigen');
     }
   }
 
@@ -1212,6 +1298,55 @@ function confetti({ gold = false } = {}) {
     if (typeof wrap.showPopover === 'function') { wrap.popover = 'manual'; wrap.showPopover(); }
   } catch { /* aeltere Browser zeigen es einfach darunter */ }
   setTimeout(() => wrap.remove(), 2800);
+}
+
+/*
+ * Der Augenblick, in dem ein Rekord faellt.
+ *
+ * Zwei Groessen, die man ohne Lesen auseinanderhaelt: beim eigenen Bestwert
+ * laeuft eine Welle in der Akzentfarbe einmal ueber das Feld und die
+ * Punktekarte schlaegt aus; beim Weltrekord ist die Welle golden, laeuft
+ * laenger, laesst das Feld nachgluehen und bringt Konfetti mit.
+ *
+ * Bewusst ohne Sperre und ohne Wartezeit: das Spiel laeuft weiter, es blitzt
+ * nur einmal darueber. Wer im selben Zug beides knackt, sieht die groessere
+ * Feier - zwei uebereinander waeren keine.
+ */
+const REKORD_MS = { eigen: 900, welt: 1600 };
+let rekordToken = 0;
+
+function feiereRekord(art) {
+  const gross = art === 'welt';
+  fxLog.push({ art: `rekord-${art}`, t: Math.round(performance.now()) });
+  if (gross) { sfx.worldLive(); buzz([20, 40, 20, 40, 20, 40, 120]); }
+  else { sfx.recordLive(); buzz([15, 40, 15]); }
+  if (reduceMotion.matches) return;
+
+  const meine = ++rekordToken;
+  const karte = $('#card-score');
+  // Abloesen statt stapeln, dieselbe Mechanik wie beim Kombo-Pop: Klasse weg,
+  // Umbruch erzwingen, Klasse neu. Ohne das Erzwingen fasst der Browser beides
+  // zusammen und die zweite Feier bleibt aus.
+  welleEl?.classList.remove('run', 'run--welt');
+  karte?.classList.remove('record-pop');
+  void welleEl?.offsetWidth;
+  void karte?.offsetWidth;
+  welleEl?.classList.add('run');
+  if (gross) welleEl?.classList.add('run--welt');
+  karte?.classList.add('record-pop');
+  if (gross) confetti({ gold: true });
+
+  setTimeout(() => {
+    if (meine !== rekordToken) return;
+    rekordAbraeumen();
+  }, REKORD_MS[art] ?? REKORD_MS.eigen);
+}
+
+/** Raeumt eine laufende Feier ab - auch mittendrin, etwa bei "Neu". */
+function rekordAbraeumen() {
+  rekordToken += 1;
+  welleEl?.classList.remove('run', 'run--welt');
+  $('#card-score')?.classList.remove('record-pop');
 }
 
 /* ------------------------------------------------------------ Spielablauf */
@@ -1468,6 +1603,9 @@ function newGame(difficulty = settings.difficulty) {
   locked = false;
   endHandled = false;
   recordHit = false;
+  weltHit = false;
+  punkteZuletzt = 0;        // der erste Zug der neuen Partie zaehlt als Anstieg
+  rekordAbraeumen();
   btnRefill.classList.remove('urge');
   aufbauBeenden();          // ein noch laufender Aufbau gehoert zum alten Feld
   renderBoard({ aufbau: true });
@@ -1561,6 +1699,14 @@ function endGame(won) {
   // erreichte Punktestand trotzdem als Bestwert.
   const zaehlt = won || state.endless;
   const isRecord = zaehlt && (!previous || state.score > previous.score);
+  // Ein Weltrekord ist immer auch ein eigener Bestwert. Verglichen wird mit dem
+  // BEKANNTEN Weltwert - ob der Eintrag wirklich durchgeht, weiss erst das
+  // naechste Lesen, und eine Wettkampfliste ist das ohnehin nicht (steht so in
+  // den Einstellungen). Ohne Schalter gibt es keinen Weltwert und damit auch
+  // nichts zu melden.
+  const weltStand = weltRekord(key);
+  const isWorld = isRecord && settings.world
+    && (!weltStand || state.score > weltStand.wert);
   if (zaehlt) {
     if (isRecord) {
       // Das Kuerzel des letzten Mals kommt gleich mit: wer allein spielt,
@@ -1625,9 +1771,12 @@ function endGame(won) {
   const ribbon = $('#end-record');
   ribbon.hidden = !isRecord;
   dlgEnd.classList.toggle('is-record', isRecord);
+  dlgEnd.classList.toggle('is-world', isWorld);
   if (isRecord) {
     const plus = previous ? state.score - previous.score : 0;
-    ribbon.textContent = plus > 0 ? t('end.recordPlus', { plus }) : t('end.record');
+    ribbon.textContent = isWorld
+      ? (plus > 0 ? t('end.worldPlus', { plus }) : t('end.world'))
+      : (plus > 0 ? t('end.recordPlus', { plus }) : t('end.record'));
   }
   // Das Kuerzelfeld gehoert zum Bestwert - ohne Bestwert ist nichts
   // einzutragen. Der Fokus bleibt bewusst weg: eine Tastatur, die sich
@@ -1641,7 +1790,10 @@ function endGame(won) {
     confetti({ gold: isRecord });
     sfx.win();
     buzz([20, 60, 20, 60, 40]);
-    if (isRecord) { sfx.record(); buzz([20, 50, 20, 50, 20, 50, 90]); }
+    if (isRecord) {
+      sfx.record();
+      buzz(isWorld ? [20, 50, 20, 50, 20, 50, 20, 50, 160] : [20, 50, 20, 50, 20, 50, 90]);
+    }
   } else {
     sfx.lose();
     buzz([40, 80, 40]);
@@ -1878,16 +2030,25 @@ function renderWorld() {
 }
 
 /**
- * Holt die Weltzahlen, wenn sie alt sind. Aufgerufen beim Aufschlagen der
- * Gruppe - nicht beim Start des Spiels: wer nur spielen will, soll auf
- * niemanden warten und niemandem etwas schicken muessen.
+ * Holt die Weltzahlen, wenn sie alt sind.
+ *
+ * Gerufen wird das beim Aufschlagen der Gruppe UND beim Start - seit der
+ * Weltrekord im Spielfeld steht, braucht ihn auch, wer die Einstellungen nie
+ * aufmacht. Gewartet wird darauf nach wie vor nicht: das Feld liegt sofort da,
+ * die Zeile im Punktekaertchen kommt nach, und ohne Netz bleibt der letzte
+ * bekannte Stand stehen. Wer den Schalter ausmacht, schickt weiterhin nichts.
+ *
+ * Geholt werden ALLE Stufen auf einmal, nicht nur die gespielte: das kostet
+ * dieselbe Runde (17 Anfragen, unter der eigenen Bremse) und deckt danach
+ * fuenf Minuten lang jeden Wechsel der Schwierigkeit ab, ohne dass beim
+ * Umschalten eine leere Zeile stehen bliebe.
  */
 let weltLaeuft = false;
 function weltFrischen() {
   if (!settings.world || weltLaeuft || !welt.veraltet()) return;
   weltLaeuft = true;
   welt.lesen(Object.keys(DIFFICULTIES))
-    .then((neu) => { if (neu) renderWorld(); })
+    .then((neu) => { if (neu) { renderWorld(); updateStats(); } })
     .catch(() => {})
     .finally(() => { weltLaeuft = false; });
 }
@@ -2098,6 +2259,7 @@ $('#opt-world').addEventListener('change', (e) => {
   welt.schalten(settings.world);
   saveSettings();
   renderWorld();
+  updateStats();          // aus heisst auch: die Zeile im Spielfeld geht weg
   weltFrischen();
 });
 
@@ -2281,6 +2443,9 @@ if (zeigeAufbau && fortgesetzt) aufbauNeuOrdnen();
 renderBoard({ aufbau: zeigeAufbau });
 updateStats();
 renderSettings();
+// Der Weltrekord gehoert jetzt ins Spielfeld, also wird er auch beim Start
+// geholt - nebenher, es wartet niemand darauf.
+weltFrischen();
 syncComboLevel();     // ein geladener Spielstand kann mitten in einer Kombo stehen
 startTimer();
 

@@ -139,10 +139,13 @@ rasten sie in vier Stufen ein, auf dem Papier werden die Ziffern geschrieben.
   Zeile und +50 Zuschlag je zusätzlicher Zeile im selben Zug, +100 fürs Leerräumen, +150 je
   ungenutztem Auffüllen, +200 je Endlos-Runde. Ein Fehlversuch oder ein Auffüllen setzt den
   Kombofaktor zurück; ein Tipp kostet nichts.
-* Der Bestwert der Stufe steht während des Spiels in der Punktekarte – und wird gefeiert,
-  sobald er fällt.
-* Wer seinen Bestwert einer Stufe schlägt, bekommt am Ende eine eigene kleine Feier:
-  Strahlenkranz hinter dem Pokal, goldenes Konfetti, hochlaufende Punktzahl.
+* In der Punktekarte stehen während des Spiels **zwei Marken**: der eigene Bestwert der Stufe
+  und darunter, eine Spur leiser, der **Weltrekord** samt Kürzel dessen, der ihn hält. Fällt
+  eine der beiden, läuft eine Welle über das Feld – beim Weltrekord in Gold und mit Konfetti.
+  Siehe [Wenn ein Rekord fällt](#wenn-ein-rekord-fällt).
+* Wer seinen Bestwert einer Stufe schlägt, bekommt am Ende noch eine eigene kleine Feier:
+  Strahlenkranz hinter dem Pokal, goldenes Konfetti, hochlaufende Punktzahl. War es ein
+  Weltrekord, ist das Band darüber golden und sagt es auch.
 * **Kürzel in der Bestenliste.** Zu einem Bestwert gehören drei Zeichen: `A`–`Z` und `0`–`9`,
   wie am Automaten. Das Feld steht im Enddialog unter den Zahlen und noch einmal in den
   **Einstellungen → Bestwerte**, dort auch ohne neuen Bestwert. Vorbelegt ist es mit dem
@@ -231,6 +234,13 @@ diese Datei.
 Kombo-Plakette und Hinweise haben eine eigene, feste Zeile zwischen Fortschrittsbalken und
 Brett (`.ticker`). Vorher schwebten beide über dem Feld und verdeckten je nach Bildschirmhöhe
 bis zu 14 Kacheln – ausgerechnet die eben angehängten.
+
+Die Rekordwelle (`.record-wave`) liegt **neben** dem Brett im selben Rahmen, nicht darin:
+`renderBoard()` sortiert die Kacheln nach ihrer Position (`board.insertBefore(el,
+board.children[i])`) und würde ein fremdes Kind bei jedem Zug umhängen. Damit sie trotzdem
+deckungsgleich mit dem Brett liegt, bekommt der Rahmen dieselbe Spaltenzahl gesetzt
+(`--cols`) und die Welle dieselbe Breitenformel – je Stil eine, denn Polster und Eckradius
+sind je Stil andere. Nachgemessen: Welle und Brett liegen auf denselben vier Werten.
 
 Das Brett wächst mit seinen Zeilen. Vorher stand `align-items: stretch` am Rahmen
 (`.board-wrap`): das Feld bekam damit genau die sichtbare Höhe, und jede Zeile, die durch
@@ -468,6 +478,83 @@ Dieser Stil bringt es dorthin zurück.
   Papierschein fällt weg – er hob den Hintergrund an und drückte die Kartenbeschriftung auf
   3,4:1.
 
+## Wenn ein Rekord fällt
+
+### Wo der Weltrekord steht
+
+Der Weltrekord der gespielten Stufe steht als **zweite Zeile in der Punktekarte**, direkt
+unter dem eigenen Bestwert: `Welt 4155 CHR` – der Punktestand und das Kürzel dessen, der ihn
+hält. Im Arcade-Stil heißt die Zeile `WR 004155 CHR`, in derselben Sprache wie das `HI`
+darüber.
+
+Dort und nicht anderswo, aus drei Gründen:
+
+* Es ist **dieselbe Größe** wie der eigene Bestwert – ein Punktestand, den es zu schlagen
+  gilt, nur eine Nummer größer. Beide in einer Karte heißt: ein Blick genügt für „wo stehe
+  ich".
+* Der Meldungsstreifen über dem Brett (`.ticker`) ist besetzt. Dort liegen Kombo-Plakette und
+  Einblendungen, beide mittig; eine dritte Sache hätte sich mit ihnen überlagert.
+* Auf dem Brett selbst wäre er im Weg. Das Brett ist die Spielfläche und bleibt frei.
+
+Leise gehalten: kleiner als die Zeile darüber und blasser. Ist kein Weltwert bekannt –
+Schalter aus, noch nie gelesen, Stufe ohne Eintrag –, fällt die Zeile **ganz weg**, statt
+eine leere Lücke aufzuspannen. Und sie bleibt immer **einzeilig**: ein angehängtes
+„geknackt", wie es die Zeile darüber kennt, bräuchte im schmalen Kärtchen eine zweite Zeile
+und schöbe das Brett nach unten. Dass die Marke gefallen ist, sagt hier die Farbe – und im
+Augenblick selbst die Feier. Gemessen ist das mit `check-ueberlauf.mjs`, dessen Weltliste
+ohnehin den breitesten Fall stellt: sechsstellige Zahl plus Kürzel, in drei Sprachen, vier
+Breiten ab 320 px und allen vier Stilen.
+
+Weil der Weltrekord jetzt im Spielfeld steht, werden die Weltzahlen auch **beim Start**
+geholt und nicht mehr nur beim Aufschlagen der Bestwerte. Gewartet wird darauf nach wie vor
+nicht: das Feld liegt sofort da, die Zeile kommt nach, und ohne Netz bleibt der letzte
+bekannte Stand stehen. Wer den Schalter ausmacht, schickt weiterhin keine einzige Anfrage.
+
+### Die Welle
+
+Fällt ein Rekord, läuft **einmal eine Welle über das Feld**, und die Punktekarte schlägt aus
+– dort ist die Zahl ja eingeschlagen. Zwei Größen, die man ohne Lesen auseinanderhält:
+
+| | eigener Bestwert | Weltrekord |
+|---|---|---|
+| Welle | Akzentfarbe, 0,9 s | Gold, 1,6 s |
+| dazu | – | Feld glüht nach, goldenes Konfetti |
+| Ton | kurzes Extend-Signal | derselbe Lauf als ganze Fanfare |
+| Vibration | drei Stöße | sieben |
+
+Ein Weltrekord ist immer auch ein eigener Bestwert, also wird nur **der größere Anlass**
+gefeiert: wer im selben Zug beides knackt, sieht eine Feier und nicht zwei übereinander.
+Steht der eigene Bestwert ausnahmsweise über dem bekannten Weltwert – alte Weltzahlen, ein
+Eintrag, der nie durchging –, fällt der Weltrekord erst mit dem eigenen. Jede der beiden
+Marken wird höchstens **einmal je Partie** gefeiert.
+
+Die Feier hält nichts auf: kein `locked`, keine Wartezeit, das Spiel läuft weiter. Wer
+`prefers-reduced-motion` gesetzt hat, bekommt Ton und Vibration, aber keine Bewegung.
+
+Jeder Stil hat seine eigene Fassung derselben Sache. Im Automaten ist die Welle ein Balken,
+der in harten `steps()` durchs Bild fährt, dazu blinkt der Rahmen gelb/orange; auf dem Papier
+ist sie ein Textmarker, der einmal quer über die Seite gezogen wird, und das Feld bekommt
+einen Rand aus demselben Stift.
+
+Zwei Dinge, die dabei schiefgingen und darum hier stehen:
+
+* **Die Welle ist ein verschobener Verlauf, und die Prozente muss man rechnen.** Bei
+  `background-size: 260%` verschiebt eine Position von 100 % um −1,6 Bildbreiten, und der
+  Streifen sitzt in der Mitte der Bahn. Der erste Wurf lief von 160 % auf −60 % – damit stand
+  er die halbe Laufzeit außerhalb des Bildes und man sah einen Aufblitzer statt einer Welle.
+  Richtig ist 130 % → −30 %: gerade eben links draußen bis gerade eben rechts draußen.
+* **Eine beschleunigte Kurve taugt für eine Welle nicht.** Mit `cubic-bezier(.2,.7,.2,1)` war
+  der Streifen nach einem Drittel der Zeit durch und den Rest unsichtbar. Eine Welle läuft
+  gleichmäßig, also `linear` – im Automaten `steps()`, das ist dort dasselbe in hart.
+
+Dazu ein Fehler, den erst der Browser zeigte: in Material 3 stand
+`var(--md-sys-motion-easing-emphasized)` in der Kurzschreibweise – ein Merkmal, das es nicht
+gibt (definiert sind nur `-standard`, `-emphasized-decelerate`, `-emphasized-accelerate`).
+Ein unbekanntes Merkmal macht die **ganze** `animation`-Angabe ungültig, und damit lief gar
+nichts. Zu sehen war das nur im Bild; die Klassen standen korrekt am Element. Seitdem wird
+nicht mehr geschaut, ob die Klasse gesetzt ist, sondern was der Browser daraus rechnet
+(`getComputedStyle`).
+
 ## Weltweite Zähler
 
 In den Einstellungen unter **Bestwerte** stehen zwei Listen: die Bestwerte dieses Geräts und
@@ -544,8 +631,12 @@ Gemessene Grenzen, die den Entwurf bestimmt haben:
 * **Ein Schlüssel lebt 6 Monate ab dem Anlegen.** Ein Zugriff verlängert das *nicht* – die Doku
   behauptet das Gegenteil, gemessen ist es nicht so. Darum sucht das Lesen bis zu drei Nummern
   zurück, und was fehlt, trägt der nächste Spieler wieder ein: der Eintrag heilt sich selbst.
-* Weltzahlen werden erst geholt, wenn jemand die Gruppe **Bestwerte** aufschlägt, und dann
-  höchstens alle fünf Minuten neu. Wer nur spielen will, wartet auf niemanden.
+* Weltzahlen werden beim **Start** geholt und wenn jemand die Gruppe **Bestwerte**
+  aufschlägt, in beiden Fällen höchstens alle fünf Minuten neu. Beim Start, seit der
+  Weltrekord im Spielfeld steht – vorher geschah es nur beim Aufschlagen. Geholt werden dann
+  gleich alle fünf Stufen: das kostet dieselbe Runde und deckt danach jeden Wechsel der
+  Schwierigkeit ab, ohne dass beim Umschalten eine leere Zeile stehen bliebe. Gewartet wird
+  auf nichts davon, wer nur spielen will, wartet auf niemanden.
 * Gelesen wird über `/info` und nicht über `/get`, obwohl beide dasselbe sagen: `/get`
   antwortet auf einen unbekannten Namen mit 404, `/info` mit 200 und `"exists": false`. Beim
   ersten Start existiert nichts, das wären also sieben rote 404-Zeilen in der Browserkonsole –
