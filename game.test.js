@@ -215,6 +215,41 @@ test('ausgewogene Felder sind wertmaessig vollstaendig paarbar', () => {
   }
 });
 
+/**
+ * Der Aufbau am Bildschirm laesst beide Haelften eines Paares im selben
+ * Augenblick erscheinen - das ist der Hinweis, den der Spieler erraten soll.
+ * Er ist nur dann keine Luege, wenn eine gemeinsame Paarnummer auch wirklich
+ * ein gueltiges Paar bedeutet.
+ */
+test('gleiche Paarnummer heisst gleiche Zahl oder Summe 10', () => {
+  for (const d of ['leicht', 'mittel', 'endlos']) {
+    for (let seed = 1; seed <= 40; seed++) {
+      const s = createGame({ difficulty: d, seed });
+      const nach = new Map();
+      for (const c of s.cells) {
+        assert.equal(typeof c.paar, 'number', `${d}/${seed}: Zelle ohne Paarnummer`);
+        if (!nach.has(c.paar)) nach.set(c.paar, []);
+        nach.get(c.paar).push(c.v);
+      }
+      for (const [nr, vs] of nach) {
+        assert.ok(vs.length <= 2, `${d}/${seed}: Gruppe ${nr} hat ${vs.length} Zahlen`);
+        if (vs.length === 2) {
+          assert.ok(vs[0] === vs[1] || vs[0] + vs[1] === 10,
+            `${d}/${seed}: ${vs[0]} und ${vs[1]} sind kein Paar`);
+        }
+      }
+    }
+  }
+});
+
+test('ohne Paare zaehlt die Leserichtung', () => {
+  for (const d of ['klassisch', 'schwer']) {
+    const s = createGame({ difficulty: d, seed: 7 });
+    assert.deepEqual(s.cells.map((c) => c.paar), s.cells.map((_, i) => i),
+      `${d}: die Zahlen kommen der Reihe nach, nicht paarweise`);
+  }
+});
+
 test('jede Schwierigkeit startet spielbar', () => {
   for (const d of ['leicht', 'mittel', 'schwer', 'klassisch']) {
     for (let seed = 1; seed <= 25; seed++) {

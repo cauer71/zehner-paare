@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.10.0';
+export const VERSION = '1.12.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2',
               seen: 'zp.seen.v1', count: 'zp.count.v1' };
@@ -138,6 +138,8 @@ let state = null;
 let cellEls = new Map();   // cell.id -> Element
 let selected = null;       // Index der ausgewaehlten Zelle
 let locked = false;        // waehrend struktureller Animationen
+let aufbauLaeuft = false;  // baut sich das Feld gerade Zahl fuer Zahl auf?
+let aufbauTimer = null;
 let focusIndex = 0;        // fuer Tastaturbedienung
 let tipsShown = 0;
 let timerId = null;
@@ -710,7 +712,70 @@ function normalizeFocus() {
   focusIndex = free >= 0 ? free : 0;
 }
 
-function renderBoard({ enterFrom = -1 } = {}) {
+/* ------------------------------------------------------- Aufbau des Feldes */
+
+/** Ueber diese Spanne kommen die Zahlen eines neuen Feldes herein. */
+const AUFBAU_MS = 1500;
+
+/**
+ * Verzoegerung je Zelle, damit ein neues Feld sich aufbaut statt da zu sein.
+ *
+ * Die Reihenfolge ist ausdruecklich NICHT die Leserichtung, sondern die, in
+ * der die Zahlen entstanden sind – und die ist in "Leicht", "Mittel" und
+ * "Endlos" paarweise: erst (x,x) oder (x,10-x), dann gemischt aufs Feld
+ * gestreut. Beide Haelften eines Paares bekommen darum dieselbe Verzoegerung
+ * und erscheinen im selben Augenblick, an zwei weit auseinanderliegenden
+ * Stellen.
+ *
+ * Das ist der eigentliche Kniff: was da aufblitzt, ist keine Zierde, sondern
+ * die Loesung. Wer beim Aufbau genau hinsieht, sieht, welche zwei Zahlen
+ * zusammengehoeren – und weiss es spaeter noch, wenn das Feld ruhig daliegt
+ * und alle gleich aussehen. Ein Geheimnis, das man erraten kann, ohne dass es
+ * jemand erklaeren muss.
+ *
+ * In "Klassisch" ist die Entstehungsreihenfolge die Leserichtung: dort
+ * schreibt sich die Ziffernfolge 1 bis 19 der Reihe nach hin, so wie man sie
+ * auf dem Papier hingeschrieben haette. In "Schwer" gibt es keine Paare,
+ * also auch nichts zu verraten – die Zahlen kommen der Reihe nach.
+ */
+function aufbauPlan(cells) {
+  const gruppen = [...new Set(cells.map((c, i) => c.paar ?? i))].sort((a, b) => a - b);
+  const rang = new Map(gruppen.map((g, n) => [g, n]));
+  const letzter = Math.max(1, gruppen.length - 1);
+  return (cell, i) => Math.round((rang.get(cell.paar ?? i) ?? 0) / letzter * AUFBAU_MS);
+}
+
+/**
+ * Solange das Feld sich aufbaut, ist es gesperrt: die Kacheln liegen schon
+ * im DOM und waeren sonst anklickbar, bevor man ihre Zahl sehen kann.
+ */
+function aufbauStarten() {
+  aufbauLaeuft = true;
+  locked = true;
+  clearTimeout(aufbauTimer);
+  aufbauTimer = setTimeout(aufbauBeenden, AUFBAU_MS + 400);
+}
+
+/**
+ * Beendet den Aufbau – nach Ablauf oder weil der Spieler nicht warten will.
+ * Die Klasse abzunehmen laesst jede noch wartende Zahl sofort dastehen: die
+ * Animation haelt sie ueber `backwards` unsichtbar, ohne sie ist sie da.
+ */
+function aufbauBeenden() {
+  if (!aufbauLaeuft) return;
+  aufbauLaeuft = false;
+  clearTimeout(aufbauTimer);
+  aufbauTimer = null;
+  locked = false;
+  for (const el of cellEls.values()) {
+    el.classList.remove('enter');
+    el.style.animationDelay = '';
+  }
+  // Die Uhr laeuft erst ab jetzt weiter, siehe startTimer().
+  tickBase = Date.now();
+}
+
+function renderBoard({ enterFrom = -1, aufbau = false } = {}) {
   board.style.setProperty('--cols', state.cols);
   // Lag der Fokus im Feld? Nach dem Entfernen von Zellen faellt er sonst auf <body>.
   const hadFocus = board.contains(document.activeElement);
@@ -726,12 +791,19 @@ function renderBoard({ enterFrom = -1 } = {}) {
     if (!liveIds.has(id)) { el.remove(); cellEls.delete(id); }
   }
 
+  // Aufbau nur, wenn Bewegung erwuenscht ist – sonst liegt das Feld sofort da.
+  const baueAuf = aufbau && !reduceMotion.matches;
+  const verzoegerung = baueAuf ? aufbauPlan(state.cells) : null;
+
   state.cells.forEach((cell, i) => {
     let el = cellEls.get(cell.id);
     if (!el) {
       el = createCellEl();
       cellEls.set(cell.id, el);
-      if (enterFrom >= 0 && i >= enterFrom) {
+      if (baueAuf) {
+        el.classList.add('enter');
+        el.style.animationDelay = `${verzoegerung(cell, i)}ms`;
+      } else if (enterFrom >= 0 && i >= enterFrom) {
         el.classList.add('enter');
         el.style.animationDelay = `${Math.min((i - enterFrom) * 18, 420)}ms`;
         el.addEventListener('animationend', () => {
@@ -783,6 +855,8 @@ function renderBoard({ enterFrom = -1 } = {}) {
       }
     }
   }
+
+  if (baueAuf) aufbauStarten();
 }
 
 /** Ein Anteil als ganze Prozent, fuer die Meldung nach dem Auffuellen. */
@@ -1147,8 +1221,10 @@ function doMatch(i, j) {
   const orphans = [...cellEls].filter(([id]) => !liveIds.has(id)).map(([, el]) => el);
 
   const finish = () => {
-    renderBoard(res.round ? { enterFrom: 0 } : {});
+    // Erst entsperren, dann zeichnen: eine neue Runde ist ein neues Feld und
+    // baut sich wie eines auf – die Sperre dafuer setzt renderBoard selbst.
     locked = false;
+    renderBoard(res.round ? { aufbau: true } : {});
     updateStats();
     if (res.round) {
       toast(t('msg.round', { n: res.round.round, bonus: res.round.bonus }), 3000);
@@ -1180,6 +1256,10 @@ function afterMove() {
 }
 
 function onCellActivate(i) {
+  // Wer handelt, will nicht mehr zusehen: der Aufbau endet und der Zug gilt.
+  // Der Fingertipp aufs Feld kommt hier gar nicht an, den faengt der
+  // click-Horcher vorher ab - er soll nur abkuerzen, nicht schon waehlen.
+  if (aufbauLaeuft) aufbauBeenden();
   if (locked || !state || state.status !== 'playing') return;
   const cell = state.cells[i];
   if (!cell || cell.cleared) return;
@@ -1207,6 +1287,7 @@ function clearHint() {
 }
 
 function doHint() {
+  if (aufbauLaeuft) aufbauBeenden();
   if (locked || state.status !== 'playing') return;
   const pair = hint(state);
   if (!pair) {
@@ -1232,6 +1313,7 @@ function doHint() {
 }
 
 function doRefill() {
+  if (aufbauLaeuft) aufbauBeenden();
   if (locked || state.status !== 'playing') return;
   const res = refill(state);
   if (!res.ok) { toast(t('msg.noRefill')); return; }
@@ -1260,6 +1342,7 @@ function doRefill() {
  * das war der frustrierendste Moment im Spiel.
  */
 function doRescue() {
+  if (aufbauLaeuft) aufbauBeenden();
   const res = rescue(state);
   if (!res.ok) return;
   closeSheet(dlgEnd);
@@ -1282,6 +1365,7 @@ function doRescue() {
 }
 
 function doUndo() {
+  if (aufbauLaeuft) aufbauBeenden();
   if (locked || !canUndo(state)) return;
   clearSelection();
   undo(state);
@@ -1311,7 +1395,8 @@ function newGame(difficulty = settings.difficulty) {
   endHandled = false;
   recordHit = false;
   btnRefill.classList.remove('urge');
-  renderBoard();
+  aufbauBeenden();          // ein noch laufender Aufbau gehoert zum alten Feld
+  renderBoard({ aufbau: true });
   updateStats();
   syncComboLevel();
   startTimer(true);
@@ -1502,7 +1587,10 @@ function startTimer(reset = false) {
   if (reset) state.elapsed = 0;
   tickBase = Date.now();
   timerId = setInterval(() => {
-    if (document.hidden || state.status !== 'playing') return;
+    // Der Aufbau des Feldes geht nicht auf die Uhr: gespielt werden kann
+    // waehrenddessen nichts. aufbauBeenden() setzt tickBase neu, damit die
+    // Wartezeit nicht beim naechsten Schlag nachgetragen wird.
+    if (document.hidden || aufbauLaeuft || state.status !== 'playing') return;
     state.elapsed += (Date.now() - tickBase) / 1000;
     tickBase = Date.now();
     if (!state.endless) elTime.textContent = fmtTime(state.elapsed);
@@ -1942,12 +2030,17 @@ $('#opt-world').addEventListener('change', (e) => {
 /* ------------------------------------------------------------- Bedienung */
 
 board.addEventListener('click', (e) => {
+  // Wer nicht warten will, tippt einmal aufs Feld: dann steht alles da. Der
+  // Tipp waehlt bewusst noch keine Kachel – man soll nicht auf eine Zahl
+  // treffen, die man im selben Augenblick erst zu sehen bekommt.
+  if (aufbauLaeuft) { aufbauBeenden(); return; }
   const el = e.target.closest('.cell');
   if (!el) return;
   onCellActivate(Number(el.dataset.i));
 });
 
 board.addEventListener('keydown', (e) => {
+  if (aufbauLaeuft) { aufbauBeenden(); return; }
   const steps = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -state.cols, ArrowDown: state.cols };
   if (!(e.key in steps)) return;
   e.preventDefault();
@@ -1992,6 +2085,7 @@ $('#btn-end-rescue').addEventListener('click', doRescue);
 
 document.addEventListener('keydown', (e) => {
   if (e.target.closest('dialog') || e.target.matches('input, textarea')) return;
+  if (aufbauLaeuft) { aufbauBeenden(); return; }   // jede Taste kuerzt ab
   if (e.key === 'h') doHint();
   if (e.key === 'u' || (e.key === 'z' && (e.metaKey || e.ctrlKey))) doUndo();
   if (e.key === 'Escape') clearSelection();
@@ -2132,5 +2226,6 @@ window.__zp = {
   get comboLevel() { return comboLevel; },
   fx: fxLog,
   onCellActivate, doHint, doRefill, doUndo, doRescue, newGame, toast, renderBoard, sfx,
+  aufbauBeenden,       // Pruefwerkzeuge muessen auf den Aufbau nicht warten
   findPair, canMatch, remaining, VERSION,
 };
