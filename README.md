@@ -55,21 +55,28 @@ Vorlage war, zeigt nur waagrecht und senkrecht.
 ## Wie ein neues Feld entsteht
 
 Ein neues Feld liegt nicht einfach da, es baut sich über **1,5 Sekunden** auf – und die
-Reihenfolge ist der eigentliche Witz daran. Sie ist ausdrücklich *nicht* die Leserichtung,
-sondern die, in der die Zahlen erzeugt wurden. In „Leicht", „Mittel" und „Endlos" ist das
-paarweise: erst entsteht (x, x) oder (x, 10−x), dann werden die Paare über das Feld gestreut.
-Beide Hälften eines Paares bekommen darum **dieselbe Verzögerung** und erscheinen im selben
-Augenblick, an zwei weit auseinanderliegenden Stellen.
+Reihenfolge ist der eigentliche Witz daran. Sie ist ausdrücklich *nicht* die Leserichtung:
+gebaut wird **paarweise**. Je Schritt kommen zwei Zahlen, die zusammenpassen – gleich oder
+Summe zehn – und beide bekommen **dieselbe Verzögerung**, erscheinen also im selben
+Augenblick. An zwei weit auseinanderliegenden Stellen, denn der Partner wird unter allen
+passenden ausgelost und die Schrittfolge danach gemischt.
 
-Was da aufblitzt, ist also keine Zierde, sondern die Lösung. Wer beim Aufbau genau hinsieht,
-sieht, welche zwei Zahlen zusammengehören – und weiß es noch, wenn das Feld ruhig daliegt und
-alle Kacheln gleich aussehen. Ein Geheimnis, das man erraten kann, ohne dass es jemand
-erklären muss. Weil die Paare gestreut liegen, verrät das noch keinen *Zug*: gebraucht wird
-zusätzlich die Nachbarschaft. Der Hinweis hilft, er spielt nicht für einen.
+Der Aufbau springt so über Zeilen **und** Spalten: erste Zahl irgendwo oben, die nächste vier
+Zeilen tiefer, die nächste am anderen Rand. Das ist Absicht. Ein Feld, das sich Zeile für
+Zeile füllt, sieht man nichts an.
 
-In „Klassisch" ist die Entstehungsreihenfolge die Leserichtung – dort schreibt sich die
-Ziffernfolge 1 bis 19 der Reihe nach hin, so wie man sie auf dem Papier hingeschrieben hätte.
-In „Schwer" gibt es keine Paare, also auch nichts zu verraten.
+Was da aufblitzt, ist also keine Zierde, sondern die Lösung – rückwärts gelesen ist der
+Aufbau ein Weg durch das Feld. Wer hinsieht, sieht Paare entstehen und weiß es noch, wenn das
+Feld ruhig daliegt und alle Kacheln gleich aussehen. Ein Geheimnis, das man erraten kann, ohne
+dass es jemand erklären muss. Und es verrät noch keinen *Zug*: gebraucht wird zusätzlich die
+Nachbarschaft. Der Hinweis hilft, er spielt nicht für einen.
+
+Das gilt in **jeder** Stufe. In „Schwer" und „Klassisch" sind die Zahlen nicht paarweise
+*entstanden* – aber Paare liegen auch dort im Feld, und die werden nachträglich gesucht
+(`aufbauSchritte()` in `game.js`). Die Spiellage selbst bleibt davon unberührt: „Klassisch"
+ist weiter die Ziffernfolge 1 bis 19, nur das Hinschreiben folgt jetzt den Paaren statt der
+Zeile. Wie viele Schritte das sind, hängt an der Feldgröße – von 14 in „Klassisch" (rund
+115 ms Abstand, gut zu verfolgen) bis 47 in „Schwer" (rund 33 ms, ein Flimmern).
 
 Ein paar Dinge, die dazugehören:
 

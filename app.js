@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.12.1';
+export const VERSION = '1.13.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2',
               seen: 'zp.seen.v1', count: 'zp.count.v1' };
@@ -720,23 +720,22 @@ const AUFBAU_MS = 1500;
 /**
  * Verzoegerung je Zelle, damit ein neues Feld sich aufbaut statt da zu sein.
  *
- * Die Reihenfolge ist ausdruecklich NICHT die Leserichtung, sondern die, in
- * der die Zahlen entstanden sind – und die ist in "Leicht", "Mittel" und
- * "Endlos" paarweise: erst (x,x) oder (x,10-x), dann gemischt aufs Feld
- * gestreut. Beide Haelften eines Paares bekommen darum dieselbe Verzoegerung
- * und erscheinen im selben Augenblick, an zwei weit auseinanderliegenden
- * Stellen.
+ * Die Reihenfolge steht in cell.paar und kommt aus aufbauSchritte() in
+ * game.js: je Schritt zwei Zahlen, die zusammenpassen – gleich oder Summe
+ * zehn. Beide Haelften bekommen dieselbe Verzoegerung und erscheinen im
+ * selben Augenblick, an zwei weit auseinanderliegenden Stellen.
  *
  * Das ist der eigentliche Kniff: was da aufblitzt, ist keine Zierde, sondern
- * die Loesung. Wer beim Aufbau genau hinsieht, sieht, welche zwei Zahlen
- * zusammengehoeren – und weiss es spaeter noch, wenn das Feld ruhig daliegt
- * und alle gleich aussehen. Ein Geheimnis, das man erraten kann, ohne dass es
- * jemand erklaeren muss.
+ * die Loesung. Rueckwaerts gelesen ist der Aufbau ein Weg durch das Feld. Wer
+ * zusieht, sieht Paare entstehen – und weiss es spaeter noch, wenn das Feld
+ * ruhig daliegt und alle Kacheln gleich aussehen. Ein Geheimnis, das man
+ * erraten kann, ohne dass es jemand erklaeren muss.
  *
- * In "Klassisch" ist die Entstehungsreihenfolge die Leserichtung: dort
- * schreibt sich die Ziffernfolge 1 bis 19 der Reihe nach hin, so wie man sie
- * auf dem Papier hingeschrieben haette. In "Schwer" gibt es keine Paare,
- * also auch nichts zu verraten – die Zahlen kommen der Reihe nach.
+ * Ausdruecklich NICHT die Leserichtung: die Schrittfolge ist gemischt, der
+ * Aufbau springt ueber Zeilen UND Spalten. Einem Feld, das sich Zeile fuer
+ * Zeile fuellt, sieht man nichts an. Das gilt in jeder Stufe – auch dort, wo
+ * die Zahlen nicht paarweise entstanden sind, denn Paare liegen trotzdem im
+ * Feld.
  */
 function aufbauPlan(cells) {
   const gruppen = [...new Set(cells.map((c, i) => c.paar ?? i))].sort((a, b) => a - b);

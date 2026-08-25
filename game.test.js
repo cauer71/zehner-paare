@@ -215,38 +215,75 @@ test('ausgewogene Felder sind wertmaessig vollstaendig paarbar', () => {
   }
 });
 
+const STUFEN = ['leicht', 'mittel', 'schwer', 'klassisch', 'endlos'];
+
 /**
- * Der Aufbau am Bildschirm laesst beide Haelften eines Paares im selben
+ * Der Aufbau am Bildschirm laesst beide Haelften eines Schritts im selben
  * Augenblick erscheinen - das ist der Hinweis, den der Spieler erraten soll.
- * Er ist nur dann keine Luege, wenn eine gemeinsame Paarnummer auch wirklich
- * ein gueltiges Paar bedeutet.
+ * Er ist nur dann keine Luege, wenn eine gemeinsame Schrittnummer auch
+ * wirklich ein gueltiges Paar bedeutet.
  */
-test('gleiche Paarnummer heisst gleiche Zahl oder Summe 10', () => {
-  for (const d of ['leicht', 'mittel', 'endlos']) {
+test('gleiche Schrittnummer heisst gleiche Zahl oder Summe 10', () => {
+  for (const d of STUFEN) {
     for (let seed = 1; seed <= 40; seed++) {
       const s = createGame({ difficulty: d, seed });
       const nach = new Map();
       for (const c of s.cells) {
-        assert.equal(typeof c.paar, 'number', `${d}/${seed}: Zelle ohne Paarnummer`);
+        assert.equal(typeof c.paar, 'number', `${d}/${seed}: Zelle ohne Schrittnummer`);
         if (!nach.has(c.paar)) nach.set(c.paar, []);
         nach.get(c.paar).push(c.v);
       }
       for (const [nr, vs] of nach) {
-        assert.ok(vs.length <= 2, `${d}/${seed}: Gruppe ${nr} hat ${vs.length} Zahlen`);
+        assert.ok(vs.length <= 2, `${d}/${seed}: Schritt ${nr} hat ${vs.length} Zahlen`);
         if (vs.length === 2) {
           assert.ok(vs[0] === vs[1] || vs[0] + vs[1] === 10,
             `${d}/${seed}: ${vs[0]} und ${vs[1]} sind kein Paar`);
         }
       }
+      // Die Schrittnummern muessen luekenlos von 0 an laufen, sonst stimmen
+      // die Abstaende beim Aufbau nicht.
+      assert.deepEqual([...nach.keys()].sort((a, b) => a - b),
+        [...nach.keys()].map((_, i) => i), `${d}/${seed}: Luecke in den Schritten`);
     }
   }
 });
 
-test('ohne Paare zaehlt die Leserichtung', () => {
-  for (const d of ['klassisch', 'schwer']) {
-    const s = createGame({ difficulty: d, seed: 7 });
-    assert.deepEqual(s.cells.map((c) => c.paar), s.cells.map((_, i) => i),
-      `${d}: die Zahlen kommen der Reihe nach, nicht paarweise`);
+/**
+ * Der Aufbau soll ueber das ganze Feld springen, nicht Zeile fuer Zeile
+ * fuellen - sonst sieht man ihm nichts an. Gemessen als mittlerer
+ * Zeilensprung von einem Schritt zum naechsten: in Leserichtung waere er
+ * praktisch null.
+ */
+test('der Aufbau folgt nicht der Leserichtung', () => {
+  for (const d of STUFEN) {
+    const zeilen = [];
+    for (let seed = 1; seed <= 20; seed++) {
+      const s = createGame({ difficulty: d, seed });
+      const rows = Math.ceil(s.cells.length / s.cols);
+      if (rows < 3) continue;                 // zu flach, um zu springen
+      // Mittlere Zeile je Schritt, in der Reihenfolge des Erscheinens
+      const proSchritt = new Map();
+      s.cells.forEach((c, i) => {
+        const z = Math.floor(i / s.cols);
+        proSchritt.set(c.paar, [...(proSchritt.get(c.paar) ?? []), z]);
+      });
+      const folge = [...proSchritt.entries()].sort((a, b) => a[0] - b[0])
+        .map(([, zs]) => zs.reduce((x, y) => x + y, 0) / zs.length);
+      let summe = 0;
+      for (let k = 1; k < folge.length; k++) summe += Math.abs(folge[k] - folge[k - 1]);
+      zeilen.push(summe / (folge.length - 1));
+    }
+    const mittel = zeilen.reduce((a, b) => a + b, 0) / zeilen.length;
+    // Gemessen gegen den Zufall, nicht gegen eine feste Zahl: auf einem Feld
+    // mit R Zeilen springt eine gleichverteilte Folge im Mittel um
+    // (R^2-1)/(3R) Zeilen. "Klassisch" hat drei Zeilen, da sind 0,9 das
+    // Aeusserste; bei acht Zeilen sind es 2,6. In Leserichtung waere es
+    // dagegen fast null, egal wie hoch das Feld ist.
+    const rows = Math.ceil(createGame({ difficulty: d, seed: 1 }).cells.length
+      / createGame({ difficulty: d, seed: 1 }).cols);
+    const erwartet = (rows * rows - 1) / (3 * rows);
+    assert.ok(mittel > erwartet * 0.5,
+      `${d}: nur ${mittel.toFixed(2)} Zeilen Sprung, Zufall gaebe ${erwartet.toFixed(2)}`);
   }
 });
 
