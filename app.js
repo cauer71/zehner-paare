@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.16.0';
+export const VERSION = '1.17.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2',
               seen: 'zp.seen.v1', count: 'zp.count.v1' };
@@ -118,6 +118,7 @@ const elLeft = $('#stat-left');
 const elTime = $('#stat-time');
 const elCombo = $('#combo');
 const elWorld = $('#stat-world');
+const elDiff = $('#stat-diff');
 const welleEl = $('#record-wave');
 const btnUndo = $('#btn-undo');
 const btnHint = $('#btn-hint');
@@ -1016,45 +1017,42 @@ function updateStats({ bumpScore = false } = {}) {
     elScore.classList.add('bump');
   }
   const record = best[state.difficulty];
-  const note = $('#stat-best');
   const card = $('#card-score');
   const arcade = settings.skin === 'arcade';
-  if (note) {
-    if (!record) {
-      note.textContent = t('hud.noRecord');
-      card?.classList.remove('beaten');
-    } else if (state.score > record.score) {
-      note.textContent = arcade
-        ? t('hud.recordBeatenArcade', { score: zahl(record.score) })
-        : t('hud.recordBeaten', { score: record.score });
-      card?.classList.add('beaten');
-    } else {
-      note.textContent = arcade
-        ? t('hud.recordArcade', { score: zahl(record.score) })
-        : t('hud.record', { score: record.score });
-      card?.classList.remove('beaten');
-    }
-  }
 
-  // Der Weltrekord steht als zweite, leisere Zeile im selben Kaertchen. Dort
-  // und nicht anderswo, weil es dieselbe Groesse ist wie der eigene Bestwert -
-  // ein Punktestand, den es zu schlagen gilt -, nur eine Nummer groesser. Ist
-  // keiner bekannt (Schalter aus, noch nie gelesen, Stufe ohne Eintrag), faellt
-  // die Zeile ganz weg statt eine leere Luecke aufzuspannen.
+  /*
+   * Unter der Punktzahl steht GENAU EINE Marke, und das ist der Weltrekord.
+   * Der eigene Bestwert stand bis 1.16 daneben - zwei Zeilen in einem
+   * fingerbreiten Kaertchen waren eine zuviel: die Karte wuchs, das Brett
+   * rutschte nach unten, und in den beiden Nachbarkaertchen klaffte darunter
+   * eine leere Flaeche. Den eigenen Bestwert gibt es weiter, nur woanders: im
+   * Enddialog, in den Einstellungen unter Bestwerte - und im Spiel dort, wo er
+   * hingehoert, naemlich im Augenblick, in dem er faellt (siehe feiereRekord).
+   *
+   * Die Zeile bleibt auch dann stehen, wenn kein Weltwert bekannt ist
+   * (Schalter aus, noch nie gelesen, Stufe ohne Eintrag) - dann eben leer. Ein
+   * verschwindendes Element machte das Kaertchen niedriger als die beiden
+   * anderen, und die drei Zahlen staenden auf verschiedener Hoehe.
+   */
   const drau = weltRekord(state.difficulty);
   if (elWorld) {
-    elWorld.hidden = !drau;
-    if (drau) {
-      // Immer derselbe, kurze Satz - auch wenn der Wert gefallen ist. Ein
-      // angehaengtes "geknackt" braeuchte im schmalen Kaertchen eine zweite
-      // Zeile und schoebe das Feld nach unten; dass die Marke gefallen ist,
-      // sagt hier die Farbe, und im Augenblick selbst sagt es die Feier.
-      const satz = t(arcade ? 'hud.worldArcade' : 'hud.world',
-                     { score: arcade ? zahl(drau.wert) : drau.wert });
-      elWorld.textContent = drau.wer ? `${satz} ${drau.wer}` : satz;
-      elWorld.classList.toggle('is-beaten', state.score > drau.wert);
-    }
+    const satz = drau
+      ? t(arcade ? 'hud.worldArcade' : 'hud.world',
+          { score: arcade ? zahl(drau.wert) : drau.wert })
+      : '';
+    elWorld.textContent = drau && drau.wer ? `${satz} ${drau.wer}` : satz;
+    // Ueber der angezeigten Marke? Dann faerbt sich die Zeile und die Karte
+    // bekommt ihren Rand. Beides haengt jetzt am Weltrekord, weil er die
+    // einzige Marke ist, die im Kaertchen steht - ein Rand ohne sichtbaren
+    // Grund waere nur ein Raetsel.
+    const drueber = !!drau && state.score > drau.wert;
+    elWorld.classList.toggle('is-beaten', drueber);
+    card?.classList.toggle('beaten', drueber);
   }
+
+  // Im mittleren Kaertchen steht unter der Zahl der uebrigen Kacheln, welche
+  // Stufe gerade laeuft. Sonst muesste man dafuer die Einstellungen aufmachen.
+  if (elDiff) elDiff.textContent = diffName(state.difficulty);
 
   // Gefeiert wird der groessere Anlass, und jeder hoechstens einmal je Partie.
   // Ein Weltrekord ist immer auch ein eigener Bestwert: steht der eigene noch

@@ -139,10 +139,10 @@ rasten sie in vier Stufen ein, auf dem Papier werden die Ziffern geschrieben.
   Zeile und +50 Zuschlag je zusätzlicher Zeile im selben Zug, +100 fürs Leerräumen, +150 je
   ungenutztem Auffüllen, +200 je Endlos-Runde. Ein Fehlversuch oder ein Auffüllen setzt den
   Kombofaktor zurück; ein Tipp kostet nichts.
-* In der Punktekarte stehen während des Spiels **zwei Marken**: der eigene Bestwert der Stufe
-  und darunter, eine Spur leiser, der **Weltrekord** samt Kürzel dessen, der ihn hält. Fällt
-  eine der beiden, läuft eine Welle über das Feld – beim Weltrekord in Gold und mit Konfetti.
-  Siehe [Wenn ein Rekord fällt](#wenn-ein-rekord-fällt).
+* Unter der Punktzahl steht der **Weltrekord** der Stufe samt Kürzel dessen, der ihn hält,
+  unter der Zahl der übrigen Kacheln die eingestellte **Schwierigkeit**. Fällt ein Rekord –
+  der eigene Bestwert oder der Weltrekord –, läuft eine Welle über das Feld; beim Weltrekord
+  in Gold und mit Konfetti. Siehe [Wenn ein Rekord fällt](#wenn-ein-rekord-fällt).
 * Wer seinen Bestwert einer Stufe schlägt, bekommt am Ende noch eine eigene kleine Feier:
   Strahlenkranz hinter dem Pokal, goldenes Konfetti, hochlaufende Punktzahl. War es ein
   Weltrekord, ist das Band darüber golden und sagt es auch.
@@ -482,28 +482,51 @@ Dieser Stil bringt es dorthin zurück.
 
 ### Wo der Weltrekord steht
 
-Der Weltrekord der gespielten Stufe steht als **zweite Zeile in der Punktekarte**, direkt
-unter dem eigenen Bestwert: `Welt 4155 CHR` – der Punktestand und das Kürzel dessen, der ihn
-hält. Im Arcade-Stil heißt die Zeile `WR 004155 CHR`, in derselben Sprache wie das `HI`
-darüber.
+Die drei Kärtchen über dem Brett sind gleich gebaut: **Titel, Zahl, eine Zeile darunter.**
 
-Dort und nicht anderswo, aus drei Gründen:
+| | Punkte | Übrig | Zeit |
+|---|---|---|---|
+| Zahl | Punktestand | übrige Kacheln | Spielzeit (in Endlos: Runde) |
+| Zeile darunter | `Welt 4155 CHR` | `Mittel` | – |
 
-* Es ist **dieselbe Größe** wie der eigene Bestwert – ein Punktestand, den es zu schlagen
-  gilt, nur eine Nummer größer. Beide in einer Karte heißt: ein Blick genügt für „wo stehe
-  ich".
-* Der Meldungsstreifen über dem Brett (`.ticker`) ist besetzt. Dort liegen Kombo-Plakette und
-  Einblendungen, beide mittig; eine dritte Sache hätte sich mit ihnen überlagert.
-* Auf dem Brett selbst wäre er im Weg. Das Brett ist die Spielfläche und bleibt frei.
+Unter der Punktzahl steht also der **Weltrekord** der gespielten Stufe samt Kürzel dessen, der
+ihn hält; im Arcade-Stil `WR 004155 CHR`, in der Sprache eines Automaten. Dort und nicht
+anderswo, aus drei Gründen: es ist dieselbe Größe wie der Punktestand darüber – ein Wert, den
+es zu schlagen gilt. Der Meldungsstreifen über dem Brett (`.ticker`) ist besetzt, dort liegen
+Kombo-Plakette und Einblendungen, beide mittig. Und auf dem Brett selbst wäre er im Weg, das
+ist Spielfläche.
 
-Leise gehalten: kleiner als die Zeile darüber und blasser. Ist kein Weltwert bekannt –
-Schalter aus, noch nie gelesen, Stufe ohne Eintrag –, fällt die Zeile **ganz weg**, statt
-eine leere Lücke aufzuspannen. Und sie bleibt immer **einzeilig**: ein angehängtes
-„geknackt", wie es die Zeile darüber kennt, bräuchte im schmalen Kärtchen eine zweite Zeile
-und schöbe das Brett nach unten. Dass die Marke gefallen ist, sagt hier die Farbe – und im
-Augenblick selbst die Feier. Gemessen ist das mit `check-ueberlauf.mjs`, dessen Weltliste
-ohnehin den breitesten Fall stellt: sechsstellige Zahl plus Kürzel, in drei Sprachen, vier
-Breiten ab 320 px und allen vier Stilen.
+Unter der Zahl der übrigen Kacheln steht die eingestellte **Schwierigkeit**. Sonst müsste man
+dafür die Einstellungen aufmachen.
+
+Die dritte Zeile ist **immer da, auch wenn sie leer bleibt** – im Zeit-Kärtchen ist sie das
+immer, im Punktekärtchen dann, wenn kein Weltwert bekannt ist (Schalter aus, noch nie gelesen,
+Stufe ohne Eintrag). Ihre Höhe ist reserviert (`min-height`), und das ist der ganze Grund: die
+drei Kärtchen liegen in einer Reihe und werden auf dieselbe Höhe gezogen. Wäre die Zeile mal da
+und mal nicht, hätten sie verschieden viel Inhalt – die Zahlen darüber stünden auf verschiedener
+Höhe, und unter den kürzeren klaffte eine leere Fläche. Genau so sah es zwischendurch aus.
+
+Die Zeile ist außerdem **so groß, wie sie sein darf**, statt fest: `clamp(9px, 2.3vw, 11px)`.
+Gemessen passen in ein Kärtchen bei 320 px rund 79 px Text und bei 390 px rund 103 px, und
+`Mondo 4155 CHR` – der breiteste wirkliche Fall aus drei Sprachen – braucht bei 9 px genau
+noch 320 px. Nachgezählt über drei Sprachen, vier Breiten und alle Stile: der wirkliche Fall
+steht überall einzeilig. Fünf- und sechsstellige Stände nehmen auf dem 320er zwei Zeilen –
+nie drei, die Abnahme bleibt also grün –, und dafür die Zeile auf allen kleinen Schirmen zu
+verkleinern lohnt einen Punktestand nicht, den bisher niemand erreicht hat. Der Automat bleibt
+bei festen 8 px: seine Pixelschrift will ganze Pixel, und dort ist die Zahl ohnehin immer
+sechsstellig aufgefüllt.
+
+Der **eigene Bestwert** stand in 1.16 als zweite Zeile daneben. Zwei Zeilen in einem
+fingerbreiten Kärtchen waren eine zuviel: die Karte wuchs, das Brett rutschte nach unten. Es
+gibt ihn weiter – im Enddialog, in den Einstellungen unter Bestwerte, und im Spiel dort, wo er
+hingehört: im Augenblick, in dem er fällt.
+
+Die Zeile bleibt immer **einzeilig**; ein angehängtes „geknackt" bräuchte im schmalen Kärtchen
+eine zweite. Dass die Marke gefallen ist, sagt die Farbe: die Zeile wird golden und das
+Kärtchen bekommt denselben Rand – eine Farbe für einen Zustand, ein Rand ohne sichtbaren Grund
+wäre nur ein Rätsel. Gemessen ist das mit `check-ueberlauf.mjs`, dessen Weltliste ohnehin den
+breitesten Fall stellt: sechsstellige Zahl plus Kürzel, in drei Sprachen, vier Breiten ab
+320 px und allen vier Stilen.
 
 Weil der Weltrekord jetzt im Spielfeld steht, werden die Weltzahlen auch **beim Start**
 geholt und nicht mehr nur beim Aufschlagen der Bestwerte. Gewartet wird darauf nach wie vor

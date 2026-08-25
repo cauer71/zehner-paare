@@ -329,41 +329,35 @@ body::before {
   50% { scale: 1.25; color: var(--magenta-t); }
   100% { scale: 1; }
 }
+/*
+ * Die Zeile unter der Zahl bleibt stehen, auch wenn sie leer ist (im
+ * Zeit-Kaertchen ist sie das immer). Ohne die reservierte Hoehe waeren die
+ * drei Kaertchen verschieden hoch, und weil sie in einer Reihe auf dieselbe
+ * Hoehe gezogen werden, staenden die drei Zahlen darueber auf verschiedener
+ * Hoehe - genau das sah nach einem Fehler aus.
+ *
+ * Feste 8 px und kein clamp() wie in den anderen Stilen: die Pixelschrift will
+ * ganze Pixel, und die Zahl ist hier ohnehin immer sechsstellig aufgefuellt.
+ * Gemessen passt der breiteste Fall damit bis hinunter zu 320 px in eine Zeile.
+ */
 .stat-card__note {
   margin-top: 2px;
   font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
   color: var(--ink-dim);
+  line-height: 12px;
+  min-height: 12px;              /* eine Zeile, siehe oben */
 }
-.stat-card.beaten { box-shadow: inset 0 0 0 var(--px) var(--magenta); }
-.stat-card.beaten .stat-card__note {
-  color: var(--magenta-t);
+
+/* --- Der Weltrekord im Punktekaertchen ------------------------------------ */
+
+/* Ueber der Marke: die Zeile wird gelb und blinkt, wie das HI-Feld eines
+   Automaten, an dem gerade jemand vorbeigezogen ist - und die Fassung bekommt
+   dieselbe Farbe. */
+.stat-card__note--world.is-beaten {
+  color: var(--yellow);
   animation: arc-blink .6s steps(1) infinite;
 }
-
-/* --- Der Weltrekord, gleich neben dem eigenen Bestwert -------------------- */
-
-/*
- * Zweite Zeile im Punktekaertchen - am Automaten die Zeile unter HI, eine
- * Nummer kleiner und gedaempft: der eigene Bestwert ist das naechste Ziel, der
- * Weltrekord das uebernaechste. Sehen soll man ihn, blinken soll er nicht.
- */
-.stat-card__note--world {
-  font-size: 7px;
-  letter-spacing: 1px;
-  color: var(--dim);
-}
-/* Ist der eigene Bestwert gefallen, blinkt die erste Zeile. Die Weltzeile
-   bleibt dann ruhig - sonst waeren die zwei Marken nicht auseinanderzuhalten,
-   und genau darauf kommt es in dem Augenblick an. */
-.stat-card.beaten .stat-card__note--world { color: var(--dim); animation: none; }
-/* Gefallen: gold und ruhig. Bewusst OHNE Blinken - die Zeile darueber blinkt
-   schon, und zwei Zeilen im Gleichtakt loeschen das Kaertchen jede halbe
-   Sekunde ganz aus. Eine blinkt, eine steht. */
-.stat-card__note--world.is-beaten,
-.stat-card.beaten .stat-card__note--world.is-beaten {
-  color: var(--yellow);
-  animation: none;
-}
+.stat-card.beaten { box-shadow: inset 0 0 0 var(--px) var(--yellow); }
 
 /* --- Wenn ein Rekord faellt ---------------------------------------------- */
 
@@ -1588,7 +1582,7 @@ body.shake { animation: arc-shake var(--shake-dur, 160ms) steps(1, end) both; }
     transition-duration: .001ms !important;
   }
   /* Was blinkt oder flimmert, bleibt hier ganz aus. */
-  .brand-dot, .stat-card.beaten .stat-card__note { animation: none; opacity: 1; }
+  .brand-dot, .stat-card__note--world.is-beaten { animation: none; opacity: 1; }
   .chips .chip[aria-pressed="true"]::after,
   .chip[aria-pressed="true"]::after,
   .segmented button[aria-pressed="true"]::after { animation: none; }

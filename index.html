@@ -122,22 +122,25 @@
     </button>
   </header>
 
+  <!-- Drei gleich gebaute Kaertchen: Titel, Zahl, eine Zeile darunter. Die
+       dritte Zeile ist auch dann da, wenn sie leer bleibt - sonst waeren die
+       Kaertchen verschieden hoch und die Zahlen staenden auf verschiedener
+       Hoehe. -->
   <section class="hud">
     <div class="stat-card" id="card-score">
       <span class="stat-card__label" data-i18n="hud.score">Punkte</span>
       <span class="stat-card__value" id="stat-score">0</span>
-      <span class="stat-card__note" id="stat-best"></span>
-      <!-- Der Weltrekord: zweite, leisere Zeile unter dem eigenen Bestwert.
-           Ohne bekannten Weltwert bleibt sie ganz weg. -->
-      <span class="stat-card__note stat-card__note--world" id="stat-world" hidden></span>
+      <span class="stat-card__note stat-card__note--world" id="stat-world"></span>
     </div>
     <div class="stat-card">
       <span class="stat-card__label" data-i18n="hud.left">Übrig</span>
       <span class="stat-card__value" id="stat-left">0</span>
+      <span class="stat-card__note" id="stat-diff"></span>
     </div>
     <div class="stat-card">
       <span class="stat-card__label" id="label-time" data-i18n="hud.time">Zeit</span>
       <span class="stat-card__value" id="stat-time">0:00</span>
+      <span class="stat-card__note" aria-hidden="true"></span>
     </div>
   </section>
 

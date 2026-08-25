@@ -1037,38 +1037,45 @@ body {
   }
   .cell.sel { scale: 1; box-shadow: inset 0 0 0 3px var(--md-sys-color-on-primary); }
 }
+/*
+ * Die Zeile unter der Zahl bleibt stehen, auch wenn sie leer ist (im
+ * Zeit-Kaertchen ist sie das immer). Ohne die reservierte Hoehe waeren die
+ * drei Kaertchen verschieden hoch, und weil sie in einer Reihe auf dieselbe
+ * Hoehe gezogen werden, staenden die drei Zahlen darueber auf verschiedener
+ * Hoehe - genau das sah nach einem Fehler aus.
+ *
+ * Die Schriftgroesse waechst mit dem Schirm, und die Grenzen sind gemessen,
+ * nicht geraten: in ein Kaertchen passen bei 320 px rund 79 px Text, bei
+ * 390 px rund 103 px. "Mondo 4155 CHR" - der breiteste WIRKLICHE Fall aus drei
+ * Sprachen - braucht bei 9 px genau noch 320 px Breite und steht damit
+ * ueberall einzeilig da. Bei 11 px braeuchte er 99 px und braeche auf kleinen
+ * Schirmen um, darum clamp(9px, 2,3vw, 11px): unten 9, oben die alte Groesse.
+ *
+ * Nachgezaehlt ueber drei Sprachen, vier Breiten und alle Stile: der wirkliche
+ * Fall (vierstellig) steht ueberall in einer Zeile. Fuenf- und sechsstellige
+ * Staende nehmen bei 320 px zwei, sechsstellige teils auch bei 360 px - nie
+ * drei, die Abnahmepruefung bleibt also gruen. Einzeilig waeren auch die erst
+ * bei 7 px, und dafuer die Zeile auf ALLEN kleinen Schirmen zu verkleinern
+ * lohnt einen Punktestand nicht, den bisher niemand erreicht hat.
+ *
+ * Die reservierte Hoehe haengt an derselben Groesse (1,3em).
+ */
 .stat-card__note {
   /* Label Small */
-  font: 500 11px/14px var(--font);
+  font: 500 11px/1.3 var(--font);
+  font-size: clamp(9px, 2.3vw, 11px);      /* siehe oben */
   letter-spacing: .5px;
   color: var(--md-sys-color-on-surface-variant);
   margin-top: 1px;
+  min-height: 1.3em;             /* eine Zeile, auch wenn sie leer ist */
 }
-.stat-card.beaten .stat-card__note { color: var(--md-sys-color-primary); }
-.stat-card.beaten { outline: 2px solid var(--md-sys-color-primary); outline-offset: -2px; }
 
-/* --- Der Weltrekord, gleich neben dem eigenen Bestwert -------------------- */
+/* --- Der Weltrekord im Punktekaertchen ------------------------------------ */
 
-/*
- * Zweite Zeile im Punktekaertchen, eine Spur leiser als die erste: der eigene
- * Bestwert ist das naechste Ziel, der Weltrekord das uebernaechste. Sehen soll
- * man ihn, draengen soll er nicht - darum kleiner und blasser statt bunt.
- */
-.stat-card__note--world {
-  font-size: 10px;
-  letter-spacing: .4px;
-  opacity: .72;
-}
-/* Ist der eigene Bestwert gefallen, faerbt sich die ganze Karte. Die Weltzeile
-   behaelt dann ihre eigene Farbe - sonst waeren die zwei Marken nicht mehr zu
-   unterscheiden, und genau darauf kommt es in dem Augenblick an. */
-.stat-card.beaten .stat-card__note--world { color: var(--md-sys-color-on-surface-variant); }
-.stat-card__note--world.is-beaten,
-.stat-card.beaten .stat-card__note--world.is-beaten {
-  color: var(--md-sys-color-tertiary);
-  opacity: 1;
-  font-weight: 700;
-}
+/* Ueber der Marke: die Zeile wird golden, und die Karte bekommt denselben
+   Rand. Eine Farbe fuer einen Zustand - der Rand allein waere ein Raetsel. */
+.stat-card__note--world.is-beaten { color: var(--md-sys-color-tertiary); font-weight: 700; }
+.stat-card.beaten { outline: 2px solid var(--md-sys-color-tertiary); outline-offset: -2px; }
 
 /* --- Wenn ein Rekord faellt ---------------------------------------------- */
 
