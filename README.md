@@ -75,8 +75,19 @@ Das gilt in **jeder** Stufe. In „Schwer" und „Klassisch" sind die Zahlen nic
 *entstanden* – aber Paare liegen auch dort im Feld, und die werden nachträglich gesucht
 (`aufbauSchritte()` in `game.js`). Die Spiellage selbst bleibt davon unberührt: „Klassisch"
 ist weiter die Ziffernfolge 1 bis 19, nur das Hinschreiben folgt jetzt den Paaren statt der
-Zeile. Wie viele Schritte das sind, hängt an der Feldgröße – von 14 in „Klassisch" (rund
-115 ms Abstand, gut zu verfolgen) bis 47 in „Schwer" (rund 33 ms, ein Flimmern).
+Zeile.
+
+### Die 1,5 Sekunden sind überall dieselben
+
+Gemeint ist die Zeit bis **fertig**, nicht bis die letzte Zahl *anfängt* zu kommen – und sie
+gilt in jeder Stufe und in jedem Stil gleich. Das ist nicht von selbst so: jeder Stil hat
+seine eigene Einflugdauer (Arcade 240 ms, Papier 300, Original 340, Material 3 400). Startete
+die letzte Zahl erst bei 1500 ms, stünde das Feld je nach Stil zwischen 1740 und 1900 ms –
+vier verschiedene Zeiten, keine davon 1,5 Sekunden. Darum wird die Einflugdauer vom Ende
+abgezogen: die letzte Zahl startet bei 1500 minus Einflugdauer und steht punktgenau bei 1500.
+
+Was sich mit der Feldgröße ändert, ist nur, wie **dicht** die Schritte liegen – 14 Schritte in
+„Klassisch", 47 in „Schwer". Die Spanne selbst bleibt.
 
 Ein paar Dinge, die dazugehören:
 
