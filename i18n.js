@@ -138,9 +138,7 @@ const TEXTE = {
     'skin.m3': 'Material 3',
     'skin.arcade': 'Arcade',
     'skin.papier': 'Papier',
-    'skin.kontrast': 'Kontrast',
     'skin.papier.long': 'Papier & Bleistift',
-    'skin.kontrast.long': 'Hochkontrast',
     'skin.note': 'Der Arcade-Stil leuchtet immer im Dunkeln – das Farbschema '
       + 'gilt für die anderen.',
 
@@ -361,9 +359,7 @@ const TEXTE = {
     'skin.m3': 'Material 3',
     'skin.arcade': 'Arcade',
     'skin.papier': 'Carta',
-    'skin.kontrast': 'Contrasto',
     'skin.papier.long': 'Carta e matita',
-    'skin.kontrast.long': 'Alto contrasto',
     'skin.note': 'Lo stile Arcade brilla sempre nel buio – lo schema colori vale per gli altri.',
     // Die Sprueche der Attract-Zeile im Arcade-Stil. "1UP · HIGH SCORE"
     // stand auf jedem Automaten der Welt so - das bleibt englisch.
@@ -576,9 +572,7 @@ const TEXTE = {
     'skin.m3': 'Material 3',
     'skin.arcade': 'Arcade',
     'skin.papier': 'Paper',
-    'skin.kontrast': 'Contrast',
     'skin.papier.long': 'Paper & pencil',
-    'skin.kontrast.long': 'High contrast',
     'skin.note': 'The Arcade style always glows in the dark – the colour scheme applies to the '
       + 'others.',
     // Die Sprueche der Attract-Zeile im Arcade-Stil. "1UP · HIGH SCORE"

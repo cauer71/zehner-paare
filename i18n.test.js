@@ -114,7 +114,7 @@ test('kurze Felder halten ihre Zeichengrenze', () => {
     'hud.score': 18, 'hud.left': 18, 'hud.time': 9, 'hud.round': 9,
     'theme.auto': 10, 'theme.light': 10, 'theme.dark': 10,
     'skin.classic': 12, 'skin.m3': 12, 'skin.arcade': 12,
-    'skin.papier': 12, 'skin.kontrast': 12,
+    'skin.papier': 12,
     'diff.leicht': 14, 'diff.mittel': 14, 'diff.schwer': 14,
     'diff.klassisch': 14, 'diff.endlos': 14,
     'end.statScore': 14, 'end.statRounds': 14, 'end.statTime': 14,

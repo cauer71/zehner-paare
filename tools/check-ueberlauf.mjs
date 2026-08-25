@@ -47,7 +47,7 @@ const browser = await chromium.launch(
 
 const SPRACHEN = process.argv.slice(2).length ? process.argv.slice(2) : ['de'];
 const BREITEN = [[320, 568], [360, 640], [390, 844], [430, 932]];
-const STILE = ['classic', 'm3', 'arcade', 'papier', 'kontrast'];
+const STILE = ['classic', 'm3', 'arcade', 'papier'];
 // Felder mit begrenzter Breite. Je Eintrag: Selektor und wie viele Zeilen
 // die Beschriftung darin hoechstens brauchen darf.
 const FELDER = [

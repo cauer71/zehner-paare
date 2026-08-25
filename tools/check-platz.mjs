@@ -110,7 +110,7 @@ const kandidaten = auftragDatei ? JSON.parse(await readFile(auftragDatei, 'utf8'
 
 const ergebnis = {};
 for (const [w, h] of [[320, 568], [360, 640], [390, 844]]) {
-  for (const skin of ['classic', 'm3', 'arcade', 'papier', 'kontrast']) {
+  for (const skin of ['classic', 'm3', 'arcade', 'papier']) {
     const ctx = await browser.newContext({ viewport: { width: w, height: h },
       deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'de-DE' });
     const page = await ctx.newPage();
