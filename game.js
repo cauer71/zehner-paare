@@ -132,12 +132,18 @@ export function generateValues({ rows, cols, mode }, rng) {
  * hier nachtraeglich gefunden. Die Spiellage selbst bleibt dabei unberuehrt:
  * "Klassisch" ist weiter die Ziffernfolge 1 bis 19.
  */
-export function aufbauSchritte(werte, rng) {
+export function aufbauSchritte(werte, rng, paarbar = () => true) {
   const offen = new Set(werte.keys());
   const schritte = [];
   for (let i = 0; i < werte.length; i++) {
     if (!offen.delete(i)) continue;
-    const passend = [...offen].filter((j) => valuesMatch(werte[i], werte[j]));
+    // `paarbar` schliesst Stellen von der Paarung aus, ohne sie aus dem
+    // Aufbau zu nehmen: bei einem fortgesetzten Spielstand sind das die
+    // gestrichenen Zahlen. Sie kommen als eigene Schritte mit - ein Paar
+    // mit einer Zahl, die es nicht mehr gibt, waere gelogen.
+    const passend = paarbar(i)
+      ? [...offen].filter((j) => paarbar(j) && valuesMatch(werte[i], werte[j]))
+      : [];
     if (passend.length) {
       const j = passend[Math.floor(rng() * passend.length)];
       offen.delete(j);
