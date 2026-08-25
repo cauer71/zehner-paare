@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.12.0';
+export const VERSION = '1.12.1';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2',
               seen: 'zp.seen.v1', count: 'zp.count.v1' };
