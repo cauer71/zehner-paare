@@ -162,7 +162,7 @@ if (kandidaten) {
       const p = eng[name];
       if (!p || v.nZeichen < p.nZeichen) eng[name] = { ...v, wo: marke };
     }
-  console.log('Groesstes Budget je Feld (engster Fall aus 320/360/390 px x 5 Stile)\n');
+  console.log('Groesstes Budget je Feld (engster Fall aus 320/360/390 px x 4 Stile)\n');
   console.log('Feld          Zeichen    px  Schrift   Umbruch   engster Fall');
   for (const [name, v] of Object.entries(eng))
     console.log(`${name.padEnd(13)} ${String(v.nZeichen).padStart(7)} ${String(v.px).padStart(5)}`
