@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.14.1';
+export const VERSION = '1.15.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2',
               seen: 'zp.seen.v1', count: 'zp.count.v1' };
@@ -715,14 +715,14 @@ function normalizeFocus() {
 /* ------------------------------------------------------- Aufbau des Feldes */
 
 /**
- * So lange dauert der Aufbau eines Feldes – von der ersten Zahl, die
- * anfaengt zu kommen, bis die letzte fertig dasteht.
+ * So lange dauert der Aufbau – von der ersten Zahl, die anfaengt zu kommen,
+ * bis die letzte fertig dasteht.
  *
- * Ueberall gleich: in jeder Stufe und in jedem Stil. Wie viele Schritte in
- * die Spanne fallen, haengt an der Feldgroesse (14 in "Klassisch", 47 in
- * "Schwer") – die Spanne selbst nicht.
+ * Ueberall gleich: in jeder Stufe, in jedem Stil, und ob das ganze Feld neu
+ * kommt oder nur die aufgefuellten Zahlen. Wie viele Schritte in die Spanne
+ * fallen, haengt daran, wie viele Zahlen kommen – die Spanne selbst nicht.
  */
-const AUFBAU_MS = 1500;
+const AUFBAU_MS = 1000;
 
 /**
  * Legt die Aufbauschritte fuer einen fortgesetzten Spielstand neu fest.
@@ -767,7 +767,25 @@ function aufbauPlan(cells) {
   const gruppen = [...new Set(cells.map((c, i) => c.paar ?? i))].sort((a, b) => a - b);
   const rang = new Map(gruppen.map((g, n) => [g, n]));
   const letzter = Math.max(1, gruppen.length - 1);
-  return (cell, i) => (rang.get(cell.paar ?? i) ?? 0) / letzter;
+  // Nach Zell-Kennung, nicht nach Stelle im Feld: beim Auffuellen wird der
+  // Plan nur ueber die frisch angehaengten Zahlen gerechnet, deren Stellen
+  // aber weiter hinten im Feld liegen.
+  return new Map(cells.map((c, i) => [c.id, (rang.get(c.paar ?? i) ?? 0) / letzter]));
+}
+
+/**
+ * Teilt die frisch angehaengten Zahlen in Aufbauschritte – fuer Auffuellen
+ * und Rettung. Gepaart wird nur unter IHNEN: sie kommen zusammen aufs Feld,
+ * und was gleichzeitig erscheint, soll auch zusammengehoeren.
+ *
+ * Wo die Zahlen landen, aendert das nicht – angehaengt wird weiter in
+ * Leserichtung, man kann also weiter vorausplanen. Nur die Reihenfolge, in
+ * der sie sichtbar werden, folgt den Paaren.
+ */
+function aufbauFuerAnhang(from) {
+  const neue = state.cells.slice(from);
+  const gruppen = aufbauSchritte(neue.map((c) => c.v), createRng());
+  neue.forEach((c, i) => { c.paar = gruppen[i]; });
 }
 
 /** Wie lange die Einflug-Animation des aktuellen Stils dauert, in ms. */
@@ -827,7 +845,7 @@ function aufbauBeenden() {
   tickBase = Date.now();
 }
 
-function renderBoard({ enterFrom = -1, aufbau = false } = {}) {
+function renderBoard({ aufbau = false } = {}) {
   board.style.setProperty('--cols', state.cols);
   // Lag der Fokus im Feld? Nach dem Entfernen von Zellen faellt er sonst auf <body>.
   const hadFocus = board.contains(document.activeElement);
@@ -845,7 +863,12 @@ function renderBoard({ enterFrom = -1, aufbau = false } = {}) {
 
   // Aufbau nur, wenn Bewegung erwuenscht ist – sonst liegt das Feld sofort da.
   const baueAuf = aufbau && !reduceMotion.matches;
-  const anteilVon = baueAuf ? aufbauPlan(state.cells) : null;
+  // Gerechnet wird ueber die Zellen, die WIRKLICH neu dazukommen. Bei "Neu"
+  // sind das alle, beim Auffuellen nur die angehaengten – die schon
+  // liegenden sollen ja nicht noch einmal einfliegen.
+  const anteilVon = baueAuf
+    ? aufbauPlan(state.cells.filter((c) => !cellEls.has(c.id)))
+    : null;
   // Die Verzoegerungen werden erst NACH der Schleife gesetzt: dazu muss die
   // Einflugdauer des Stils gemessen werden, und die steht erst fest, wenn die
   // Zelle die Klasse traegt und im Dokument haengt.
@@ -858,14 +881,7 @@ function renderBoard({ enterFrom = -1, aufbau = false } = {}) {
       cellEls.set(cell.id, el);
       if (baueAuf) {
         el.classList.add('enter');
-        neue.push({ el, anteil: anteilVon(cell, i) });
-      } else if (enterFrom >= 0 && i >= enterFrom) {
-        el.classList.add('enter');
-        el.style.animationDelay = `${Math.min((i - enterFrom) * 18, 420)}ms`;
-        el.addEventListener('animationend', () => {
-          el.classList.remove('enter');
-          el.style.animationDelay = '';
-        }, { once: true });
+        neue.push({ el, anteil: anteilVon.get(cell.id) ?? 0 });
       }
     }
     el.dataset.i = String(i);
@@ -1373,11 +1389,12 @@ function doRefill() {
   if (locked || state.status !== 'playing') return;
   const res = refill(state);
   if (!res.ok) { toast(t('msg.noRefill')); return; }
+  aufbauFuerAnhang(res.from);
   clearSelection();
   clearHint();
   syncComboLevel();
   btnRefill.classList.remove('urge');
-  renderBoard({ enterFrom: res.from });
+  renderBoard({ aufbau: true });
   updateStats();
   sfx.refill();
   buzz(20);
@@ -1401,13 +1418,14 @@ function doRescue() {
   if (aufbauLaeuft) aufbauBeenden();
   const res = rescue(state);
   if (!res.ok) return;
+  aufbauFuerAnhang(res.from);
   closeSheet(dlgEnd);
   clearSelection();
   endHandled = false;
   clearHint();
   syncComboLevel();
   btnRefill.classList.remove('urge');
-  renderBoard({ enterFrom: res.from });
+  renderBoard({ aufbau: true });
   updateStats();
   startTimer();
   sfx.rescue();

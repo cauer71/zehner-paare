@@ -54,7 +54,7 @@ Vorlage war, zeigt nur waagrecht und senkrecht.
 
 ## Wie ein neues Feld entsteht
 
-Ein neues Feld liegt nicht einfach da, es baut sich über **1,5 Sekunden** auf – und die
+Ein neues Feld liegt nicht einfach da, es baut sich über **eine Sekunde** auf – und die
 Reihenfolge ist der eigentliche Witz daran. Sie ist ausdrücklich *nicht* die Leserichtung:
 gebaut wird **paarweise**. Je Schritt kommen zwei Zahlen, die zusammenpassen – gleich oder
 Summe zehn – und beide bekommen **dieselbe Verzögerung**, erscheinen also im selben
@@ -77,22 +77,22 @@ Das gilt in **jeder** Stufe. In „Schwer" und „Klassisch" sind die Zahlen nic
 ist weiter die Ziffernfolge 1 bis 19, nur das Hinschreiben folgt jetzt den Paaren statt der
 Zeile.
 
-### Die 1,5 Sekunden sind überall dieselben
+### Die eine Sekunde ist überall dieselbe
 
 Gemeint ist die Zeit bis **fertig**, nicht bis die letzte Zahl *anfängt* zu kommen – und sie
 gilt in jeder Stufe und in jedem Stil gleich. Das ist nicht von selbst so: jeder Stil hat
 seine eigene Einflugdauer (Arcade 240 ms, Papier 300, Original 340, Material 3 400). Startete
-die letzte Zahl erst bei 1500 ms, stünde das Feld je nach Stil zwischen 1740 und 1900 ms –
-vier verschiedene Zeiten, keine davon 1,5 Sekunden. Darum wird die Einflugdauer vom Ende
-abgezogen: die letzte Zahl startet bei 1500 minus Einflugdauer und steht punktgenau bei 1500.
+die letzte Zahl erst bei 1000 ms, stünde das Feld je nach Stil zwischen 1240 und 1400 ms –
+vier verschiedene Zeiten, keine davon eine Sekunde. Darum wird die Einflugdauer vom Ende
+abgezogen: die letzte Zahl startet bei 1000 minus Einflugdauer und steht punktgenau bei 1000.
 
-Was sich mit der Feldgröße ändert, ist nur, wie **dicht** die Schritte liegen – 14 Schritte in
-„Klassisch", 47 in „Schwer". Die Spanne selbst bleibt.
+Was sich ändert, ist nur, wie **dicht** die Schritte liegen: 14 Schritte in „Klassisch",
+47 in „Schwer", und beim Auffüllen so viele, wie Zahlen nachkommen. Die Spanne selbst bleibt.
 
 Ein paar Dinge, die dazugehören:
 
 * **Die Uhr läuft erst danach.** Während des Aufbaus lässt sich nichts spielen, also darf er
-  auch nicht auf die Zeit gehen – sonst kostete jede Partie 1,5 Sekunden Bestwert.
+  auch nicht auf die Zeit gehen – sonst kostete jede Partie eine Sekunde Bestwert.
 * **Abkürzen jederzeit.** Ein Tipp aufs Feld oder eine beliebige Taste stellt alles sofort
   hin. Dieser erste Tipp wählt bewusst noch **keine** Kachel: man soll nicht auf eine Zahl
   treffen, die man im selben Augenblick erst zu sehen bekommt.
@@ -111,8 +111,11 @@ Ein paar Dinge, die dazugehören:
 * **Zwei Ausnahmen**, und in beiden wäre der Aufbau schlicht nicht zu sehen: beim allerersten
   Besuch liegt das Regelblatt darüber, und wer in der Sackgasse aufgehört hat, bekommt zuerst
   den Enddialog.
-* **Auffüllen und Rettung** hängen ihre Zahlen weiter in Leserichtung an, damit man
-  vorausplanen kann – das ist dort Absicht und bleibt.
+* **Auch beim Auffüllen und bei der Rettung.** Die nachgelegten Zahlen kommen ebenso
+  paarweise herein, gepaart nur unter *sich* – sie landen ja zusammen auf dem Feld. Wo sie
+  landen, ändert das nicht: angehängt wird weiter in Leserichtung, man kann also weiter
+  vorausplanen, was wo hinkommt. Nur die Reihenfolge, in der sie sichtbar werden, folgt den
+  Paaren.
 
 Jeder Stil bringt seine eigene Handschrift mit, weil der Aufbau die vorhandene
 `.cell.enter`-Animation benutzt: im Original fallen die Kacheln herein, im Arcade-Stil
