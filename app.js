@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.14.0';
+export const VERSION = '1.14.1';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', best: 'zp.best.v2',
               seen: 'zp.seen.v1', count: 'zp.count.v1' };
@@ -714,29 +714,16 @@ function normalizeFocus() {
 
 /* ------------------------------------------------------- Aufbau des Feldes */
 
-/** Ueber diese Spanne kommen die Zahlen eines neuen Feldes herein. */
+/**
+ * So lange dauert der Aufbau eines Feldes – von der ersten Zahl, die
+ * anfaengt zu kommen, bis die letzte fertig dasteht.
+ *
+ * Ueberall gleich: in jeder Stufe und in jedem Stil. Wie viele Schritte in
+ * die Spanne fallen, haengt an der Feldgroesse (14 in "Klassisch", 47 in
+ * "Schwer") – die Spanne selbst nicht.
+ */
 const AUFBAU_MS = 1500;
 
-/**
- * Verzoegerung je Zelle, damit ein neues Feld sich aufbaut statt da zu sein.
- *
- * Die Reihenfolge steht in cell.paar und kommt aus aufbauSchritte() in
- * game.js: je Schritt zwei Zahlen, die zusammenpassen – gleich oder Summe
- * zehn. Beide Haelften bekommen dieselbe Verzoegerung und erscheinen im
- * selben Augenblick, an zwei weit auseinanderliegenden Stellen.
- *
- * Das ist der eigentliche Kniff: was da aufblitzt, ist keine Zierde, sondern
- * die Loesung. Rueckwaerts gelesen ist der Aufbau ein Weg durch das Feld. Wer
- * zusieht, sieht Paare entstehen – und weiss es spaeter noch, wenn das Feld
- * ruhig daliegt und alle Kacheln gleich aussehen. Ein Geheimnis, das man
- * erraten kann, ohne dass es jemand erklaeren muss.
- *
- * Ausdruecklich NICHT die Leserichtung: die Schrittfolge ist gemischt, der
- * Aufbau springt ueber Zeilen UND Spalten. Einem Feld, das sich Zeile fuer
- * Zeile fuellt, sieht man nichts an. Das gilt in jeder Stufe – auch dort, wo
- * die Zahlen nicht paarweise entstanden sind, denn Paare liegen trotzdem im
- * Feld.
- */
 /**
  * Legt die Aufbauschritte fuer einen fortgesetzten Spielstand neu fest.
  *
@@ -756,11 +743,56 @@ function aufbauNeuOrdnen() {
   state.cells.forEach((c, i) => { c.paar = gruppen[i]; });
 }
 
+/**
+ * Wo eine Zelle in der Aufbaufolge steht – als Anteil von 0 bis 1.
+ *
+ * Die Reihenfolge steht in cell.paar und kommt aus aufbauSchritte() in
+ * game.js: je Schritt zwei Zahlen, die zusammenpassen – gleich oder Summe
+ * zehn. Beide Haelften bekommen denselben Anteil und erscheinen im selben
+ * Augenblick, an zwei weit auseinanderliegenden Stellen.
+ *
+ * Das ist der eigentliche Kniff: was da aufblitzt, ist keine Zierde, sondern
+ * die Loesung. Rueckwaerts gelesen ist der Aufbau ein Weg durch das Feld. Wer
+ * zusieht, sieht Paare entstehen – und weiss es spaeter noch, wenn das Feld
+ * ruhig daliegt und alle Kacheln gleich aussehen. Ein Geheimnis, das man
+ * erraten kann, ohne dass es jemand erklaeren muss.
+ *
+ * Ausdruecklich NICHT die Leserichtung: die Schrittfolge ist gemischt, der
+ * Aufbau springt ueber Zeilen UND Spalten. Einem Feld, das sich Zeile fuer
+ * Zeile fuellt, sieht man nichts an. Das gilt in jeder Stufe – auch dort, wo
+ * die Zahlen nicht paarweise entstanden sind, denn Paare liegen trotzdem im
+ * Feld.
+ */
 function aufbauPlan(cells) {
   const gruppen = [...new Set(cells.map((c, i) => c.paar ?? i))].sort((a, b) => a - b);
   const rang = new Map(gruppen.map((g, n) => [g, n]));
   const letzter = Math.max(1, gruppen.length - 1);
-  return (cell, i) => Math.round((rang.get(cell.paar ?? i) ?? 0) / letzter * AUFBAU_MS);
+  return (cell, i) => (rang.get(cell.paar ?? i) ?? 0) / letzter;
+}
+
+/** Wie lange die Einflug-Animation des aktuellen Stils dauert, in ms. */
+function enterDauer(el) {
+  const roh = getComputedStyle(el).animationDuration.split(',')[0].trim();
+  const n = Number.parseFloat(roh);
+  if (!Number.isFinite(n)) return 0;
+  return roh.endsWith('ms') ? n : n * 1000;
+}
+
+/**
+ * Verteilt die Verzoegerungen so, dass der Aufbau nach AUFBAU_MS FERTIG ist –
+ * nicht erst anfaengt, fertig zu werden.
+ *
+ * Jeder Stil bringt seine eigene Einflugdauer mit (Arcade 240 ms, Papier 300,
+ * Original 340, Material 3 400). Wuerde die letzte Zahl bei 1500 ms erst
+ * starten, waere das Feld je nach Stil zwischen 1740 und 1900 ms fertig – drei
+ * verschiedene Zeiten, und keine davon 1,5 Sekunden. Darum bekommt die
+ * Animation ihre Dauer vom Ende abgezogen: die letzte Zahl startet bei
+ * 1500 minus Einflugdauer und steht punktgenau bei 1500.
+ */
+function aufbauVerteilen(neue) {
+  if (!neue.length) return;
+  const spanne = Math.max(0, AUFBAU_MS - enterDauer(neue[0].el));
+  for (const { el, anteil } of neue) el.style.animationDelay = `${Math.round(anteil * spanne)}ms`;
 }
 
 /**
@@ -771,7 +803,9 @@ function aufbauStarten() {
   aufbauLaeuft = true;
   locked = true;
   clearTimeout(aufbauTimer);
-  aufbauTimer = setTimeout(aufbauBeenden, AUFBAU_MS + 400);
+  // Der Aufbau ist bei AUFBAU_MS fertig; die Zugabe ist nur Luft fuer einen
+  // Bildschirm, der beim Zeichnen ins Stocken geraet.
+  aufbauTimer = setTimeout(aufbauBeenden, AUFBAU_MS + 80);
 }
 
 /**
@@ -811,7 +845,11 @@ function renderBoard({ enterFrom = -1, aufbau = false } = {}) {
 
   // Aufbau nur, wenn Bewegung erwuenscht ist – sonst liegt das Feld sofort da.
   const baueAuf = aufbau && !reduceMotion.matches;
-  const verzoegerung = baueAuf ? aufbauPlan(state.cells) : null;
+  const anteilVon = baueAuf ? aufbauPlan(state.cells) : null;
+  // Die Verzoegerungen werden erst NACH der Schleife gesetzt: dazu muss die
+  // Einflugdauer des Stils gemessen werden, und die steht erst fest, wenn die
+  // Zelle die Klasse traegt und im Dokument haengt.
+  const neue = [];
 
   state.cells.forEach((cell, i) => {
     let el = cellEls.get(cell.id);
@@ -820,7 +858,7 @@ function renderBoard({ enterFrom = -1, aufbau = false } = {}) {
       cellEls.set(cell.id, el);
       if (baueAuf) {
         el.classList.add('enter');
-        el.style.animationDelay = `${verzoegerung(cell, i)}ms`;
+        neue.push({ el, anteil: anteilVon(cell, i) });
       } else if (enterFrom >= 0 && i >= enterFrom) {
         el.classList.add('enter');
         el.style.animationDelay = `${Math.min((i - enterFrom) * 18, 420)}ms`;
@@ -874,7 +912,7 @@ function renderBoard({ enterFrom = -1, aufbau = false } = {}) {
     }
   }
 
-  if (baueAuf) aufbauStarten();
+  if (baueAuf) { aufbauVerteilen(neue); aufbauStarten(); }
 }
 
 /** Ein Anteil als ganze Prozent, fuer die Meldung nach dem Auffuellen. */
