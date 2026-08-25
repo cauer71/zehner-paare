@@ -61,7 +61,7 @@
   --surface: rgba(255, 255, 255, .42);
   --surface-solid: #fffdf6;
   --felt: transparent;
-  --line: rgba(56, 65, 79, .26);
+  --line: rgba(56, 65, 79, .40);
   --ink: #2f3743;
   --ink-soft: #5f6a7a;
 
@@ -69,6 +69,7 @@
   --graphit: #384250;
   --graphit-weich: rgba(56, 66, 80, .62);
   --radiert: rgba(56, 66, 80, .42);
+  --strich-farbe: rgba(56, 66, 80, .72);
   --tile: transparent;
   --tile-edge: transparent;
   --tile-ink: var(--graphit);
@@ -108,13 +109,13 @@
   :root:not([data-theme="light"]) {
     --paper: #22332b;
     --paper-2: #1b2a23;
-    --karo: rgba(226, 240, 228, .10);
-    --karo-stark: rgba(226, 240, 228, .22);
+    --karo: rgba(226, 240, 228, .20);
+    --karo-stark: rgba(226, 240, 228, .34);
     --rand: rgba(255, 190, 180, .22);
 
     --surface: rgba(255, 255, 255, .05);
     --surface-solid: #26382f;
-    --line: rgba(232, 242, 232, .22);
+    --line: rgba(232, 242, 232, .32);
     --ink: #eef3ea;
     --ink-soft: #ccd8cd;
     --dim: rgba(238, 243, 234, .48);
@@ -126,6 +127,7 @@
     --graphit: #f4f7f0;
     --graphit-weich: rgba(244, 247, 240, .58);
     --radiert: rgba(244, 247, 240, .40);
+    --strich-farbe: rgba(244, 247, 240, .70);
     --tile-ink: var(--graphit);
     --empty: rgba(244, 247, 240, .09);
 
@@ -146,13 +148,13 @@
 :root[data-theme="dark"] {
   --paper: #22332b;
   --paper-2: #1b2a23;
-  --karo: rgba(226, 240, 228, .10);
-  --karo-stark: rgba(226, 240, 228, .22);
+  --karo: rgba(226, 240, 228, .20);
+  --karo-stark: rgba(226, 240, 228, .34);
   --rand: rgba(255, 190, 180, .22);
 
   --surface: rgba(255, 255, 255, .05);
   --surface-solid: #26382f;
-  --line: rgba(232, 242, 232, .22);
+  --line: rgba(232, 242, 232, .32);
   --ink: #eef3ea;
   --ink-soft: #ccd8cd;
   --dim: rgba(238, 243, 234, .48);
@@ -161,6 +163,7 @@
   --graphit: #f4f7f0;
   --graphit-weich: rgba(244, 247, 240, .58);
   --radiert: rgba(244, 247, 240, .40);
+  --strich-farbe: rgba(244, 247, 240, .70);
   --tile-ink: var(--graphit);
   --empty: rgba(244, 247, 240, .09);
 
@@ -423,7 +426,7 @@ body::before {
   color: var(--tile-ink);
   font-family: 'ZP Hand', 'Nunito', monospace;
   font-weight: 400;
-  font-size: clamp(18px, 8cqw, 38px);
+  font-size: clamp(17px, 7.2cqw, 34px);
   line-height: 1;
   cursor: pointer;
   user-select: none;
@@ -450,12 +453,12 @@ body::before {
 .cell.empty::after {
   content: "";
   position: absolute;
-  left: 15%; right: 15%;
+  left: 12%; right: 12%;
   top: 50%;
-  height: max(1.5px, .085em);
+  height: max(2px, .095em);
   margin-top: -.04em;
   border-radius: 999px;
-  background: var(--radiert);
+  background: var(--strich-farbe);
   rotate: -13deg;
   transform-origin: left center;
 }
@@ -654,7 +657,23 @@ body::before {
 }
 .fab:disabled .icon, .bottom-app-bar .icon-button:disabled .icon { color: var(--dim); }
 .fab.urge { animation: urge 1.2s ease-in-out infinite; }
-.fab--rescue { border-color: var(--accent); color: var(--accent); border-width: 2.5px; }
+/* In der Sackgasse ist die Rettung der einzige wirksame Knopf - zweimal
+   umkringelt, so wie man auf dem Blatt das Wichtigste markiert. */
+.fab--rescue {
+  position: relative;
+  background: var(--accent-soft);
+  color: #8f2b22;
+  font-weight: 800;
+}
+.fab--rescue::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--accent);
+  border-radius: var(--skizze-2);
+  rotate: -1.2deg;
+  pointer-events: none;
+}
 .fab--rescue .icon { color: var(--accent); }
 @keyframes urge {
   0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); }

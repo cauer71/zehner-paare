@@ -45,6 +45,7 @@
   --accent-ink: #2b1103;
   --accent-soft: rgba(239, 125, 49, 0.16);
   --good: #16a37b;
+  --good-ink: #0f7d5e;
   --good-soft: rgba(22, 163, 123, 0.18);
   --bad: #e2483d;
   --bad-soft: rgba(226, 72, 61, 0.16);
@@ -67,10 +68,10 @@
     --line: rgba(255, 255, 255, 0.10);
     --ink: #e9ecf5;
     --ink-soft: #98a1b8;
-    --tile: #262c3d;
-    --tile-edge: rgba(255, 255, 255, 0.07);
+    --tile: #2e3549;
+    --tile-edge: rgba(255, 255, 255, .16);
     --tile-ink: #f0f3fb;
-    --tile-shadow: 0 1px 0 rgba(255, 255, 255, .06) inset, 0 2px 6px rgba(0, 0, 0, .35);
+    --tile-shadow: 0 1px 0 rgba(255, 255, 255, .09) inset, 0 2px 6px rgba(0, 0, 0, .35);
     --empty: rgba(255, 255, 255, 0.075);
     --hole: rgba(0, 0, 0, 0.42);
     --hole-shadow: inset 0 2px 4px rgba(0, 0, 0, .45);
@@ -98,10 +99,10 @@
   --line: rgba(255, 255, 255, 0.10);
   --ink: #e9ecf5;
   --ink-soft: #98a1b8;
-  --tile: #262c3d;
-  --tile-edge: rgba(255, 255, 255, 0.07);
+  --tile: #2e3549;
+  --tile-edge: rgba(255, 255, 255, .16);
   --tile-ink: #f0f3fb;
-  --tile-shadow: 0 1px 0 rgba(255, 255, 255, .06) inset, 0 2px 6px rgba(0, 0, 0, .35);
+  --tile-shadow: 0 1px 0 rgba(255, 255, 255, .09) inset, 0 2px 6px rgba(0, 0, 0, .35);
   --empty: rgba(255, 255, 255, 0.075);
   --hole: rgba(0, 0, 0, 0.42);
   --hole-shadow: inset 0 2px 4px rgba(0, 0, 0, .45);
@@ -220,14 +221,14 @@ body::before {
 .stat-card {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; gap: 1px;
-  padding: 10px 6px;
+  padding: 9px 6px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 18px;
   backdrop-filter: blur(8px);
 }
 .stat-card__label {
-  font-size: .66rem; letter-spacing: .06em; text-transform: uppercase;
+  font-size: .70rem; letter-spacing: .06em; text-transform: uppercase;
   color: var(--ink-soft);
 }
 .stat-card__value {
@@ -366,7 +367,7 @@ body::before {
 
 .cell.partner {
   box-shadow: var(--tile-shadow), 0 0 0 2px var(--good);
-  color: var(--good);
+  color: var(--good-ink);
 }
 
 .cell.hinted { animation: hint .75s ease-in-out 4; z-index: 2; }
@@ -493,13 +494,20 @@ body::before {
 }
 .bottom-app-bar .icon-button:active, .fab:active { transform: scale(.95); }
 .bottom-app-bar .icon-button .icon { width: 20px; height: 20px; color: var(--ink-soft); }
-.fab .icon { width: 20px; height: 20px; color: var(--accent); }
+.fab .icon { width: 20px; height: 20px; color: #c0561a; }
 .fab__label, .action-label { display: block; }
 .fab { position: relative; }
 .fab__label + .fab__count { margin-left: 4px; }
 .fab__count { font-variant-numeric: tabular-nums; }
 .fab:disabled, .bottom-app-bar .icon-button:disabled { opacity: .38; cursor: default; }
 .fab.urge { animation: urge 1.2s ease-in-out infinite; }
+/* Auffuellen braucht eine Flaeche, sonst sieht es wie Zurueck/Tipp/Neu aus. */
+.fab {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: #7a3b0e;
+  font-weight: 800;
+}
 /* In der Sackgasse ist der Knopf die Rettung – und sieht auch danach aus. */
 .fab--rescue { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .fab--rescue .icon { color: var(--accent-ink); }
@@ -967,7 +975,8 @@ body::before {
   .cell.sel { scale: 1; box-shadow: 0 0 0 3px var(--accent); }
 }
 .stat-card__note {
-  font-size: .62rem;
+  font-size: .70rem;
+  font-weight: 600;
   letter-spacing: .02em;
   color: var(--ink-soft);
   margin-top: 1px;
