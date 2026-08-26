@@ -361,6 +361,18 @@ body::before {
 .stat-card__note--world.is-beaten { color: #9a6a12; font-weight: 800; }
 .stat-card.beaten { border-color: #c8961f; }
 
+/*
+ * Ab dem Weltrekord traegt der Punktestand selbst die Rekordfarbe - bis zum
+ * Ende der Partie. Die Feier ist der Augenblick, die Farbe der Zustand: man
+ * sieht bei jedem Zug, dass hier gerade ein Rekordlauf laeuft.
+ */
+.stat-card__value.rekord { color: #9a6a12; }
+
+/* Punkte- und Uebrig-Kaertchen sind antippbar (Weltrekorde / Schwierigkeit). */
+.stat-card[role="button"] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.stat-card[role="button"]:active { transform: scale(.97); }
+.stat-card[role="button"]:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
 /* --- Wenn ein Rekord faellt ---------------------------------------------- */
 
 /* Die Punktekarte schlaegt einmal aus - dort ist die Zahl eingeschlagen. */
@@ -389,15 +401,9 @@ body::before {
   z-index: 6;
   mix-blend-mode: multiply;
 }
+/* Der Textmarker in Gelb, und die Seite bekommt einen Rand aus demselben
+   Stift. */
 .record-wave.run {
-  background: linear-gradient(100deg, transparent 34%,
-    rgba(193, 67, 56, .20) 46%, rgba(193, 67, 56, .26) 54%, transparent 66%);
-  background-size: 260% 100%;
-  animation: record-wave .9s linear forwards;
-}
-/* Der Weltrekord: derselbe Strich in Gelb, langsamer, und die Seite bekommt
-   einen Rand aus demselben Stift. */
-.record-wave.run--welt {
   background: linear-gradient(100deg, transparent 30%,
     rgba(246, 208, 96, .48) 44%, rgba(240, 190, 60, .60) 56%, transparent 70%);
   background-size: 260% 100%;
@@ -921,11 +927,8 @@ body::before {
   font-weight: 800;
   rotate: -1.6deg;
 }
+/* Das Band des Weltrekords: mit dem Textmarker ausgemalt. */
 .dialog.is-record .record-ribbon {
-  animation: ribbon-pop .5s cubic-bezier(.2, 1.5, .4, 1) 200ms backwards;
-}
-/* Weltrekord: dasselbe Band, aber mit dem Textmarker ausgemalt. */
-.dialog.is-world .record-ribbon {
   border-color: #c8961f;
   color: #6b4a08;
   background: rgba(246, 208, 96, .5);

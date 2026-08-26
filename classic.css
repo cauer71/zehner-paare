@@ -657,11 +657,8 @@ body::before {
   font-weight: 800;
   box-shadow: 0 4px 14px rgba(239, 125, 49, .35);
 }
+/* Das Band des Weltrekords: Gold, mit einem laufenden Schimmer darauf. */
 .dialog.is-record .record-ribbon {
-  animation: ribbon-pop .5s cubic-bezier(.2, 1.5, .4, 1) 200ms backwards;
-}
-/* Weltrekord: dasselbe Band in Gold, mit einem laufenden Schimmer darauf. */
-.dialog.is-world .record-ribbon {
   background: linear-gradient(180deg, #f5c451, #e8a33d);
   color: #3a2606;
   box-shadow: 0 4px 16px rgba(245, 196, 81, .5);
@@ -1032,6 +1029,18 @@ body::before {
 .stat-card__note--world.is-beaten { color: #b8801f; font-weight: 800; }
 .stat-card.beaten { border-color: #d8a63a; }
 
+/*
+ * Ab dem Weltrekord traegt der Punktestand selbst die Rekordfarbe - bis zum
+ * Ende der Partie. Die Feier ist der Augenblick, die Farbe der Zustand: man
+ * sieht bei jedem Zug, dass hier gerade ein Rekordlauf laeuft.
+ */
+.stat-card__value.rekord { color: #b8801f; }
+
+/* Punkte- und Uebrig-Kaertchen sind antippbar (Weltrekorde / Schwierigkeit). */
+.stat-card[role="button"] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.stat-card[role="button"]:active { transform: scale(.97); }
+.stat-card[role="button"]:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
 /* --- Wenn ein Rekord faellt ---------------------------------------------- */
 
 /* Die Punktekarte schlaegt einmal aus - dort ist die Zahl eingeschlagen. */
@@ -1060,13 +1069,6 @@ body::before {
   z-index: 6;
 }
 .record-wave.run {
-  background: linear-gradient(100deg, transparent 34%,
-    color-mix(in srgb, var(--accent) 38%, transparent) 50%, transparent 66%);
-  background-size: 260% 100%;
-  animation: record-wave .9s linear forwards;
-}
-/* Der Weltrekord: dieselbe Welle in Gold, langsamer, und das Feld glueht nach. */
-.record-wave.run--welt {
   background: linear-gradient(100deg, transparent 30%,
     rgba(245, 196, 81, .58) 50%, transparent 70%);
   background-size: 260% 100%;

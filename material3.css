@@ -680,11 +680,8 @@ body {
   letter-spacing: .1px;
   box-shadow: var(--md-sys-elevation-1);
 }
+/* Das Band des Weltrekords: Gold, mit einem laufenden Schimmer darauf. */
 .dialog.is-record .record-ribbon {
-  animation: ribbon-pop var(--md-sys-motion-duration-long2) var(--md-sys-motion-easing-emphasized-decelerate) 200ms backwards;
-}
-/* Weltrekord: dasselbe Band in Gold, mit einem laufenden Schimmer darauf. */
-.dialog.is-world .record-ribbon {
   background: var(--md-sys-color-tertiary-container);
   color: var(--md-sys-color-on-tertiary-container);
   box-shadow: var(--md-sys-elevation-2),
@@ -1077,6 +1074,18 @@ body {
 .stat-card__note--world.is-beaten { color: var(--md-sys-color-tertiary); font-weight: 700; }
 .stat-card.beaten { outline: 2px solid var(--md-sys-color-tertiary); outline-offset: -2px; }
 
+/*
+ * Ab dem Weltrekord traegt der Punktestand selbst die Rekordfarbe - bis zum
+ * Ende der Partie. Die Feier ist der Augenblick, die Farbe der Zustand: man
+ * sieht bei jedem Zug, dass hier gerade ein Rekordlauf laeuft.
+ */
+.stat-card__value.rekord { color: var(--md-sys-color-tertiary); }
+
+/* Punkte- und Uebrig-Kaertchen sind antippbar (Weltrekorde / Schwierigkeit). */
+.stat-card[role="button"] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.stat-card[role="button"]:active { transform: scale(.97); }
+.stat-card[role="button"]:focus-visible { outline: 3px solid var(--md-sys-color-primary); outline-offset: 2px; }
+
 /* --- Wenn ein Rekord faellt ---------------------------------------------- */
 
 /* Die Punktekarte schlaegt einmal aus - dort ist die Zahl eingeschlagen. */
@@ -1104,16 +1113,9 @@ body {
   opacity: 0;
   z-index: 6;
 }
+/* Ein Licht, kein Schatten: die "fixed"-Rollen sind in hell wie dunkel hell,
+   die gewoehnliche Akzentfarbe waere im Hellen ein dunkles Braun. */
 .record-wave.run {
-  /* Ein Licht, kein Schatten: die "fixed"-Rollen sind in hell wie dunkel hell,
-     die gewoehnliche Akzentfarbe waere im Hellen ein dunkles Braun. */
-  background: linear-gradient(100deg, transparent 34%,
-    color-mix(in srgb, var(--md-sys-color-primary-fixed-dim) 62%, transparent) 50%, transparent 66%);
-  background-size: 260% 100%;
-  animation: record-wave 900ms linear forwards;
-}
-/* Der Weltrekord: dieselbe Welle in Gold, langsamer, und das Feld glueht nach. */
-.record-wave.run--welt {
   background: linear-gradient(100deg, transparent 30%,
     color-mix(in srgb, var(--md-sys-color-tertiary-fixed-dim) 82%, transparent) 50%, transparent 70%);
   background-size: 260% 100%;

@@ -127,12 +127,14 @@
        Kaertchen verschieden hoch und die Zahlen staenden auf verschiedener
        Hoehe. -->
   <section class="hud">
-    <div class="stat-card" id="card-score">
+    <div class="stat-card" id="card-score" role="button" tabindex="0"
+         data-i18n-aria="a11y.cardScore" aria-label="Weltrekorde anzeigen">
       <span class="stat-card__label" data-i18n="hud.score">Punkte</span>
       <span class="stat-card__value" id="stat-score">0</span>
       <span class="stat-card__note stat-card__note--world" id="stat-world"></span>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" id="card-left" role="button" tabindex="0"
+         data-i18n-aria="a11y.cardLeft" aria-label="Schwierigkeit ändern">
       <span class="stat-card__label" data-i18n="hud.left">Übrig</span>
       <span class="stat-card__value" id="stat-left">0</span>
       <span class="stat-card__note" id="stat-diff"></span>
@@ -380,7 +382,6 @@
                  spellcheck="false" enterkeyhint="done" placeholder="AAA">
         </div>
         <p class="field__note" data-i18n="set.initialsNote">Drei Zeichen, Buchstaben oder Ziffern. Sie stehen neben deinen Bestwerten – und wenn du einen Weltrekord aufstellst, auch in der Weltliste. Sonst bleiben sie auf diesem Gerät.</p>
-        <ul class="best-list" id="best-list"></ul>
         <p class="field__note" id="own-count"></p>
         <h3 class="field__title" data-i18n="set.bestWorld">Weltweit</h3>
         <ul class="best-list" id="world-list"></ul>
@@ -418,7 +419,7 @@
   <h2 class="dialog__headline" id="end-title">Geschafft!</h2>
   <p class="dialog__text body-medium" id="end-text"></p>
   <dl class="end-stats" id="end-stats"></dl>
-  <!-- Nur bei einem Bestwert: drei Zeichen fuer die Bestenliste, vorbelegt
+  <!-- Nur bei einem Weltrekord: drei Zeichen fuer die Weltliste, vorbelegt
        mit dem letzten Kuerzel. -->
   <div class="initials initials--end" id="end-initials-field" hidden>
     <label class="initials__label" for="end-initials" data-i18n="set.initials">Dein Kürzel</label>

@@ -44,7 +44,7 @@ Guthaben dafür ist begrenzt. Wer das Feld leer räumt, gewinnt.
 5 1 6 1 7 1 8 1 9
 ```
 
-Dieselbe Aufgabe jedes Mal heißt: der Bestwert dieser Stufe vergleicht wirklich das Können und
+Dieselbe Aufgabe jedes Mal heißt: der Rekord dieser Stufe vergleicht wirklich das Können und
 nicht das Glück. Weil das nach einem Fehler aussieht, wenn man mehrmals auf „Neu" tippt, sagt
 das Spiel es beim Start einer Klassisch-Partie kurz an. Die vier anderen Stufen würfeln jedes
 Mal neu.
@@ -140,15 +140,19 @@ rasten sie in vier Stufen ein, auf dem Papier werden die Ziffern geschrieben.
   ungenutztem Auffüllen, +200 je Endlos-Runde. Ein Fehlversuch oder ein Auffüllen setzt den
   Kombofaktor zurück; ein Tipp kostet nichts.
 * Unter der Punktzahl steht der **Weltrekord** der Stufe samt Kürzel dessen, der ihn hält,
-  unter der Zahl der übrigen Kacheln die eingestellte **Schwierigkeit**. Fällt ein Rekord –
-  der eigene Bestwert oder der Weltrekord –, läuft eine Welle über das Feld; beim Weltrekord
-  in Gold und mit Konfetti. Siehe [Wenn ein Rekord fällt](#wenn-ein-rekord-fällt).
-* Wer seinen Bestwert einer Stufe schlägt, bekommt am Ende noch eine eigene kleine Feier:
-  Strahlenkranz hinter dem Pokal, goldenes Konfetti, hochlaufende Punktzahl. War es ein
-  Weltrekord, ist das Band darüber golden und sagt es auch.
-* **Kürzel in der Bestenliste.** Zu einem Bestwert gehören drei Zeichen: `A`–`Z` und `0`–`9`,
+  unter der Zahl der übrigen Kacheln die eingestellte **Schwierigkeit**. Fällt der Weltrekord,
+  läuft eine goldene Welle über das Feld – und **ab da ist der Punktestand selbst gefärbt**,
+  bis die Partie zu Ende ist. Siehe [Wenn ein Rekord fällt](#wenn-ein-rekord-fällt).
+* Beide Kärtchen sind **antippbar**: das Punktekärtchen führt zu den Weltrekorden, das
+  mittlere zur Schwierigkeit. Beides steht dort, wo die Zahl darüber herkommt.
+* Ein Weltrekord am Ende bekommt eine eigene Feier: Strahlenkranz hinter dem Pokal, goldenes
+  Konfetti, hochlaufende Punktzahl und ein goldenes Band, das es auch sagt.
+* **Nur Weltrekorde.** Bestwerte dieses Geräts führt das Spiel nicht mehr (bis 1.17 gab es
+  sie): zwei Ranglisten nebeneinander waren eine zuviel, und die kleinere war die, die außer
+  einem selbst nie jemand sieht. Gespielt wird gegen die Welt.
+* **Kürzel in der Weltliste.** Zu einem Weltrekord gehören drei Zeichen: `A`–`Z` und `0`–`9`,
   wie am Automaten. Das Feld steht im Enddialog unter den Zahlen und noch einmal in den
-  **Einstellungen → Bestwerte**, dort auch ohne neuen Bestwert. Vorbelegt ist es mit dem
+  **Einstellungen → Weltrekorde**, dort auch ohne neuen Rekord. Vorbelegt ist es mit dem
   letzten Kürzel – wer allein spielt, fasst es nie wieder an; auf einem geteilten Gerät
   schreibt der Nächste sein eigenes hinein. Gespeichert wird bei jedem Tastendruck und nicht
   erst auf einen Knopf: der Enddialog lässt sich wegtippen, und ein Kürzel, das dabei
@@ -159,14 +163,15 @@ rasten sie in vier Stufen ein, auf dem Papier werden die Ziffern geschrieben.
   [Weltweite Zähler](#weltweite-zähler)).
 
 Die **Einstellungen** stehen in fünf aufklappbaren Gruppen – Spiel, Darstellung, Ton &
-Vibration, Sprache, Bestwerte. Vorher war es eine Liste von sieben Abschnitten am Stück, die
+Vibration, Sprache, Weltrekorde. Vorher war es eine Liste von sieben Abschnitten am Stück, die
 auf einem Handy nicht mehr auf einen Blick passte. Es ist immer höchstens eine Gruppe offen,
 und welche das war, bleibt gemerkt. Damit man zum Nachsehen nicht aufklappen muss, steht in
 jeder Kopfzeile rechts der aktuelle Zustand („Mittel · Diagonal · Umbruch", „Papier · Auto",
 „Automatisch · Deutsch"). Gebaut mit `<details>`/`<summary>` – Tastatur und Vorlesehilfe
 kommen damit von Haus aus zurecht, ohne eine Zeile Skript für das Auf und Zu.
 
-Spielstand, Einstellungen und Bestwerte liegen im `localStorage` des Geräts. Die Seite lässt
+Spielstand, Einstellungen und der letzte bekannte Stand der Weltzahlen liegen im
+`localStorage` des Geräts. Die Seite lässt
 sich als App zum Startbildschirm hinzufügen und läuft dank Service Worker auch offline.
 
 ## Als App installieren
@@ -427,7 +432,7 @@ Absichtlich dick aufgetragen: Kitsch mit Regeln.
   Gelb, Amber, Magenta). Vorher standen die Texte 220–460 ms – zu kurz zum Lesen.
 * **Kleine Melodien für die besonderen Momente.** Notiert als lesbare Tonfolge
   (`'G4:1 C5:1 E5:1 G5:1 …'`, gleichstufig mit A4 = 440 Hz), gespielt mit Pulswelle und
-  Bassgang: *Stage Clear* nach dem Leerräumen, *Extend* wenn der Bestwert fällt (setzt erst nach
+  Bassgang: *Stage Clear* nach dem Leerräumen, *Extend* wenn der Weltrekord fällt (setzt erst nach
   der Siegfanfare ein, damit sich beide nicht ins Gehege kommen), *Game Over* mit abstürzendem
   Schlusston, dazu je ein Stück für die Rettung und für eine neue Endlos-Runde. Die Töne haben
   absichtlich eine Lücke zwischen sich – so klingt ein Chip, der den Kanal kurz auf null
@@ -516,48 +521,71 @@ verkleinern lohnt einen Punktestand nicht, den bisher niemand erreicht hat. Der 
 bei festen 8 px: seine Pixelschrift will ganze Pixel, und dort ist die Zahl ohnehin immer
 sechsstellig aufgefüllt.
 
-Der **eigene Bestwert** stand in 1.16 als zweite Zeile daneben. Zwei Zeilen in einem
-fingerbreiten Kärtchen waren eine zuviel: die Karte wuchs, das Brett rutschte nach unten. Es
-gibt ihn weiter – im Enddialog, in den Einstellungen unter Bestwerte, und im Spiel dort, wo er
-hingehört: im Augenblick, in dem er fällt.
-
 Die Zeile bleibt immer **einzeilig**; ein angehängtes „geknackt" bräuchte im schmalen Kärtchen
-eine zweite. Dass die Marke gefallen ist, sagt die Farbe: die Zeile wird golden und das
-Kärtchen bekommt denselben Rand – eine Farbe für einen Zustand, ein Rand ohne sichtbaren Grund
-wäre nur ein Rätsel. Gemessen ist das mit `check-ueberlauf.mjs`, dessen Weltliste ohnehin den
-breitesten Fall stellt: sechsstellige Zahl plus Kürzel, in drei Sprachen, vier Breiten ab
-320 px und allen vier Stilen.
+eine zweite. Dass die Marke gefallen ist, sagt die Farbe (siehe unten). Gemessen ist das mit
+`check-ueberlauf.mjs`, dessen Weltliste ohnehin den breitesten Fall stellt: sechsstellige Zahl
+plus Kürzel, in drei Sprachen, vier Breiten ab 320 px und allen vier Stilen.
+
+### Bestwerte dieses Geräts gibt es nicht mehr
+
+Bis 1.17 führte das Spiel neben dem Weltrekord eine zweite Liste: den eigenen Bestwert je
+Stufe, auf dem Gerät gespeichert. Sie ist seit 1.18 **ersatzlos weg**, mitsamt ihrer Anzeige,
+ihrer eigenen Feier und ihrem Eintrag im `localStorage` (`zp.best.v2` wird beim Start einmal
+weggeräumt). Zwei Ranglisten nebeneinander waren eine zuviel, und die kleinere war die, die
+außer einem selbst nie jemand sieht. Was bleibt, ist eine Strichliste ohne Rangfolge: wie
+viele Partien auf diesem Gerät gespielt und gewonnen wurden. Das ist kein Rekord, das ist ein
+Zähler.
+
+Damit hängt alles an einer Marke – und das macht die Oberfläche einfacher, nicht ärmer: ein
+Band im Enddialog statt zwei, eine Feier statt zwei Größen, ein Kürzel statt eines je Stufe.
+
+### Zwei antippbare Kärtchen
+
+Das **Punktekärtchen** führt in die Einstellungen zu den **Weltrekorden**, das **mittlere** zur
+**Schwierigkeit**. Beides steht dort, wo die Zahl darüber herkommt, und beides war vorher nur
+über das Zahnrad und zwei weitere Tipps erreichbar. Die aufgeschlagene Gruppe wird dabei nach
+oben geholt – Weltrekorde stehen ganz unten im Blatt, und wer über das Kärtchen kommt, will sie
+sehen und nicht suchen.
+
+Kein `<button>`, sondern `role="button"` mit `tabindex="0"`: die Kärtchen sind in vier Stilen
+durchgestaltet, ein Knopf brächte seine eigenen Vorgaben mit. Was ein Knopf geschenkt bekommt,
+kostet dann drei Zeilen Skript: ein `<div>` hört von sich aus weder auf Enter noch auf die
+Leertaste, also liegt neben dem `click` noch ein `keydown`.
 
 Weil der Weltrekord jetzt im Spielfeld steht, werden die Weltzahlen auch **beim Start**
-geholt und nicht mehr nur beim Aufschlagen der Bestwerte. Gewartet wird darauf nach wie vor
+geholt und nicht mehr nur beim Aufschlagen der Weltrekorde. Gewartet wird darauf nach wie vor
 nicht: das Feld liegt sofort da, die Zeile kommt nach, und ohne Netz bleibt der letzte
 bekannte Stand stehen. Wer den Schalter ausmacht, schickt weiterhin keine einzige Anfrage.
 
-### Die Welle
+### Die Welle – und was danach bleibt
 
-Fällt ein Rekord, läuft **einmal eine Welle über das Feld**, und die Punktekarte schlägt aus
-– dort ist die Zahl ja eingeschlagen. Zwei Größen, die man ohne Lesen auseinanderhält:
+Fällt der Weltrekord, läuft **einmal eine goldene Welle über das Feld**, das Feld glüht nach,
+die Punktekarte schlägt aus – dort ist die Zahl ja eingeschlagen –, dazu goldenes Konfetti,
+ein eigener Klang und sieben Vibrationsstöße. Eineinhalb Sekunden, einmal je Partie.
 
-| | eigener Bestwert | Weltrekord |
+Und dann bleibt etwas: **ab da trägt der Punktestand selbst die Rekordfarbe**, bis die Partie
+zu Ende ist. Die Welle ist der Augenblick, die Farbe der Zustand – man sieht bei jedem Zug,
+dass hier gerade ein Rekordlauf läuft. Ein Zug zurück nimmt sie nicht wieder weg; „ab da"
+heißt ab da. Der Merker dafür hängt am Spielstand und nicht an einer Modulvariablen, also
+überlebt er auch das Weglegen und Wiederaufnehmen einer Partie.
+
+Die Farbe ist je Stil eine eigene, und zwar dieselbe für Punktestand, Weltzeile und Rand des
+Kärtchens – eine Farbe für einen Zustand:
+
+| Stil | Rekordfarbe | warum |
 |---|---|---|
-| Welle | Akzentfarbe, 0,9 s | Gold, 1,6 s |
-| dazu | – | Feld glüht nach, goldenes Konfetti |
-| Ton | kurzes Extend-Signal | derselbe Lauf als ganze Fanfare |
-| Vibration | drei Stöße | sieben |
-
-Ein Weltrekord ist immer auch ein eigener Bestwert, also wird nur **der größere Anlass**
-gefeiert: wer im selben Zug beides knackt, sieht eine Feier und nicht zwei übereinander.
-Steht der eigene Bestwert ausnahmsweise über dem bekannten Weltwert – alte Weltzahlen, ein
-Eintrag, der nie durchging –, fällt der Weltrekord erst mit dem eigenen. Jede der beiden
-Marken wird höchstens **einmal je Partie** gefeiert.
+| Original | `#b8801f` | Gold, dieselbe Familie wie das goldene Konfetti |
+| Material 3 | `--md-sys-color-tertiary` | die dritte Rolle des Systems, dort schon die Rekordfarbe |
+| Automat | `--magenta-t` | in der Palette ausdrücklich „Kombo, Rekord" – und **nicht** Gelb: die Punktzahl ist dort ohnehin gelb |
+| Papier | `#9a6a12` | ein Buntstift neben dem Bleistift |
 
 Die Feier hält nichts auf: kein `locked`, keine Wartezeit, das Spiel läuft weiter. Wer
 `prefers-reduced-motion` gesetzt hat, bekommt Ton und Vibration, aber keine Bewegung.
 
-Jeder Stil hat seine eigene Fassung derselben Sache. Im Automaten ist die Welle ein Balken,
-der in harten `steps()` durchs Bild fährt, dazu blinkt der Rahmen gelb/orange; auf dem Papier
-ist sie ein Textmarker, der einmal quer über die Seite gezogen wird, und das Feld bekommt
-einen Rand aus demselben Stift.
+Auch die Welle hat je Stil ihre eigene Fassung. Im Automaten ist sie ein Balken, der in harten
+`steps()` durchs Bild fährt, dazu blinkt der Rahmen gelb/orange; auf dem Papier ist sie ein
+Textmarker, der einmal quer über die Seite gezogen wird, und das Feld bekommt einen Rand aus
+demselben Stift.
 
 Zwei Dinge, die dabei schiefgingen und darum hier stehen:
 
@@ -580,9 +608,9 @@ nicht mehr geschaut, ob die Klasse gesetzt ist, sondern was der Browser daraus r
 
 ## Weltweite Zähler
 
-In den Einstellungen unter **Bestwerte** stehen zwei Listen: die Bestwerte dieses Geräts und
-die Weltrekorde je Stufe – beide mit dem Kürzel dessen, der sie hält –, dazu die Zahl der
-weltweit gespielten und gewonnenen Partien. Ohne Anmeldung, ohne Konto, ohne Gerätemerkmal:
+In den Einstellungen unter **Weltrekorde** steht der Weltrekord je Stufe – mit dem Kürzel
+dessen, der ihn hält –, dazu die Zahl der weltweit gespielten und gewonnenen Partien und, als
+eigene Strichliste, wie viele Partien auf diesem Gerät gespielt und gewonnen wurden. Ohne Anmeldung, ohne Konto, ohne Gerätemerkmal:
 hinaus geht ein Zählimpuls, und bei einem **Weltrekord** der Punktestand samt Stufe und den
 drei Zeichen, die der Spieler selbst gesetzt hat. Ein Schalter in derselben Gruppe stellt das
 ganz ab; dann geht keine einzige Anfrage hinaus – und ohne eigenes Kürzel geht auch keines
@@ -636,7 +664,7 @@ Rekord ohne Namen da – der Punktestand ist die Pflicht, das Kürzel die Kür.
 
 Das kostet eine Anfrage je Stufe: Lesen sind jetzt 17 Anfragen (zwei Zähler, je Stufe Zeiger,
 Stand und Kürzel), ein neuer Rekord vier statt drei. Beides liegt unter der eigenen Bremse von
-18 je 10 Sekunden; wer die Bestwerte zweimal kurz hintereinander aufschlägt, wartet ein paar
+18 je 10 Sekunden; wer die Weltrekorde zweimal kurz hintereinander aufschlägt, wartet ein paar
 Sekunden länger auf frische Zahlen, sieht aber sofort den letzten bekannten Stand.
 
 Die Umrechnung selbst ist die einzige Stelle, an der aus Zeichen eine Zahl wird – und geht sie
@@ -654,7 +682,7 @@ Gemessene Grenzen, die den Entwurf bestimmt haben:
 * **Ein Schlüssel lebt 6 Monate ab dem Anlegen.** Ein Zugriff verlängert das *nicht* – die Doku
   behauptet das Gegenteil, gemessen ist es nicht so. Darum sucht das Lesen bis zu drei Nummern
   zurück, und was fehlt, trägt der nächste Spieler wieder ein: der Eintrag heilt sich selbst.
-* Weltzahlen werden beim **Start** geholt und wenn jemand die Gruppe **Bestwerte**
+* Weltzahlen werden beim **Start** geholt und wenn jemand die Gruppe **Weltrekorde**
   aufschlägt, in beiden Fällen höchstens alle fünf Minuten neu. Beim Start, seit der
   Weltrekord im Spielfeld steht – vorher geschah es nur beim Aufschlagen. Geholt werden dann
   gleich alle fünf Stufen: das kostet dieselbe Runde und deckt danach jeden Wechsel der
@@ -698,7 +726,7 @@ zerstört hätte:
 Und weil die Entwicklungsumgebung weder an `cauer71.github.io` noch an den Dienst kommt (der
 Proxy weist beides mit 403 ab), gibt es dafür eine eigene Abnahme auf einem Läufer:
 [`.github/workflows/abnahme-live.yml`](.github/workflows/abnahme-live.yml) öffnet die fertige
-Seite mit einem echten Browser, schlägt **Bestwerte** auf und prüft, dass die Leserufe wirklich
+Seite mit einem echten Browser, schlägt **Weltrekorde** auf und prüft, dass die Leserufe wirklich
 beim Dienst ankommen, dass die Fassung stimmt und dass **keine einzige Konsolenmeldung**
 entsteht. Sie läuft nur auf Zuruf und **schreibt bewusst nichts**: ein Zählruf würde die
 Weltzahlen mit einer Partie füllen, die niemand gespielt hat, und womöglich den ersten

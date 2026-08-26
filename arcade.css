@@ -350,14 +350,28 @@ body::before {
 
 /* --- Der Weltrekord im Punktekaertchen ------------------------------------ */
 
-/* Ueber der Marke: die Zeile wird gelb und blinkt, wie das HI-Feld eines
-   Automaten, an dem gerade jemand vorbeigezogen ist - und die Fassung bekommt
-   dieselbe Farbe. */
+/* Ueber der Marke: die Zeile blinkt, wie das HI-Feld eines Automaten, an dem
+   gerade jemand vorbeigezogen ist - und die Fassung bekommt dieselbe Farbe.
+   Magenta und nicht Gelb: der Punktestand darueber IST gelb, zwei gelbe Zeilen
+   uebereinander waeren kein Zustand, sondern ein Einheitsbrei. In der Palette
+   ist Magenta ohnehin die Farbe fuer Kombo und Rekord. */
 .stat-card__note--world.is-beaten {
-  color: var(--yellow);
+  color: var(--magenta-t);
   animation: arc-blink .6s steps(1) infinite;
 }
-.stat-card.beaten { box-shadow: inset 0 0 0 var(--px) var(--yellow); }
+.stat-card.beaten { box-shadow: inset 0 0 0 var(--px) var(--magenta); }
+
+/*
+ * Ab dem Weltrekord traegt der Punktestand selbst die Rekordfarbe - bis zum
+ * Ende der Partie. Die Feier ist der Augenblick, die Farbe der Zustand: man
+ * sieht bei jedem Zug, dass hier gerade ein Rekordlauf laeuft.
+ */
+.stat-card__value.rekord { color: var(--magenta-t); }
+
+/* Punkte- und Uebrig-Kaertchen sind antippbar (Weltrekorde / Schwierigkeit). */
+.stat-card[role="button"] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.stat-card[role="button"]:active { transform: scale(.97); }
+.stat-card[role="button"]:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 
 /* --- Wenn ein Rekord faellt ---------------------------------------------- */
 
@@ -387,14 +401,8 @@ body::before {
   opacity: 0;
   z-index: 6;
 }
+/* Der Balken in Gold, und der Rahmen blinkt mit. */
 .record-wave.run {
-  background: linear-gradient(90deg, transparent 0 44%,
-    color-mix(in srgb, var(--magenta) 55%, transparent) 44% 56%, transparent 56%);
-  background-size: 240% 100%;
-  animation: arc-record-wave .9s steps(12) forwards;
-}
-/* Der Weltrekord: derselbe Balken in Gold, laenger, und der Rahmen blinkt mit. */
-.record-wave.run--welt {
   background: linear-gradient(90deg, transparent 0 42%,
     color-mix(in srgb, var(--yellow) 55%, transparent) 42% 50%,
     color-mix(in srgb, var(--amber) 55%, transparent) 50% 58%, transparent 58%);
@@ -940,9 +948,8 @@ body::before {
   animation: arc-band 1.2s linear infinite;
 }
 @keyframes arc-band { to { background-position: 32px 0; } }
-.dialog.is-record .record-ribbon { animation: arc-blink .3s steps(1) 8; }
-/* Weltrekord: derselbe Laufschrift-Streifen, aber in Gold. */
-.dialog.is-world .record-ribbon {
+/* Das Band des Weltrekords: derselbe Laufschrift-Streifen, aber in Gold. */
+.dialog.is-record .record-ribbon {
   background: repeating-linear-gradient(90deg,
     var(--yellow) 0 8px, var(--amber) 8px 16px);
   background-size: 32px 100%;
