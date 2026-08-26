@@ -371,10 +371,10 @@
         <svg class="group__arrow icon" aria-hidden="true"><use href="#i-chevron"></use></svg>
       </summary>
       <div class="group__body">
-        <h3 class="field__title" data-i18n="set.bestHere">Auf diesem Gerät</h3>
         <!-- Das Kuerzel steht hier und nicht nur im Enddialog: so kann man es
-             auch ohne neuen Bestwert aendern und sieht, was die Spalte in der
-             Liste darunter bedeutet. -->
+             auch ohne neuen Rekord aendern und sieht, was die Spalte in der
+             Liste darunter bedeutet. Es ist das Einzige in dieser Gruppe, das
+             auf dem Geraet liegt - alles andere kommt aus der Welt. -->
         <div class="initials">
           <label class="initials__label" for="set-initials" data-i18n="set.initials">Dein Kürzel</label>
           <input class="initials__input" id="set-initials" type="text" maxlength="3" size="3"
@@ -382,8 +382,6 @@
                  spellcheck="false" enterkeyhint="done" placeholder="AAA">
         </div>
         <p class="field__note" data-i18n="set.initialsNote">Drei Zeichen, Buchstaben oder Ziffern. Sie stehen neben deinen Bestwerten – und wenn du einen Weltrekord aufstellst, auch in der Weltliste. Sonst bleiben sie auf diesem Gerät.</p>
-        <p class="field__note" id="own-count"></p>
-        <h3 class="field__title" data-i18n="set.bestWorld">Weltweit</h3>
         <ul class="best-list" id="world-list"></ul>
         <p class="field__note" id="world-count"></p>
         <label class="switch-row">

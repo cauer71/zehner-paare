@@ -13,10 +13,9 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.18.0';
+export const VERSION = '1.19.0';
 
-const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1',
-              seen: 'zp.seen.v1', count: 'zp.count.v1' };
+const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', seen: 'zp.seen.v1' };
 
 const store = {
   get(key, fallback = null) {
@@ -76,15 +75,14 @@ function gewaehlteSprache() {
 }
 setzeSprache(gewaehlteSprache());
 
-// Bis 1.17 lagen unter 'zp.best.v2' die Bestwerte dieses Geraets. Es gibt sie
-// nicht mehr - gespielt wird gegen die Welt, und zwei Ranglisten nebeneinander
-// waren eine zuviel. Der alte Eintrag wird einmal weggeraeumt, damit im
+// Was frueher auf dem GERAET lag, gibt es nicht mehr: die Bestwerte je Stufe
+// (bis 1.17) und die Strichliste der hier gespielten Partien (bis 1.18).
+// Gespielt wird gegen die Welt, und eine zweite, private Rangliste daneben war
+// eine zuviel. Beide Eintraege werden beim Start einmal weggeraeumt, damit im
 // Speicher nichts steht, was kein Code mehr liest.
-try { localStorage.removeItem('zp.best.v2'); } catch { /* gesperrter Speicher */ }
-
-// Der eigene Zaehler: wie viele Partien auf diesem Geraet gespielt und
-// gewonnen wurden. Bleibt hier, geht nie hinaus.
-let zaehler = { gespielt: 0, gewonnen: 0, ...(store.get(KEY.count) ?? {}) };
+for (const alt of ['zp.best.v2', 'zp.count.v1']) {
+  try { localStorage.removeItem(alt); } catch { /* gesperrter Speicher */ }
+}
 
 welt.schalten(settings.world);
 
@@ -1619,25 +1617,20 @@ function newGame(difficulty = settings.difficulty) {
  * also muss das Zaehlen von der Anzeige getrennt sein.
  */
 function zaehlePartie(won, zaehlt) {
-  if (!state.gezaehlt) {
-    state.gezaehlt = true;
-    zaehler.gespielt += 1;
-  }
+  // Ein Sieg geht genau einmal hinaus, auch wenn dieselbe Partie mehrfach
+  // endet. Der Merker heisst weiter siegGezaehlt: er steht so in jedem
+  // gespeicherten Spielstand, und ein neuer Name hiesse, dass eine laufende
+  // Partie ihren Sieg nach dem Nachladen ein zweites Mal meldet.
   const ersterSieg = won && !state.siegGezaehlt;
-  if (ersterSieg) {
-    state.siegGezaehlt = true;
-    zaehler.gewonnen += 1;
-  }
-  store.set(KEY.count, zaehler);
-  saveNow();                    // Merker und Zaehler zusammen, nicht versetzt
+  if (ersterSieg) state.siegGezaehlt = true;
+  saveNow();                    // Merker sofort, nicht erst in 220 ms
 
   // Weltweit mitzaehlen. Bewusst ohne await: das Ergebnis interessiert erst,
-  // wenn jemand die Bestwerte aufschlaegt, und ein lahmes Netz darf den
+  // wenn jemand die Weltrekorde aufschlaegt, und ein lahmes Netz darf den
   // Enddialog nicht aufhalten. Der Punktestand geht bei JEDEM Ende hinaus -
   // nach einer Rettung ist er hoeher, und dann soll auch der Rekord stimmen.
-  // neuePartie haengt am WELT-Merker, nicht am eigenen: geht der Ruf verloren
-  // (Netz weg, oder Strafpause nach einer 429), soll das naechste Ende
-  // derselben Partie nachzaehlen. Der eigene Zaehler stimmt ohnehin.
+  // Geht der Ruf verloren (Netz weg, oder Strafpause nach einer 429), zaehlt
+  // das naechste Ende derselben Partie nach - dafuer der WELT-Merker.
   welt.partieBeendet({ stufe: state.difficulty, punkte: state.score, zaehlt,
                        kuerzel: sauberesKuerzel(settings.kuerzel),
                        neuePartie: !state.weltGezaehlt, gewonnen: ersterSieg })
@@ -1811,9 +1804,9 @@ function save() {
  * Sofort sichern, ohne die 220 ms abzuwarten.
  *
  * Gebraucht beim Spielende: dort werden Merker gesetzt, die sagen "diese
- * Partie ist gezaehlt". Der Zaehler selbst liegt sofort im Speicher. Wer die
- * Seite in dem Fenster dazwischen neu laedt, haette eine Partie mit Merker
- * im Zaehler, aber ohne Merker im Spielstand - und zaehlte sie noch einmal.
+ * Partie ist weltweit gezaehlt". Wer die Seite in den 220 ms dazwischen neu
+ * laedt, haette den Ruf schon hinausgeschickt, aber keinen Merker im
+ * Spielstand - und zaehlte dieselbe Partie noch einmal mit.
  */
 function saveNow() {
   clearTimeout(saveTimer);
@@ -1947,10 +1940,6 @@ function renderWorld() {
   const note = $('#world-count');
   if (!liste || !note) return;
   $('#opt-world').checked = settings.world;
-
-  // Der eigene Zaehler ist kein Rekord, sondern eine Strichliste - der bleibt.
-  $('#own-count').textContent =
-    t('set.ownCount', { n: zaehler.gespielt, g: zaehler.gewonnen });
 
   const w = welt.zwischenstand();
   liste.innerHTML = Object.keys(DIFFICULTIES).map((key) => {

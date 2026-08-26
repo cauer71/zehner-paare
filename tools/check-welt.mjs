@@ -223,14 +223,12 @@ await page.evaluate(() => { const g = document.getElementById('grp-best'); if (!
 await page.waitForTimeout(1800);
 const anzeige = await page.evaluate(() => ({
   welt: [...document.querySelectorAll('#world-list li')].map((l) => l.textContent.trim()),
-  zaehler: document.querySelector('#own-count').textContent,
   weltZahl: document.querySelector('#world-count').textContent,
   schalter: document.querySelector('#opt-world').checked,
 }));
 console.log(anzeige);
 pruefe(anzeige.welt.some((z) => z.includes(String(rekord1))),
   'der Weltrekord muesste in der Liste stehen');
-pruefe(anzeige.zaehler.includes('1'), 'der eigene Zaehler muesste 1 Partie zeigen');
 pruefe(/\d/.test(anzeige.weltZahl), 'die Weltzahl muesste eine Zahl zeigen');
 
 console.log('\n=== 3. Bessere Partie: neue Nummer, Zeiger nachgezogen ===');

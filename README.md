@@ -526,18 +526,24 @@ eine zweite. Dass die Marke gefallen ist, sagt die Farbe (siehe unten). Gemessen
 `check-ueberlauf.mjs`, dessen Weltliste ohnehin den breitesten Fall stellt: sechsstellige Zahl
 plus Kürzel, in drei Sprachen, vier Breiten ab 320 px und allen vier Stilen.
 
-### Bestwerte dieses Geräts gibt es nicht mehr
+### Auf dem Gerät steht nichts mehr
 
 Bis 1.17 führte das Spiel neben dem Weltrekord eine zweite Liste: den eigenen Bestwert je
-Stufe, auf dem Gerät gespeichert. Sie ist seit 1.18 **ersatzlos weg**, mitsamt ihrer Anzeige,
-ihrer eigenen Feier und ihrem Eintrag im `localStorage` (`zp.best.v2` wird beim Start einmal
-weggeräumt). Zwei Ranglisten nebeneinander waren eine zuviel, und die kleinere war die, die
-außer einem selbst nie jemand sieht. Was bleibt, ist eine Strichliste ohne Rangfolge: wie
-viele Partien auf diesem Gerät gespielt und gewonnen wurden. Das ist kein Rekord, das ist ein
-Zähler.
+Stufe, auf dem Gerät gespeichert. Dazu kam eine Strichliste, wie viele Partien hier gespielt
+und gewonnen wurden. Beides ist weg – die Bestwerte mit 1.18, die Strichliste mit 1.19 –,
+mitsamt Anzeige, eigener Feier und den Einträgen im `localStorage`: `zp.best.v2` und
+`zp.count.v1` werden beim Start einmal weggeräumt.
+
+Der Grund ist derselbe wie beim Feld: zwei Ranglisten nebeneinander waren eine zuviel, und die
+kleinere war die, die außer einem selbst nie jemand sieht. Es gibt jetzt genau eine Rangliste,
+und die steht online. In den Einstellungen bleibt darum nur, was mit ihr zu tun hat: die
+Weltrekorde je Stufe, die weltweite Zahl der Partien, der Schalter – und das **Kürzel**, das
+Einzige in der Gruppe, das noch auf dem Gerät liegt. Es muss dort liegen: ohne Konto gibt es
+keinen anderen Ort, an dem eine Unterschrift stehen könnte.
 
 Damit hängt alles an einer Marke – und das macht die Oberfläche einfacher, nicht ärmer: ein
-Band im Enddialog statt zwei, eine Feier statt zwei Größen, ein Kürzel statt eines je Stufe.
+Band im Enddialog statt zwei, eine Feier statt zwei Größen, ein Kürzel statt eines je Stufe,
+eine Liste statt zweier mit Überschriften dazwischen.
 
 ### Zwei antippbare Kärtchen
 
@@ -609,8 +615,7 @@ nicht mehr geschaut, ob die Klasse gesetzt ist, sondern was der Browser daraus r
 ## Weltweite Zähler
 
 In den Einstellungen unter **Weltrekorde** steht der Weltrekord je Stufe – mit dem Kürzel
-dessen, der ihn hält –, dazu die Zahl der weltweit gespielten und gewonnenen Partien und, als
-eigene Strichliste, wie viele Partien auf diesem Gerät gespielt und gewonnen wurden. Ohne Anmeldung, ohne Konto, ohne Gerätemerkmal:
+dessen, der ihn hält –, dazu die Zahl der weltweit gespielten und gewonnenen Partien. Ohne Anmeldung, ohne Konto, ohne Gerätemerkmal:
 hinaus geht ein Zählimpuls, und bei einem **Weltrekord** der Punktestand samt Stufe und den
 drei Zeichen, die der Spieler selbst gesetzt hat. Ein Schalter in derselben Gruppe stellt das
 ganz ab; dann geht keine einzige Anfrage hinaus – und ohne eigenes Kürzel geht auch keines

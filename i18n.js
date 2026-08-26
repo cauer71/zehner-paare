@@ -190,16 +190,13 @@ const TEXTE = {
     'set.groupSound': 'Ton & Vibration',
     'set.groupLanguage': 'Sprache',
     'set.groupBest': 'Weltrekorde',
-    'set.bestHere': 'Auf diesem Gerät',
     // Kuerzel in der Bestenliste: drei Zeichen, mehr passt nicht in die Spalte
     'set.initials': 'Dein Kürzel',
     'set.initialsNote': 'Drei Zeichen, Buchstaben oder Ziffern. Stellst du einen '
       + 'Weltrekord auf, stehen sie in der Weltliste daneben. Sonst bleiben sie auf '
       + 'diesem Gerät.',
-    'set.bestWorld': 'Weltweit',
     'set.optWorld': 'Weltweit mitzählen',
     'set.worldNote': 'Hinaus geht nur, was gezählt wird: eine Partie, ein Sieg – und bei einem Weltrekord der Punktestand samt Stufe und dein Kürzel. Kein Gerät, keine Kennung, kein Konto; die IP-Adresse sieht der Dienst wie jeder Server im Netz. Weil niemand angemeldet ist, kann jeder eintragen, was er will: nimm die Weltwerte als Anhaltspunkt, nicht als Urkunde.',
-    'set.ownCount': 'Hier gespielt: {n} · gewonnen: {g}',
     'set.worldCount': 'Weltweit gespielt: {n} · gewonnen: {g}',
     'set.worldGames': 'Weltweit gespielt: {n}',
     'set.worldWaiting': 'Noch keine Weltwerte geladen.',
@@ -405,15 +402,12 @@ const TEXTE = {
     'set.groupSound': 'Audio e vibrazione',
     'set.groupLanguage': 'Lingua',
     'set.groupBest': 'Record mondiali',
-    'set.bestHere': 'Su questo dispositivo',
     'set.initials': 'La tua sigla',
     'set.initialsNote': 'Tre caratteri, lettere o cifre. Se stabilisci un record '
       + 'mondiale compaiono accanto a esso nella lista mondiale. Altrimenti restano '
       + 'su questo dispositivo.',
-    'set.bestWorld': 'Nel mondo',
     'set.optWorld': 'Conta nel mondo',
     'set.worldNote': 'Esce solo ciò che viene contato: una partita, una vittoria – e per un record mondiale il punteggio con il livello e la tua sigla. Nessun dispositivo, nessun codice, nessun account; l’indirizzo IP lo vede il servizio come ogni server in rete. Poiché nessuno è registrato, chiunque può scrivere ciò che vuole: prendi i valori mondiali come indicazione, non come certificato.',
-    'set.ownCount': 'Giocate qui: {n} · vinte: {g}',
     'set.worldCount': 'Giocate nel mondo: {n} · vinte: {g}',
     'set.worldGames': 'Giocate nel mondo: {n}',
     'set.worldWaiting': 'Valori mondiali non ancora caricati.',
@@ -617,15 +611,12 @@ const TEXTE = {
     'set.groupSound': 'Sound & vibration',
     'set.groupLanguage': 'Language',
     'set.groupBest': 'World records',
-    'set.bestHere': 'On this device',
     'set.initials': 'Your initials',
     'set.initialsNote': 'Three characters, letters or digits. Set a world record and '
       + 'they appear next to it in the world list. Otherwise they stay on this '
       + 'device.',
-    'set.bestWorld': 'Worldwide',
     'set.optWorld': 'Count worldwide',
     'set.worldNote': 'Only what gets counted goes out: a game, a win – and for a world record the score together with the level and your initials. No device, no identifier, no account; the service sees your IP address like any server on the net. Since nobody signs in, anyone can write anything: treat the world figures as a pointer, not a certificate.',
-    'set.ownCount': 'Played here: {n} · won: {g}',
     'set.worldCount': 'Played worldwide: {n} · won: {g}',
     'set.worldGames': 'Played worldwide: {n}',
     'set.worldWaiting': 'World figures not loaded yet.',
