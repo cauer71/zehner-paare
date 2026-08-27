@@ -194,6 +194,46 @@ node tools/make-icons.mjs      # Icons, maskierbare Varianten, iOS-Startbilder
 python3 tools/optimize-pngs.py # auf 256 Farben verkleinern
 ```
 
+## Veröffentlichen
+
+Die Seite liegt auf **GitHub Pages** (`.github/workflows/pages.yml`, bei jedem Push auf `main`)
+und lässt sich zusätzlich auf **Cloudflare Workers** ausliefern – dort als reine
+Datei-Auslieferung, ohne Worker-Skript davor.
+
+| Feld im Cloudflare-Assistenten | Wert |
+|---|---|
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
+
+`npm run build` legt `dist/` an: alle Dateien der obersten Ebene mit den Endungen `.html`,
+`.js`, `.css`, `.webmanifest` (ohne Tests), dazu `icons/` und `fonts/`. Kopiert wird nach
+dieser **Regel** und nicht nach einer Liste – eine Liste müsste man pflegen, und eine neue
+CSS-Datei wäre irgendwann vergessen und die Seite im Netz halb kaputt.
+
+Zwei Dinge, die dabei auffielen und beide gemessen sind:
+
+* **Das Projektverzeichnis selbst darf nicht das Asset-Verzeichnis sein.** `wrangler` legt
+  sein `.wrangler/` mitten hinein, beobachtet den Ordner gleichzeitig und lädt den lokalen
+  Server dann endlos neu („Reloading local server“ ohne Ende), bis er auf keine Anfrage mehr
+  antwortet. Mit `dist/` daneben ist Ruhe – und Werkzeuge, Tests und README gehen ohnehin
+  nicht mit hinaus.
+* **`/index.html` beantwortet Cloudflare mit einer 307 auf `/`** (`html_handling:
+  auto-trailing-slash`). Der Service Worker legt genau diese Adresse in seinen
+  Offline-Speicher, und ein Speicher, der zur Hälfte fehlschlägt, gilt in `sw.js`
+  ausdrücklich als gar keiner. Nachgesehen mit einem echten Browser gegen `wrangler dev`:
+  der Arbeiter meldet sich an, wird `activated` und legt seine 22 Dateien an, `/index.html`
+  darunter. Die Umleitung stört also nicht.
+
+Die Domain hängt man im Dashboard an den Worker (**Settings → Domains & Routes → Add →
+Custom domain**) und nicht in `wrangler.jsonc`: so lässt sie sich ändern, ohne den Code
+anzufassen. Alle Pfade im Projekt sind relativ (`./`), die Seite läuft deshalb genauso im
+Wurzelverzeichnis einer eigenen Domain wie im Unterordner von GitHub Pages.
+
+Was beim Umzug **nicht** mitkommt: `localStorage` gehört zur Herkunft, auf einer neuen Domain
+fängt das Spiel also ohne Spielstand, ohne Einstellungen und ohne Kürzel an. Die Weltrekorde
+sind davon unberührt – die liegen beim Zählerdienst unter einem eigenen Namensraum, nicht am
+Gerät und nicht an der Domain.
+
 ## Entwicklung
 
 Keine Abhängigkeiten, kein Bundler. Lokal starten:
@@ -230,7 +270,8 @@ npm run gen:manifests  # die drei Manifeste aus i18n.js neu schreiben
 | `classic.css`, `material3.css`, `m3-colors.css`, `arcade.css`, `papier.css` | die vier Stile und die erzeugten M3-Farbrollen |
 | `sw.js` | Offline-Cache |
 | `manifest.{de,it,en}.webmanifest` | erzeugt aus `i18n.js`, je Sprache eines |
-| `tools/` | Erzeuger (M3-Farbrollen, Pixelschrift, Handschrift, Pixel-Icons, App-Icons, Manifeste) und Prüfungen (`check-ueberlauf.mjs`, `check-platz.mjs`, `check-welt.mjs`) |
+| `tools/` | Erzeuger (M3-Farbrollen, Pixelschrift, Handschrift, Pixel-Icons, App-Icons, Manifeste, `build-dist.mjs`) und Prüfungen (`check-ueberlauf.mjs`, `check-platz.mjs`, `check-welt.mjs`) |
+| `wrangler.jsonc` | Cloudflare Workers: liefert `dist/` als Dateien aus, ohne Worker-Skript |
 
 Die Logik in `game.js` kennt kein DOM: `createGame`, `canMatch`, `applyMatch`, `refill`,
 `rescue`, `nextRound`, `findPair`, `undo`. Wer eine andere Oberfläche bauen will, braucht nur

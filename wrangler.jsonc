@@ -1,0 +1,31 @@
+/**
+ * Cloudflare Workers: Zehner-Paare als reine Datei-Auslieferung.
+ *
+ * Das Spiel ist eine statische Seite ohne Build-Schritt - es gibt also auch
+ * hier kein "main"-Skript, nur "assets". Cloudflare liefert die Dateien dann
+ * direkt aus, ohne dass ein Worker davor laeuft.
+ *
+ * Ausgeliefert wird dist/ und nicht der Projektordner. Der Grund steht in
+ * tools/build-dist.mjs: wrangler legt sein eigenes .wrangler/ mitten hinein
+ * und dreht sich dann beim lokalen Server endlos im Kreis - und Werkzeuge,
+ * Tests und README haben auf der Spielseite ohnehin nichts verloren.
+ *
+ * Der Ordner entsteht mit "npm run build". Genau das gehoert bei Cloudflare
+ * in das Feld "Build command"; im Feld "Deploy command" steht
+ * "npx wrangler deploy".
+ *
+ * Die Domain haengt man im Dashboard an den Worker (Settings -> Domains &
+ * Routes -> Add -> Custom domain). Sie steht bewusst nicht hier: dann kann
+ * man sie aendern, ohne den Code anzufassen.
+ */
+{
+  "name": "zehner-paare",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./dist",
+    // Eine einzelne Seite ohne eigene Adressen: was es nicht gibt, ist ein
+    // 404 und keine stillschweigende Umleitung auf index.html.
+    "not_found_handling": "none",
+    "html_handling": "auto-trailing-slash"
+  }
+}
