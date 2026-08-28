@@ -764,6 +764,18 @@ Zwei Dinge, die beim Bauen auffielen und beide gemessen sind:
   für einen Satz zu eng gebaut, im Arcade-Stil (Versalien, 16 px) brach er auf drei Zeilen um –
   in zwei Sprachen bei drei Breiten. Jetzt steht er als Notiz **neben** der Liste, und die
   leere Liste bleibt leer.
+* **Ein schwebender Knopf muss dicht sein.** Das Schließen-Kreuz im Blatt liegt `absolute` über
+  dem scrollenden Körper und war durchsichtig. Beim Scrollen schob sich der Pfeil einer
+  aufgeklappten Gruppe genau darunter – zwei cyanfarbene Symbole übereinander, die wie ein
+  **doppelt gezeichnetes Kreuz** aussahen. Gemeldet aus dem Spiel, mit Bild. Der Knopf bekommt
+  jetzt die Farbe des Blattes: unsichtbar, aber deckend. Rechteckig und nicht rund – eine
+  Rundung wäre bei gleicher Farbe zwar auch unsichtbar, ließe aber die vier Ecken des
+  44er-Quadrats frei, und genau dort ragte der Pfeil wieder heraus. `material3` blendet das
+  Kreuz ohnehin aus (dort genügen Griff, Hintergrund und Esc) und war nie betroffen.
+  Der Überlaufcheck stellt jetzt als sechste Frage, ob ein Knopf über einem scrollenden Bereich
+  wirklich deckt – gemessen wird die Deckkraft und nicht die Überschneidung, denn die tritt nur
+  bei einem bestimmten Scrollstand auf, die Durchsichtigkeit dagegen immer. Gegengeprobt: ohne
+  die Reparatur meldet er alle drei Stile in beiden Blättern.
 * **Die Bestenliste brauchte keine einzige neue CSS-Regel.** Rang, Kürzel und Punkte sind
   dieselbe Zeilenform wie die Rekorde darüber, und `.best-list` gab es schon in allen vier
   Stilen. Die vier Stylesheets sind vom ganzen Umbau unberührt.

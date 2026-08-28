@@ -862,7 +862,21 @@ body::before {
 .sheet::backdrop, .dialog::backdrop { background: rgba(0, 0, 0, .82); backdrop-filter: none; }
 .sheet:focus, .dialog:focus { outline: none; }
 
-.sheet__close { position: absolute; top: 10px; right: 10px; z-index: 2; }
+/* Der Knopf schwebt ueber dem scrollenden Koerper - also muss er DICHT sein.
+   Vorher war er durchsichtig, und beim Scrollen schob sich der Pfeil einer
+   aufgeklappten Gruppe genau unter das Kreuz: zwei cyanfarbene Symbole
+   uebereinander, die wie ein doppelt gezeichnetes Kreuz aussahen. Die Farbe
+   ist die des Blattes selbst, das Aussehen aendert sich also nicht - nur
+   scheint jetzt nichts mehr durch. Die Polsterung des Koerpers (>= 16 px) ist
+   groesser als der Abstand des Knopfs zum Rand (10 px), damit deckt seine
+   Flaeche die ganze Ecke ab.
+
+   Rechteckig und nicht rund: die Farbe ist die des Blattes, eine Rundung
+   waere also unsichtbar - sie liesse aber die vier Ecken des 44er-Quadrats
+   frei, und genau dort ragte der Pfeil wieder heraus (seine untere rechte
+   Ecke liegt 26 px vom Mittelpunkt, der Kreis hat 22). */
+.sheet__close { position: absolute; top: 10px; right: 10px; z-index: 2;
+                background: var(--black); }
 .sheet > .sheet__close { display: grid; }
 .sheet__body { padding: 16px; overflow-y: auto; }
 .sheet__headline {

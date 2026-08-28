@@ -1,7 +1,7 @@
 /**
  * Die Abnahmepruefung fuer "der Text verlaesst sein Feld nie".
  *
- * Fuenf Fragen je Zustand, alle ohne Auslegungsspielraum:
+ * Sechs Fragen je Zustand, alle ohne Auslegungsspielraum:
  *   1. Scrollt die Seite waagrecht? Dann ist irgendwo etwas zu breit. Diese
  *      Frage ist die wichtigste: bei 1fr-Rasterspalten und flex:1 waechst
  *      nicht der Knopf ueber seinen Rand, sondern die Spur - und damit die
@@ -15,7 +15,12 @@
  *      ist mal 'normal' und mal eine Zahl, damit rechnet man sich falsch.
  *   4. Verlaesst eine Einblendung den Meldungsstreifen ueber dem Brett? Dass
  *      sie das nicht tut, war eine Beschwerde aus dem Spiel.
- *   5. Liegt eine Kachel ausserhalb des Bretts? Nach mehrmaligem Auffuellen
+ *   5. Ist ein Knopf, der ueber einem scrollenden Bereich schwebt, wirklich
+ *      dicht? Das Schliessen-Kreuz im Blatt war durchsichtig, und beim
+ *      Scrollen schob sich der Pfeil einer aufgeklappten Gruppe darunter -
+ *      zwei Symbole uebereinander, die wie ein doppeltes Kreuz aussahen.
+ *      Auch das eine Beschwerde aus dem Spiel, mit Bild.
+ *   6. Liegt eine Kachel ausserhalb des Bretts? Nach mehrmaligem Auffuellen
  *      lagen die angehaengten Zeilen unter der Flaeche des Bretts - auch das
  *      eine Beschwerde aus dem Spiel, mit Bild.
  *
@@ -161,6 +166,30 @@ const PRUEFEN = (felder) => {
                                  text: (el.textContent || '').trim(), sel });
     }
   }
+  // Ein Knopf, der ueber einem scrollenden Bereich schwebt, muss DICHT sein.
+  // Das Schliessen-Kreuz im Blatt war durchsichtig, und beim Scrollen schob
+  // sich der Pfeil einer aufgeklappten Gruppe genau darunter: zwei Symbole
+  // uebereinander, die wie ein doppelt gezeichnetes Kreuz aussahen. Gemessen
+  // wird die Deckkraft und nicht die Ueberschneidung selbst - die tritt nur
+  // bei einem bestimmten Scrollstand auf, die Durchsichtigkeit dagegen immer.
+  for (const sel of ['.sheet__close']) {
+    for (const el of document.querySelectorAll(sel)) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      // Nur wenn wirklich etwas darunter scrollen kann.
+      const drunter = el.parentElement?.querySelector('.sheet__body');
+      if (!drunter || getComputedStyle(drunter).overflowY !== 'auto') continue;
+      const a = cs.backgroundColor.match(/[\d.]+/g);
+      const dicht = a && (a.length < 4 || parseFloat(a[3]) >= 1);
+      if (!dicht) {
+        funde.push({ art: 'schwebt-durchsichtig', um: 1, wo: sel, sel,
+                     text: `${cs.backgroundColor} - was darunter scrollt, scheint durch` });
+      }
+    }
+  }
+
   // Liegt eine Kachel ausserhalb des Bretts? Mit align-items:stretch bekam das
   // Feld genau die sichtbare Hoehe, und jede Zeile, die durch Auffuellen
   // dazukam, lag unter seiner Flaeche: Kacheln ohne Brett darunter, die
