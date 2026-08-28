@@ -781,6 +781,13 @@ Reihe aufgehoben; damit gibt es vom ersten Tag an eine Bestenliste statt nur ein
 Spitzenwerts. Die Spalte `wann` bleibt `NULL`: einen Zeitpunkt hat der alte Dienst nie
 gespeichert, und ein erfundenes Datum wäre schlimmer als gar keines.
 
+Die Übernahme ist **gegen ein zweites Ausführen abgesichert** (`WHERE NOT EXISTS`, und die
+Zähler mit `DO NOTHING` statt `DO UPDATE`). `wrangler d1 migrations apply` merkt sich zwar, was
+schon gelaufen ist – wer die Datei aber von Hand in die D1-Konsole des Dashboards einfügt, geht
+an diesem Gedächtnis vorbei und hätte danach jeden Rekord doppelt und beim nächsten regulären
+Lauf die Zähler auf den Stand der Übernahme zurückgesetzt. Nachgemessen: zweimal eingespielt,
+danach immer noch 18 Rekorde, und ein inzwischen weitergelaufener Zähler blieb stehen.
+
 Der erste Abzug war **falsch**, und beinahe wäre ein halber Datenbestand migriert worden: das
 Abzugswerkzeug hat jede Antwort ungleich 200 als „diesen Schlüssel gibt es nicht“ gewertet –
 die Drosselung des Dienstes (429) sah für es genauso aus wie ein fehlender Wert. Damit fielen
