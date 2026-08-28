@@ -25,9 +25,15 @@ permissions:
 jobs:
   live:
     runs-on: ubuntu-latest
+    # Beide OHNE Schlussstrich. Mit einem hatte "$SEITE/api/welt" zwei
+    # Striche ergeben, und //api/welt beginnt nicht mit /api/ - der Ruf ging
+    # also an die Dateien statt an die Schnittstelle. Die CORS-Pruefung fiel
+    # dadurch zu Recht durch; die 404-Pruefung auf /worker.js und der
+    # Bestandsvergleich aber BESTANDEN, ohne etwas zu pruefen. Darum die Regel:
+    # der Strich steht an der Verwendung, nie in der Variablen.
     env:
-      SEITE: https://10.auer.page/
-      PAGES: https://cauer71.github.io/zehner-paare/
+      SEITE: https://10.auer.page
+      PAGES: https://cauer71.github.io/zehner-paare
     steps:
       - uses: actions/checkout@v4
 
@@ -37,12 +43,20 @@ jobs:
           for ort in "$SEITE" "$PAGES"; do
             echo "$ort"
             for datei in "" app.js online.js i18n.js sw.js manifest.de.webmanifest; do
-              code=$(curl -sS -m 20 -o /tmp/d -w '%{http_code}' "$ort$datei" || echo 000)
+              code=$(curl -sS -m 20 -o /tmp/d -w '%{http_code}' "$ort/$datei" || echo 000)
               echo "  $code  ${datei:-index.html}  $(wc -c < /tmp/d) Bytes"
             done
             echo -n "  Fassung: "
             curl -sS -m 20 "$ort/app.js" | grep -m1 "export const VERSION" || echo "NICHT GEFUNDEN"
           done
+          echo
+          echo "Die Schnittstelle muss unter GENAU einem Strich liegen:"
+          for pfad in "/api/welt" "//api/welt"; do
+            code=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$SEITE$pfad" || echo 000)
+            echo "  $code  $pfad"
+          done
+          test "$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$SEITE/api/welt")" = "200"
+
           echo
           echo "Der Servercode darf nicht ausgeliefert werden:"
           code=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$SEITE/worker.js" || echo 000)
@@ -109,7 +123,7 @@ jobs:
               if (r.url().includes('/api/')) rufe.push(`${r.request().method()} ${r.status()} ${r.url()}`);
             });
 
-            await page.goto(adresse, { waitUntil: 'load' });
+            await page.goto(adresse + '/', { waitUntil: 'load' });
             await page.waitForTimeout(4000);
 
             const sicht = await page.evaluate(() => ({
