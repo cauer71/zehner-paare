@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Spiellogik, Woerterbuecher und Kuerzel-Umrechnung testen
+      - name: Spiellogik, Woerterbuecher und die Grenze zur Datenbank testen
         run: npm test
 
   deploy:

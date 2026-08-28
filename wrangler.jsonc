@@ -21,8 +21,30 @@
 {
   "name": "zehner-paare",
   "compatibility_date": "2025-09-01",
+
+  // Seit der Weltrangliste in D1 liegt, steht ein Skript davor. Es beantwortet
+  // /api/* und reicht alles andere an die Dateien weiter.
+  "main": "worker.js",
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "zehner-paare",
+      // >>> HIER die ID der angelegten D1-Datenbank eintragen. <<<
+      // Sie steht im Dashboard unter Storage & Databases -> D1 -> zehner-paare,
+      // oder kommt aus "npx wrangler d1 create zehner-paare".
+      "database_id": "HIER_DIE_DATENBANK_ID_EINTRAGEN",
+      // Gehoert in die Bindung und nicht auf die oberste Ebene - dort meldet
+      // wrangler es als unbekanntes Feld und ignoriert es stillschweigend.
+      "migrations_dir": "migrations"
+    }
+  ],
+
   "assets": {
     "directory": "./dist",
+    // Damit das Skript die Dateien selbst ausliefern kann, statt dass etwas
+    // dazwischen raet, was Datei ist und was Schnittstelle.
+    "binding": "ASSETS",
     // Eine einzelne Seite ohne eigene Adressen: was es nicht gibt, ist ein
     // 404 und keine stillschweigende Umleitung auf index.html.
     "not_found_handling": "none",

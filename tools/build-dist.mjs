@@ -14,9 +14,14 @@
  *      verloren.
  *
  * Kopiert wird nach einer REGEL und nicht nach einer Liste: alle Dateien der
- * obersten Ebene mit den Endungen unten, ausser Tests - dazu icons/ und
- * fonts/ vollstaendig. Eine Liste muesste man pflegen; eine neue CSS-Datei
- * waere sonst irgendwann vergessen und die Seite im Netz halb kaputt.
+ * obersten Ebene mit den Endungen unten, ausser Tests und dem Worker - dazu
+ * icons/ und fonts/ vollstaendig. Eine Liste muesste man pflegen; eine neue
+ * CSS-Datei waere sonst irgendwann vergessen und die Seite im Netz halb
+ * kaputt.
+ *
+ * worker.js faellt ausdruecklich heraus: das ist Servercode, den Cloudflare
+ * buendelt und ausfuehrt. Als ausgelieferte Datei danebenzuliegen waere
+ * bestenfalls verwirrend.
  */
 import { readdir, rm, mkdir, cp, stat } from 'node:fs/promises';
 import { dirname, extname, join } from 'node:path';
@@ -25,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ZIEL = join(ROOT, 'dist');
 const ENDUNGEN = new Set(['.html', '.js', '.css', '.webmanifest']);
+const NICHT = new Set(['worker.js']);
 const ORDNER = ['icons', 'fonts'];
 
 await rm(ZIEL, { recursive: true, force: true });
@@ -32,7 +38,7 @@ await mkdir(ZIEL, { recursive: true });
 
 const dabei = [];
 for (const name of await readdir(ROOT)) {
-  if (name === 'dist' || name.endsWith('.test.js')) continue;
+  if (name === 'dist' || name.endsWith('.test.js') || NICHT.has(name)) continue;
   if (!ENDUNGEN.has(extname(name))) continue;
   if (!(await stat(join(ROOT, name))).isFile()) continue;
   await cp(join(ROOT, name), join(ZIEL, name));

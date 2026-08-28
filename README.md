@@ -160,7 +160,7 @@ rasten sie in vier Stufen ein, auf dem Papier werden die Ziffern geschrieben.
   alles andere fällt weg – die Zeichenmenge ist die der eigenen Pixelschrift, und was die
   nicht kennt, stünde im Arcade-Stil still als leerer Rahmen da. Wer einen **Weltrekord**
   aufstellt, nimmt sein Kürzel mit in die Weltliste – sonst bleibt es auf dem Gerät (siehe
-  [Weltweite Zähler](#weltweite-zähler)).
+  [Die Weltrangliste](#die-weltrangliste)).
 
 Die **Einstellungen** stehen in fünf aufklappbaren Gruppen – Spiel, Darstellung, Ton &
 Vibration, Sprache, Weltrekorde. Vorher war es eine Liste von sieben Abschnitten am Stück, die
@@ -196,9 +196,10 @@ python3 tools/optimize-pngs.py # auf 256 Farben verkleinern
 
 ## Veröffentlichen
 
-Die Seite liegt auf **GitHub Pages** (`.github/workflows/pages.yml`, bei jedem Push auf `main`)
-und lässt sich zusätzlich auf **Cloudflare Workers** ausliefern – dort als reine
-Datei-Auslieferung, ohne Worker-Skript davor.
+Die Seite liegt an zwei Orten: auf **<https://10.auer.page>** (Cloudflare Workers, dort auch
+die Datenbank hinter der Weltrangliste) und auf **GitHub Pages**
+(`.github/workflows/pages.yml`, bei jedem Push auf `main`). Die Pages-Fassung holt ihre
+Weltzahlen über Kreuz von `10.auer.page`; sonst sind beide dieselbe Datei.
 
 | Feld im Cloudflare-Assistenten | Wert |
 |---|---|
@@ -208,7 +209,9 @@ Datei-Auslieferung, ohne Worker-Skript davor.
 `npm run build` legt `dist/` an: alle Dateien der obersten Ebene mit den Endungen `.html`,
 `.js`, `.css`, `.webmanifest` (ohne Tests), dazu `icons/` und `fonts/`. Kopiert wird nach
 dieser **Regel** und nicht nach einer Liste – eine Liste müsste man pflegen, und eine neue
-CSS-Datei wäre irgendwann vergessen und die Seite im Netz halb kaputt.
+CSS-Datei wäre irgendwann vergessen und die Seite im Netz halb kaputt. Genau eine Ausnahme
+steht als Name im Werkzeug: `worker.js` ist Servercode und darf nicht unter den Dateien
+liegen, die jeder herunterladen kann. Die Abnahme prüft das eigens (`/worker.js` → 404).
 
 Zwei Dinge, die dabei auffielen und beide gemessen sind:
 
@@ -231,8 +234,18 @@ Wurzelverzeichnis einer eigenen Domain wie im Unterordner von GitHub Pages.
 
 Was beim Umzug **nicht** mitkommt: `localStorage` gehört zur Herkunft, auf einer neuen Domain
 fängt das Spiel also ohne Spielstand, ohne Einstellungen und ohne Kürzel an. Die Weltrekorde
-sind davon unberührt – die liegen beim Zählerdienst unter einem eigenen Namensraum, nicht am
-Gerät und nicht an der Domain.
+sind davon unberührt – die liegen in der Datenbank, nicht am Gerät und nicht an der Domain.
+
+Die Datenbank wird einmal angelegt und danach über Migrationen fortgeschrieben:
+
+```bash
+npx wrangler d1 create zehner-paare        # die database_id kommt in wrangler.jsonc
+npx wrangler d1 migrations apply zehner-paare            # lokal
+npx wrangler d1 migrations apply zehner-paare --remote   # in der Wolke
+```
+
+`migrations/` ist damit die Wahrheit über das Schema – nicht ein Zustand, den jemand einmal
+im Dashboard hergestellt hat und den niemand mehr nachvollziehen kann.
 
 ## Entwicklung
 
@@ -247,7 +260,8 @@ Regeltests (21 Stück, decken Nachbarschaften, Zeilenentfernung, Auffüllen, Und
 Serialisierung ab):
 
 ```bash
-npm test               # Regeltests, Woerterbuchtests und die Kuerzel-Umrechnung
+npm test               # Regeltests, Woerterbuchtests und die Grenze zur Datenbank
+npm run check:welt     # Weltrangliste gegen eine lokale D1 (braucht npx und playwright-core)
 npm run check:platz    # wie viel Platz hat jedes Feld? (braucht playwright-core)
 npm run check:ueberlauf  # laeuft irgendwo Text aus seinem Feld?
 npm run gen:manifests  # die drei Manifeste aus i18n.js neu schreiben
@@ -263,15 +277,17 @@ npm run gen:manifests  # die drei Manifeste aus i18n.js neu schreiben
 | `game.test.js` | Regeltests |
 | `app.js` | Oberfläche: Rendering, FLIP-Animationen, Ton, Speicher |
 | `i18n.js` | die drei Sprachen und der Platzhalter-Ersetzer |
-| `online.js` | die weltweiten Zähler (anonym, abschaltbar) |
+| `online.js` | die Weltrangliste von der Seite aus gesehen (anonym, abschaltbar) |
+| `worker.js` | die Weltrangliste von der Serverseite: zwei Adressen über D1 |
+| `migrations/` | das Datenbankschema und die Übernahme des alten Bestands |
 | `i18n.test.js` | prüft die Wörterbücher gegeneinander |
-| `online.test.js` | prüft die Umrechnung des Kürzels für die Weltliste |
+| `online.test.js` | prüft die zwei Grenzen zur Weltliste: was hineindarf, was angezeigt wird |
 | `index.html` | Markup inkl. Regel-, Einstellungs- und Enddialog |
 | `classic.css`, `material3.css`, `m3-colors.css`, `arcade.css`, `papier.css` | die vier Stile und die erzeugten M3-Farbrollen |
 | `sw.js` | Offline-Cache |
 | `manifest.{de,it,en}.webmanifest` | erzeugt aus `i18n.js`, je Sprache eines |
 | `tools/` | Erzeuger (M3-Farbrollen, Pixelschrift, Handschrift, Pixel-Icons, App-Icons, Manifeste, `build-dist.mjs`) und Prüfungen (`check-ueberlauf.mjs`, `check-platz.mjs`, `check-welt.mjs`) |
-| `wrangler.jsonc` | Cloudflare Workers: liefert `dist/` als Dateien aus, ohne Worker-Skript |
+| `wrangler.jsonc` | Cloudflare Workers: `worker.js` davor, `dist/` als Dateien dahinter, D1 daneben |
 
 Die Logik in `game.js` kennt kein DOM: `createGame`, `canMatch`, `applyMatch`, `refill`,
 `rescue`, `nextRound`, `findPair`, `undo`. Wer eine andere Oberfläche bauen will, braucht nur
@@ -685,138 +701,148 @@ nichts. Zu sehen war das nur im Bild; die Klassen standen korrekt am Element. Se
 nicht mehr geschaut, ob die Klasse gesetzt ist, sondern was der Browser daraus rechnet
 (`getComputedStyle`).
 
-## Weltweite Zähler
+## Die Weltrangliste
 
 In den Einstellungen unter **Weltrekorde** steht der Weltrekord je Stufe – mit dem Kürzel
-dessen, der ihn hält –, dazu die Zahl der weltweit gespielten und gewonnenen Partien. Ohne Anmeldung, ohne Konto, ohne Gerätemerkmal:
-hinaus geht ein Zählimpuls, und bei einem **Weltrekord** der Punktestand samt Stufe und den
-drei Zeichen, die der Spieler selbst gesetzt hat. Ein Schalter in derselben Gruppe stellt das
-ganz ab; dann geht keine einzige Anfrage hinaus – und ohne eigenes Kürzel geht auch keines
-hinaus, dann fehlt der Ruf einfach.
+dessen, der ihn hält –, dazu die Zahl der weltweit gespielten und gewonnenen Partien; der
+Weltrekord der eingestellten Stufe steht außerdem klein im Spielfeld. Ohne Anmeldung, ohne
+Konto, ohne Gerätemerkmal: hinaus geht, dass eine Partie gespielt und ob sie gewonnen wurde –
+und bei einem **Rekord** der Punktestand samt Stufe und den drei Zeichen, die der Spieler
+selbst gesetzt hat. Ein Schalter in derselben Gruppe stellt das ganz ab; dann geht keine
+einzige Anfrage hinaus.
 
-Der Dienst dahinter ist `abacus.jasoncameron.dev`, ein öffentlicher Zähler ohne Anmeldung und
-mit offenem CORS. Er war der einzige von acht geprüften Kandidaten, der ohne Schlüssel und ohne
-Anmeldung wirklich antwortet (jsonblob 403, kvdb.io „email required", counterapi 410/404,
-extendsclass 404, keyvalue.immanuel.co 411). Geprüft wurde auf einem GitHub-Läufer, weil die
-Entwicklungsumgebung nur an Paketregister und GitHub kommt.
+Dahinter liegt seit Fassung 1.21 eine **eigene Datenbank**: Cloudflare **D1** (SQLite) hinter
+einem Worker auf `10.auer.page`. Zwei Adressen, mehr braucht das Spiel nicht:
 
-Bevor das Kürzel in den Zähler gerechnet wurde, noch einmal nachgesehen, ob inzwischen ein
-Dienst die Liste **samt Namen** führen könnte. Ergebnis: es bleibt beim Zähler.
+| Adresse | Bedeutung |
+|---|---|
+| `GET /api/welt` | Weltrekord je Stufe samt Kürzel, dazu die beiden Zähler |
+| `POST /api/partie` | eine beendete Partie: zählt mit, trägt einen Rekord ein, **wenn** es einer ist – und antwortet mit demselben Stand wie `/api/welt` |
 
-* **dreamlo.com** wäre genau der richtige Dienst – Bestenlisten ohne Anmeldung, Name und Punkte,
-  offenes CORS, „derselbe Name zweimal → der höhere Wert gilt", alles über einfache
-  GET-Adressen. Nur liegen die kostenlosen Listen auf `http`, und **SSL kostet eine Spende**
-  („Want to use https (SSL)? Donate $5 or more and let me know"). Gemessen: über `https`
-  antwortet er `ERROR:SSL not enabled for this leaderboard.`, über `http` läuft der ganze
-  Ablauf durch. Eine Seite auf GitHub Pages ist `https`, und gemischte Inhalte blockiert jeder
-  Browser – damit fällt er aus, solange die Spende nicht geflossen ist. Dazu: höchstens 25
-  Einträge je Liste, und der private Code müsste im Quelltext stehen; wer ihn liest, kann die
-  Liste leeren.
-* **jsonblob.com** – voller JSON-Speicher, offenes CORS, kein Schlüssel – antwortet Nicht-Browsern
-  mit einer Cloudflare-Sperre (403), und ungenutzte Blobs verfallen.
-* **jsonstorage.net** („Create operation requires API key"), **json.extendsclass.com** („Wrong
-  API key"), **npoint.io** (500 beim Anlegen), **getpantry.cloud** (kein anonymes Anlegen) und
-  **keyvalue.immanuel.co** (API weg, 404) verlangen heute ein Konto oder existieren nicht mehr.
-* **LEADR, LootLocker, PlayFab, GameJolt** und ebenso **Firebase, Supabase oder ein eigener
-  Cloudflare-Worker** sind haltbar und für diese Größenordnung kostenlos – setzen aber ein Konto
-  und einen selbst betriebenen Dienst voraus. Das wäre der Weg für eine echte Top-10-Liste mit
-  Namen; für drei Zeichen neben dem Weltrekord braucht es ihn nicht.
+Das ist **ein** Ruf beim Start und **einer** am Partieende. Vorher waren es siebzehn und vier.
 
-**Ein Zähler kennt nur „plus eins" – wie steht dann ein genauer Punktestand darin?** Über den
-Startwert beim Anlegen: `create/:raum/:name?initializer=8450` legt einen Namen mit genau diesem
-Wert an und antwortet beim zweiten Mal mit 409, ohne den Wert anzutasten. Also zeigt ein Zähler
-`best-mittel-gen` auf die laufende Nummer des Rekords, und jede Nummer ist ein eigener Name
-`best-mittel-v3` mit dem Punktestand als Startwert. Wer gleichzeitig einträgt, bekommt 409 und
-versucht es beim nächsten Partieende erneut.
+### Warum überhaupt eine Datenbank
 
-**Und ein Kürzel? Der Dienst hält doch nur Zahlen.** Dann muss das Kürzel eine Zahl sein: drei
-Zeichen zur Basis 37, wobei 0 „kein Zeichen" heißt, 1–10 die Ziffern und 11–36 die Buchstaben
-sind. `CAU` wird so zu 18235, größter Wert ist 50652. Die Null muss frei bleiben, weil ein
-fehlender Zähler beim Lesen als 0 zurückkommt – „kein Kürzel" und `AAA` dürfen nicht dasselbe
-sein. Die Zahl liegt in einem eigenen Namen `best-mittel-k3` **neben** dem Punktestand und
-nicht in ihn hineingerechnet: in `best-mittel-v3` stehen Werte aus der Zeit vor dem Kürzel, und
-eine Zahl allein sagt nicht, nach welcher Regel sie zu lesen ist. So bleiben alte Rekorde
-gültig und haben eben kein Kürzel. Angelegt wird das Kürzel **vor** dem Nachziehen des Zeigers:
-wer den Rekord findet, findet den Namen dazu schon vorliegen. Geht der Ruf verloren, steht der
-Rekord ohne Namen da – der Punktestand ist die Pflicht, das Kürzel die Kür.
+Vorher lag die Weltliste in `abacus.jasoncameron.dev`, einem öffentlichen Zähler ohne
+Anmeldung und mit offenem CORS – dem einzigen von acht geprüften Diensten, der ohne Schlüssel
+wirklich antwortet (jsonblob 403, kvdb.io „email required“, counterapi 410/404, extendsclass
+404, keyvalue.immanuel.co 411; dreamlo wäre der richtige Dienst gewesen, liefert kostenlose
+Listen aber nur über `http`, und gemischte Inhalte blockiert jeder Browser). Er kann genau
+eines: **plus eins**. Was das gekostet hat, ist die eigentliche Begründung für den Umzug:
 
-Das kostet eine Anfrage je Stufe: Lesen sind jetzt 17 Anfragen (zwei Zähler, je Stufe Zeiger,
-Stand und Kürzel), ein neuer Rekord vier statt drei. Beides liegt unter der eigenen Bremse von
-18 je 10 Sekunden; wer die Weltrekorde zweimal kurz hintereinander aufschlägt, wartet ein paar
-Sekunden länger auf frische Zahlen, sieht aber sofort den letzten bekannten Stand.
+* Ein Punktestand musste als *Startwert* eines eigens angelegten Zählernamens hinein, ein
+  zweiter Zähler zeigte als laufende Nummer darauf, das Kürzel lag als Zahl **zur Basis 37**
+  daneben, und weil Schlüssel nach sechs Monaten verfallen, suchte das Lesen bis zu drei
+  Nummern zurück.
+* Für „lies den Höchststand, vergleiche, schreib nur wenn größer“ gab es keinen einzigen
+  Aufruf – das waren drei Rufe, zwischen denen alles passieren konnte, notdürftig
+  zusammengehalten von einem selbstgebauten Compare-and-Set über 409er. Zwei Regeln standen
+  dort nicht aus Vorsicht im Code, sondern weil ihr Fehlen den Rekord zerstört hätte: der
+  Zeiger durfte nur nachgezogen werden, wenn er wirklich hinterherhing (sonst zeigte er auf
+  eine Nummer, die es nicht gibt – und ab vier Schritten Abstand galt *jede* Punktzahl als
+  neuer Weltrekord), und ein bekannter Wert durfte nie durch einen kleineren ersetzt werden
+  (der Zeiger verfällt für sich allein, und dann liest sich der Rekord kurzzeitig zu klein).
+* Dazu eine eigene Bremse gegen die Drosselung des fremden Dienstes (30 Anfragen je 10
+  Sekunden, dann 429).
 
-Die Umrechnung selbst ist die einzige Stelle, an der aus Zeichen eine Zahl wird – und geht sie
-schief, steht in der Weltliste still ein falscher Name. Deshalb prüft sie
-[`online.test.js`](online.test.js) für **alle 47 988 möglichen Kürzel** (ein, zwei und drei
-Zeichen) auf den Rundweg, dazu die leere Eingabe, Kleinbuchstaben, Überlanges und
-unbrauchbare Werte vom Dienst. Der erste Wurf fiel dabei durch: `indexOf('')` gibt 0 und nicht
-−1, eine leere Stelle wurde damit zur `0` und aus dem leeren Kürzel die Zahl 1407.
+In SQL ist davon **ein Satz** übrig, und in ihm steckt der ganze Grund:
 
-Gemessene Grenzen, die den Entwurf bestimmt haben:
+```sql
+INSERT INTO rekorde (stufe, punkte, kuerzel, wann, herkunft)
+SELECT ?1, ?2, ?3, ?4, 'spiel'
+ WHERE ?2 > COALESCE((SELECT MAX(punkte) FROM rekorde WHERE stufe = ?1), 0)
+```
 
-* **30 Anfragen je 10 Sekunden je Adresse**, dann 429. Deshalb eine eigene Bremse (18 je 10 s,
-  120 ms Abstand) und nach einer 429 eine halbe Minute Funkstille. Ein Verfahren, das einen
-  Rekord durch wiederholtes „plus eins" hochzählt, wäre daran gescheitert.
-* **Ein Schlüssel lebt 6 Monate ab dem Anlegen.** Ein Zugriff verlängert das *nicht* – die Doku
-  behauptet das Gegenteil, gemessen ist es nicht so. Darum sucht das Lesen bis zu drei Nummern
-  zurück, und was fehlt, trägt der nächste Spieler wieder ein: der Eintrag heilt sich selbst.
-* Weltzahlen werden beim **Start** geholt und wenn jemand die Gruppe **Weltrekorde**
-  aufschlägt, in beiden Fällen höchstens alle fünf Minuten neu. Beim Start, seit der
-  Weltrekord im Spielfeld steht – vorher geschah es nur beim Aufschlagen. Geholt werden dann
-  gleich alle fünf Stufen: das kostet dieselbe Runde und deckt danach jeden Wechsel der
-  Schwierigkeit ab, ohne dass beim Umschalten eine leere Zeile stehen bliebe. Gewartet wird
-  auf nichts davon, wer nur spielen will, wartet auf niemanden.
-* Gelesen wird über `/info` und nicht über `/get`, obwohl beide dasselbe sagen: `/get`
-  antwortet auf einen unbekannten Namen mit 404, `/info` mit 200 und `"exists": false`. Beim
-  ersten Start existiert nichts, das wären also sieben rote 404-Zeilen in der Browserkonsole –
-  harmlos, aber sie sehen nach einem Fehler aus. So darf die Abnahme streng bleiben und
-  „keine Konsolenmeldung" verlangen.
+Lesen, Vergleichen und Schreiben passieren in derselben Anweisung. Zwei Spieler, die im selben
+Augenblick fertig werden, können sich hier nicht mehr gegenseitig überschreiben.
+
+### Warum nicht Workers KV
+
+Naheliegend, im selben Abonnement enthalten, und trotzdem falsch – aus drei Gründen, die alle
+in der Cloudflare-Doku stehen:
+
+* **Keine atomaren Operationen.** KV kennt kein „schreib nur, wenn größer“ und kein
+  Compare-and-Set. Damit wäre genau der Behelf zurück, der oben weggefallen ist.
+* **Am Ende konsistent, nicht sofort.** Ein Schreibvorgang ist weltweit erst nach bis zu einer
+  Minute überall sichtbar. Wer einen Rekord aufstellt und die Liste aufschlägt, sähe womöglich
+  den alten Stand – bei einem Spiel, in dem der Rekord der ganze Punkt ist.
+* **1000 Schreibvorgänge am Tag** im kostenlosen Rahmen, und je *ein* Schlüssel höchstens
+  einmal pro Sekunde.
+
+KV ist ein Zwischenspeicher für Dinge, die selten geschrieben und oft gelesen werden.
+Eine Bestenliste ist das Gegenteil.
+
+### Was übernommen wurde
+
+`migrations/0002_uebernahme.sql` ist **nicht abgetippt**, sondern aus einem Abzug des alten
+Dienstes erzeugt: **alle 18 Rekorde** aller fünf Stufen mit ihren Kürzeln – nicht nur der
+jeweils höchste – dazu die Zähler (115 Partien, 75 Siege). Der alte Dienst hatte die ganze
+Reihe aufgehoben; damit gibt es vom ersten Tag an eine Bestenliste statt nur eines
+Spitzenwerts. Die Spalte `wann` bleibt `NULL`: einen Zeitpunkt hat der alte Dienst nie
+gespeichert, und ein erfundenes Datum wäre schlimmer als gar keines.
+
+Der erste Abzug war **falsch**, und beinahe wäre ein halber Datenbestand migriert worden: das
+Abzugswerkzeug hat jede Antwort ungleich 200 als „diesen Schlüssel gibt es nicht“ gewertet –
+die Drosselung des Dienstes (429) sah für es genauso aus wie ein fehlender Wert. Damit fielen
+unter anderem der Klassisch-Rekord 1634/SES und fast alle Endlos-Einträge stillschweigend weg.
+Aufgefallen ist es nur, weil der Abzug gegen einen Bildschirmabzug der Anzeige gehalten wurde.
+Die Lehre steht jetzt im Werkzeug: 400 ms Abstand, fünf Wiederholungen mit wachsender Pause –
+und ein **Abbruch**, sobald ein Schlüssel unlesbar bleibt. Lieber kein Abzug als ein halber.
+
+### Was geprüft ist
+
+`npm test` prüft die zwei Grenzen, an denen Fremdes ins Spiel kommt.
+`pruefePartie()` in `worker.js` ist die einzige Stelle, an der etwas von außen in die
+Datenbank übergeht – was hier durchrutscht, steht anschließend für alle in der Weltliste.
+Bestanden wird deshalb auf dem **Typ** und nicht umgerechnet: `Number('')` ist 0 und
+`Number(null)` auch, beides wäre ein gültiger Punktestand gewesen, und `String(['mittel'])`
+ist `'mittel'` – ein Array hätte als Stufe durchgesehen. Die zweite Grenze ist
+`hoechster()`/`uebernehmen()` in `online.js`: ein Fehler dort lässt einen Rekord verschwinden,
+den es gibt, oder zeigt einen, den es nicht gibt.
+
+`npm run check:welt` startet eine **echte lokale D1** samt `wrangler dev`, spielt neun
+Abschnitte durch und räumt hinterher auf – der übernommene Bestand, eine schwache Partie
+(zählt mit, ändert nichts), ein echter Rekord samt großgeschriebenem Kürzel, fünf Formen von
+Unsinn (die mit 400 abgewiesen werden **und** nichts anfassen dürfen), unbekannte Adressen,
+`/worker.js` als 404, und im Browser: genau ein Ruf beim Start, der Weltrekord im Spielfeld,
+Schalter aus → kein einziger Ruf, Schnittstelle tot → trotzdem spielbar und ohne
+Konsolenmeldung.
+
+Der Abschnitt, wegen dem es die Datenbank gibt, ist der vierte: **drei Partien gehen im selben
+Augenblick ein** (6000/AAA, 7000/BBB, 6500/CCC). Danach muss der Rekord bei 7000 stehen, den
+Namen BBB tragen – und alle drei müssen gezählt sein. Ein gleich hoher Wert danach stiehlt den
+Namen nicht.
+
+Der neunte Abschnitt steht dort wegen eines Fehlers, den der Umzug **selbst** gemacht hat. Der
+Service Worker ließ bis dahin alles Fremde in Ruhe und speicherte alles Eigene – eine Regel,
+die genau so lange richtig war, wie die Weltzahlen von einem fremden Host kamen. Seit sie unter
+derselben Adresse liegen wie das Spiel, fiel `/api/welt` unter „eigen“: der Arbeiter legte die
+Antwort ab, und offline hätte er auf eine Frage nach Zahlen `index.html` gereicht. Der Kommentar
+über der Stelle hatte beides wörtlich vorhergesagt, nur hing die Bedingung an der Herkunft statt
+am Pfad. Jetzt hängt sie am Pfad, und die Prüfung sieht im Offline-Speicher nach, ob dort etwas
+mit `/api/` liegt. Gegengeprobt: ohne die eine Zeile fällt sie durch – eine Prüfung, die auch
+ohne den Fix besteht, prüft nichts.
+
+Die Vorgängerfassung dieser Prüfung war 591 Zeilen lang und prüfte zu neun Zehnteln Probleme,
+die es nicht mehr gibt: verfallende Schlüssel, die Drosselung, ein Zeiger, der seinem Stand
+vorausläuft. Sie ist mit dem Umzug auf 200 Zeilen geschrumpft – das ist der Umzug in einer
+Zahl.
+
+Und weil die Entwicklungsumgebung weder an `10.auer.page` noch an `cauer71.github.io` kommt
+(der Proxy weist beides mit 403 ab), gibt es dafür eine eigene Abnahme auf einem Läufer:
+[`.github/workflows/abnahme-live.yml`](.github/workflows/abnahme-live.yml) öffnet **beide**
+Adressen mit einem echten Browser und prüft, dass die Fassung stimmt, dass genau ein Leseruf
+hinausgeht, dass der Weltrekord im Feld steht und dass **keine einzige Konsolenmeldung**
+entsteht. Beide Adressen, weil die Pages-Fassung ihre Zahlen über Kreuz holt und damit an
+einem CORS-Kopf hängt, der sonst still ausfiele. Sie läuft nur auf Zuruf und **schreibt
+bewusst nichts**: ein Zählruf würde die Weltzahlen mit einer Partie füllen, die niemand
+gespielt hat. Vorher und nachher wird der Bestand gelesen und verglichen.
 
 **Was das nicht ist:** eine Wettkampfliste. Weil niemand angemeldet ist, kann jeder eintragen,
-was er will – das steht auch so in der Oberfläche. Und es ist ein Einzelstück ohne Zusage:
-fällt der Dienst aus, bleibt das Spiel unverändert spielbar, die Weltwerte fehlen dann einfach.
-Beides ist geprüft (`tools/check-welt.mjs`): der Dienst ist dort im Browser nachgebaut, mit
-genau der gemessenen Semantik, und dreizehn Abschnitte werden abgenommen – erster Rekord,
-besserer Rekord, schwächere Partie (samt Übernahme eines fremden, höheren Rekords),
-verfallener Schlüssel, 429, Netzausfall, abgeschalteter Schalter, die Anzeige selbst, eine
-Partie mit Rettung (die genau *einmal* zählen darf, obwohl das Spielende zweimal durchläuft),
-das Kürzel auf dem ganzen Weg (eintippen, hinausgehen, zurückkommen, angezeigt werden – dazu
-der alte Rekord ohne Kürzel, das leere Kürzel, das gar keinen Ruf auslösen darf, und ein
-unbrauchbarer Wert vom Dienst, der keine erfundenen Zeichen ergeben darf)
-und der Klemmfall: geht das Netz zwischen „Stand anlegen" und „Zeiger nachziehen" verloren,
-zeigt der Zeiger auf den alten Stand und jeder weitere Versuch trifft auf eine belegte Nummer.
-Wer dort aufgibt, kommt nie wieder durch – also wird die belegte Nummer gelesen, der Zeiger
-nachgeholt und eine Nummer weiter versucht.
-
-Zwei Regeln stehen dabei nicht aus Vorsicht im Code, sondern weil ihr Fehlen den Rekord
-zerstört hätte:
-
-* **Der Zeiger darf nur nachgezogen werden, wenn er wirklich hinterherhängt.** Tragen zwei
-  Browser gleichzeitig ein, bekommt einer die 409; erhöht *er* den Zeiger ebenfalls, zeigt
-  dieser auf eine Nummer, die es nicht gibt. Dieser Abstand heilt nicht von selbst und wächst
-  mit jedem Zusammenstoß – ab vier Schritten findet das Lesen nichts mehr, und dann gilt jede
-  beliebige Punktzahl als neuer Weltrekord. Also wird vorher noch einmal nachgesehen.
-* **Ein Weltrekord fällt nie.** Der Zeiger verfällt nach sechs Monaten für sich allein (er
-  wird einmal angelegt und danach nur erhöht, und Erhöhen verlängert die Frist nicht), während
-  die späteren Stände noch leben. Dann liest sich der Rekord kurzzeitig zu klein. Ein bekannter
-  Wert wird deshalb nie durch einen kleineren ersetzt.
-
-Und weil die Entwicklungsumgebung weder an `cauer71.github.io` noch an den Dienst kommt (der
-Proxy weist beides mit 403 ab), gibt es dafür eine eigene Abnahme auf einem Läufer:
-[`.github/workflows/abnahme-live.yml`](.github/workflows/abnahme-live.yml) öffnet die fertige
-Seite mit einem echten Browser, schlägt **Weltrekorde** auf und prüft, dass die Leserufe wirklich
-beim Dienst ankommen, dass die Fassung stimmt und dass **keine einzige Konsolenmeldung**
-entsteht. Sie läuft nur auf Zuruf und **schreibt bewusst nichts**: ein Zählruf würde die
-Weltzahlen mit einer Partie füllen, die niemand gespielt hat, und womöglich den ersten
-Weltrekord auf einen Botwert setzen. Nach dem Lauf wird nachgesehen, dass der Namensraum
-unberührt ist.
-
-Gefunden hat das eine gegnerische Durchsicht des fertigen Codes durch fünf unabhängige
-Leser mit verschiedenen Blickwinkeln (Protokoll, Ausfälle, Zählung, Privatheit, Oberfläche),
-deren Funde einzeln widerlegt werden mussten, bevor sie gelten durften: von zwanzig
-Behauptungen blieben acht übrig. Drei betrafen den Prüfstand selbst – unter anderem bestanden
-zwei Abschnitte aus dem falschen Grund, weil die Strafpause aus dem 429-Test noch nachwirkte.
-Eine Prüfung, die aus dem falschen Grund besteht, ist schlimmer als keine.
+was er will – das steht auch so in der Oberfläche. Die Punkteschranke im Worker (eine Million;
+der höchste je erreichte Stand lag bei 12 503) ist deshalb kein Schutz gegen Betrug, sondern
+gegen Unsinn. Und es ist ein Einzelstück ohne Zusage: fällt die Datenbank aus, bleibt das
+Spiel unverändert spielbar, die Weltwerte fehlen dann einfach.
 
 ## Schriften und Lizenzen
 

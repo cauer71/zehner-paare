@@ -13,7 +13,7 @@
    Darum: der eigene Programmcode wird immer am Browserspeicher vorbei geholt
    ('reload'). Schriften und Bilder nicht - die aendern sich praktisch nie und
    sind der groesste Teil der Ladung. */
-const CACHE = 'zehner-paare-1.20.0';
+const CACHE = 'zehner-paare-1.21.0';
 const ASSETS = [
   './', 'index.html',
   'classic.css', 'material3.css', 'm3-colors.css', 'arcade.css', 'papier.css',
@@ -55,12 +55,19 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  // Nur eigene Dateien anfassen. Die Weltzaehler liegen auf einem fremden
-  // Host: im Zwischenspeicher waeren sie sofort veraltet, und die
-  // Ausweichantwort index.html waere fuer eine Zahlenauskunft blanker Unsinn.
+  // Nur eigene DATEIEN anfassen - die Weltrangliste nicht. Im
+  // Zwischenspeicher waere sie sofort veraltet, und die Ausweichantwort
+  // index.html waere fuer eine Zahlenauskunft blanker Unsinn.
+  //
+  // Die Herkunft allein genuegt dafuer nicht mehr: seit die Rangliste in der
+  // eigenen Datenbank liegt, kommt /api/ vom SELBEN Host wie das Spiel. Die
+  // alte Regel "nur Fremdes durchlassen" haette sie also ab dem Umzug
+  // stillschweigend mitgespeichert - derselbe Gedanke, nur eine Zeile
+  // weiter unten.
   let url = null;
   try { url = new URL(e.request.url); } catch { return; }
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;
   // Beim Code die Adresse statt der Anfrage nehmen: aus einer Anfrage mit
   // mode 'navigate' laesst sich keine neue bauen, und mehr als ein schlichtes
   // GET auf eine eigene Datei ist es nicht.

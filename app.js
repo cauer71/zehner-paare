@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.20.0';
+export const VERSION = '1.21.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', seen: 'zp.seen.v1' };
 
@@ -2043,16 +2043,17 @@ function renderWorld() {
  * die Zeile im Punktekaertchen kommt nach, und ohne Netz bleibt der letzte
  * bekannte Stand stehen. Wer den Schalter ausmacht, schickt weiterhin nichts.
  *
- * Geholt werden ALLE Stufen auf einmal, nicht nur die gespielte: das kostet
- * dieselbe Runde (17 Anfragen, unter der eigenen Bremse) und deckt danach
- * fuenf Minuten lang jeden Wechsel der Schwierigkeit ab, ohne dass beim
- * Umschalten eine leere Zeile stehen bliebe.
+ * Geholt wird der ganze Stand, alle Stufen auf einmal - seit die
+ * Weltrangliste in einer Datenbank liegt, ist das EINE Anfrage statt der
+ * frueheren siebzehn. Damit deckt ein Ruf fuenf Minuten lang auch jeden
+ * Wechsel der Schwierigkeit ab, ohne dass beim Umschalten eine leere Zeile
+ * stehen bliebe.
  */
 let weltLaeuft = false;
 function weltFrischen() {
   if (!settings.world || weltLaeuft || !welt.veraltet()) return;
   weltLaeuft = true;
-  welt.lesen(Object.keys(DIFFICULTIES))
+  welt.lesen()
     .then((neu) => { if (neu) { renderWorld(); updateStats(); } })
     .catch(() => {})
     .finally(() => { weltLaeuft = false; });
