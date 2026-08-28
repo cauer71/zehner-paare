@@ -1,7 +1,9 @@
 # Zehner-Paare
 
-**Spielen: https://cauer71.github.io/zehner-paare/** – die Seite lässt sich auf Android und iOS
-zum Startbildschirm hinzufügen und läuft danach ohne Browserleiste und offline.
+**Spielen: https://10.auer.page** – die Seite lässt sich auf Android und iOS zum
+Startbildschirm hinzufügen und läuft danach ohne Browserleiste und offline. Dieselbe Fassung
+liegt auch auf [GitHub Pages](https://cauer71.github.io/zehner-paare/); dort fehlt nur die
+Datenbank, die Weltzahlen holt sie sich über Kreuz von `10.auer.page`.
 
 Ein Nachbau des klassischen Zahlen-Streichspiels (bekannt als *Number Match*, *Numberzilla*
 oder als Papier-Original *Take Ten*) als statische Web-App – ohne Build-Schritt, ohne
