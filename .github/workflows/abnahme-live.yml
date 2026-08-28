@@ -1,14 +1,18 @@
-# Abnahme der fertigen Seite gegen den echten Zaehlerdienst.
+# Abnahme der veroeffentlichten Seite gegen die echte Datenbank.
 #
 # Warum auf einem Laeufer: die Entwicklungsumgebung kommt weder an
-# cauer71.github.io noch an abacus.jasoncameron.dev (der Proxy weist beides mit
-# 403 ab). Hier laeuft ein echter Browser auf der echten Seite.
+# 10.auer.page noch an cauer71.github.io (der Proxy weist beides mit 403 ab).
+# Hier laeuft ein echter Browser auf der echten Seite.
 #
 # BEWUSST NUR LESEN. Ein Schreibruf wuerde die Weltzahlen mit einer Partie
-# fuellen, die niemand gespielt hat, und womoeglich den ersten Weltrekord auf
-# einen Botwert setzen. Geprueft wird darum: laedt die Seite, ist es die neue
-# Fassung, gehen die Leserufe wirklich an den Dienst, kommt eine gueltige
-# Antwort zurueck, bleibt der Namensraum danach unberuehrt.
+# fuellen, die niemand gespielt hat, und womoeglich einen Weltrekord auf einen
+# Botwert setzen. Geprueft wird darum: laedt die Seite, ist es die neue
+# Fassung, antwortet die Schnittstelle, steht der Weltrekord im Spielfeld -
+# und ist der Bestand danach unveraendert.
+#
+# Zwei Adressen, weil das Spiel an zwei Orten liegt: auf 10.auer.page holt es
+# die Zahlen von sich selbst, auf GitHub Pages ueber Kreuz von 10.auer.page.
+# Der zweite Fall haengt an einem CORS-Kopf und faellt sonst still aus.
 
 name: Abnahme der fertigen Seite
 
@@ -22,47 +26,51 @@ jobs:
   live:
     runs-on: ubuntu-latest
     env:
-      SEITE: https://cauer71.github.io/zehner-paare/
-      DIENST: https://abacus.jasoncameron.dev
-      RAUM: zehner-paare-8fz3
+      SEITE: https://10.auer.page/
+      PAGES: https://cauer71.github.io/zehner-paare/
     steps:
+      - uses: actions/checkout@v4
+
       - name: Liegt die neue Fassung wirklich dort?
         run: |
           set -u
-          for datei in "" app.js online.js i18n.js sw.js manifest.de.webmanifest; do
-            code=$(curl -sS -m 20 -o /tmp/d -w '%{http_code}' "$SEITE$datei" || echo 000)
-            echo "  $code  ${datei:-index.html}  $(wc -c < /tmp/d) Bytes"
+          for ort in "$SEITE" "$PAGES"; do
+            echo "$ort"
+            for datei in "" app.js online.js i18n.js sw.js manifest.de.webmanifest; do
+              code=$(curl -sS -m 20 -o /tmp/d -w '%{http_code}' "$ort$datei" || echo 000)
+              echo "  $code  ${datei:-index.html}  $(wc -c < /tmp/d) Bytes"
+            done
+            echo -n "  Fassung: "
+            curl -sS -m 20 "$ort/app.js" | grep -m1 "export const VERSION" || echo "NICHT GEFUNDEN"
           done
           echo
-          echo "Fassung laut app.js:"
-          curl -sS -m 20 "$SEITE/app.js" | grep -m1 "export const VERSION" || echo "  NICHT GEFUNDEN"
-          echo "Wird online.js eingebunden?"
-          curl -sS -m 20 "$SEITE/app.js" | grep -m1 "from './online.js'" || echo "  NICHT GEFUNDEN"
-          echo "Laesst der Servicearbeiter Fremdes durch?"
-          curl -sS -m 20 "$SEITE/sw.js" | grep -m1 "eigen" || echo "  NICHT GEFUNDEN"
+          echo "Der Servercode darf nicht ausgeliefert werden:"
+          code=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "$SEITE/worker.js" || echo 000)
+          echo "  $code  /worker.js  (404 erwartet)"
+          test "$code" = "404"
 
-      - name: Namensraum vor der Pruefung
+      - name: Der Bestand vor der Pruefung
         run: |
           set -u
-          for name in spiele siege best-mittel-gen; do
-            printf '  %-18s ' "$name"
-            curl -sS -m 20 "$DIENST/get/$RAUM/$name" || true
-            echo
-          done
-
-      - uses: actions/checkout@v4
+          curl -sS -m 20 "$SEITE/api/welt" | tee /tmp/vorher.json
+          echo
+          # Ein CORS-Kopf muss dabei sein, sonst kommt die Pages-Fassung nicht
+          # an ihre Zahlen.
+          curl -sS -m 20 -D - -o /dev/null "$SEITE/api/welt" | grep -i 'access-control-allow-origin'
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
+      - name: Regeltests gegen den ausgecheckten Stand
+        run: npm test
+
       - name: Browser holen
         run: |
-          npm init -y >/dev/null
-          npm i --silent playwright-core@1.49.1
+          npm i --no-save --silent playwright-core@1.49.1
           npx --yes playwright@1.49.1 install --with-deps chromium
 
-      - name: Echter Browser auf der echten Seite
+      - name: Echter Browser auf beiden Adressen
         run: |
           cat > live.mjs <<'JS'
           import { chromium } from 'playwright-core';
@@ -76,97 +84,88 @@ jobs:
             .match(/VERSION = '([^']+)'/)?.[1] ?? null;
           console.log('Erwartete Fassung:', sollFassung);
 
-          // Den Pfad des gerade installierten Chromium finden.
           const pfad = execSync(
             'find /home/runner/.cache/ms-playwright -name chrome -type f | head -1',
             { encoding: 'utf8' }).trim();
-          console.log('Browser:', pfad || '(nicht gefunden)');
-
           const browser = await chromium.launch(pfad ? { executablePath: pfad } : {});
-          const ctx = await browser.newContext({ viewport: { width: 390, height: 844 },
-            deviceScaleFactor: 1, isMobile: true, hasTouch: true });
-          const page = await ctx.newPage();
-
-          const fehler = [];
-          const rufe = [];
-          page.on('pageerror', (e) => fehler.push('pageerror: ' + e.message));
-          page.on('console', (m) => { if (m.type() === 'error') fehler.push('console: ' + m.text()); });
-          page.on('response', async (r) => {
-            const u = r.url();
-            if (u.includes('abacus.jasoncameron.dev'))
-              rufe.push(`${r.status()} ${u.replace('https://abacus.jasoncameron.dev', '')}`);
-          });
-
-          const SEITE = process.env.SEITE;
-          await page.goto(SEITE, { waitUntil: 'load' });
-          await page.evaluate(() => {
-            localStorage.setItem('zp.seen.v1', 'true');
-            localStorage.setItem('zp.groups.v1', '["grp-best"]');
-          });
-          await page.reload({ waitUntil: 'load' });
-          await page.waitForTimeout(1500);
-
-          const fassung = await page.evaluate(() => window.__zp?.VERSION ?? null);
-          console.log('Fassung im Spiel:', fassung);
-
-          // Einstellungen aufschlagen - erst DAS loest das Lesen aus.
-          await page.tap('#btn-settings');
-          await page.waitForTimeout(600);
-          await page.evaluate(() => { const g = document.getElementById('grp-best');
-            if (!g.open) g.querySelector('summary').click(); });
-          // 17 Leserufe mit Abstand: zwei Zaehler und je Stufe Zeiger, Stand
-          // und Kuerzel.
-          await page.waitForTimeout(13000);
-
-          const sicht = await page.evaluate(() => ({
-            eigen: document.querySelector('#own-count')?.textContent,
-            welt: document.querySelector('#world-count')?.textContent,
-            liste: [...document.querySelectorAll('#world-list li')].map((l) => l.textContent.trim()),
-            schalter: document.querySelector('#opt-world')?.checked,
-            hinweis: [...document.querySelectorAll('#grp-best .field__note')]
-              .map((n) => n.textContent.trim()).filter(Boolean),
-            merkzettel: localStorage.getItem('zp.welt.v1'),
-          }));
-          console.log('\nAnzeige:');
-          console.log('  eigen   :', sicht.eigen);
-          console.log('  weltweit:', sicht.welt);
-          console.log('  Liste   :', sicht.liste.join(' | '));
-          console.log('  Schalter:', sicht.schalter);
-          console.log('  Merkzettel:', sicht.merkzettel);
-          console.log('\nRufe an den Dienst:');
-          for (const r of rufe) console.log('  ', r);
-          console.log('\nSeitenfehler:', fehler.length ? fehler.join(' | ') : 'keine');
-
-          await page.screenshot({ path: 'live-bestwerte.png', fullPage: false });
-          await browser.close();
-
-          // Urteil
           const probleme = [];
-          if (sollFassung && fassung !== sollFassung)
-            probleme.push(`Fassung ${fassung}, erwartet ${sollFassung}`);
-          if (!rufe.length) probleme.push('kein einziger Ruf ging an den Dienst');
-          if (rufe.some((r) => r.startsWith('0') || r.startsWith('5'))) probleme.push('Dienst antwortete mit Fehler');
-          if (!/\d/.test(sicht.welt ?? '')) probleme.push('keine Weltzahl in der Anzeige');
-          if (fehler.length) probleme.push('Seitenfehler: ' + fehler.join(' | '));
+
+          for (const [wo, adresse] of [['eigene Seite', process.env.SEITE],
+                                       ['GitHub Pages', process.env.PAGES]]) {
+            console.log(`\n=== ${wo}: ${adresse} ===`);
+            const ctx = await browser.newContext({ viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+            // Vor dem ersten Laden gesetzt, nicht danach mit einem Neuladen:
+            // sonst holt der erste Aufruf die Weltzahlen, der zweite nimmt sie
+            // aus dem Merkzettel, und "genau ein Leseruf" waere nur Zufall.
+            await ctx.addInitScript(`localStorage.setItem('zp.seen.v1','true');`);
+            const page = await ctx.newPage();
+
+            const fehler = [];
+            const rufe = [];
+            page.on('pageerror', (e) => fehler.push('pageerror: ' + e.message));
+            page.on('console', (m) => { if (m.type() === 'error') fehler.push('console: ' + m.text()); });
+            page.on('response', (r) => {
+              if (r.url().includes('/api/')) rufe.push(`${r.request().method()} ${r.status()} ${r.url()}`);
+            });
+
+            await page.goto(adresse, { waitUntil: 'load' });
+            await page.waitForTimeout(4000);
+
+            const sicht = await page.evaluate(() => ({
+              fassung: window.__zp?.VERSION ?? null,
+              welt: document.getElementById('stat-world')?.textContent?.trim(),
+              felder: document.querySelectorAll('.cell').length,
+              merkzettel: localStorage.getItem('zp.welt.v1'),
+            }));
+            console.log('  Fassung im Spiel:', sicht.fassung);
+            console.log('  Weltrekord im Feld:', JSON.stringify(sicht.welt));
+            console.log('  Felder auf dem Brett:', sicht.felder);
+            console.log('  Merkzettel:', sicht.merkzettel);
+            console.log('  Rufe:', rufe.length ? rufe.join('\n         ') : 'keiner');
+            console.log('  Seitenfehler:', fehler.length ? fehler.join(' | ') : 'keine');
+
+            await page.screenshot({ path: `live-${wo.replace(/\W+/g, '-')}.png` });
+            await ctx.close();
+
+            if (sollFassung && sicht.fassung !== sollFassung)
+              probleme.push(`${wo}: Fassung ${sicht.fassung}, erwartet ${sollFassung}`);
+            if (!sicht.felder) probleme.push(`${wo}: kein Spielfeld`);
+            // Beim Start genau ein Lesen - und kein einziges Schreiben.
+            const lesen = rufe.filter((r) => r.startsWith('GET'));
+            const schreiben = rufe.filter((r) => !r.startsWith('GET') && !r.startsWith('OPTIONS'));
+            if (lesen.length !== 1) probleme.push(`${wo}: ${lesen.length} Leserufe statt einem`);
+            if (schreiben.length) probleme.push(`${wo}: es wurde geschrieben - ${schreiben.join(', ')}`);
+            if (lesen.some((r) => / [45]\d\d /.test(r))) probleme.push(`${wo}: Schnittstelle antwortete mit Fehler`);
+            if (!/\d/.test(sicht.welt ?? '')) probleme.push(`${wo}: keine Weltzahl im Spielfeld`);
+            if (fehler.length) probleme.push(`${wo}: ${fehler.join(' | ')}`);
+          }
+
+          await browser.close();
           console.log('\n=== Probleme ===');
           console.log(probleme.length ? probleme.join('\n') : 'keine');
           process.exit(probleme.length ? 1 : 0);
           JS
           node live.mjs
 
-      - name: Namensraum nach der Pruefung - darf unberuehrt sein
+      - name: Der Bestand nach der Pruefung - muss derselbe sein
         if: always()
         run: |
           set -u
-          for name in spiele siege best-mittel-gen best-mittel-v1 best-mittel-k1; do
-            printf '  %-18s ' "$name"
-            curl -sS -m 20 "$DIENST/get/$RAUM/$name" || true
-            echo
-          done
+          curl -sS -m 20 "$SEITE/api/welt" > /tmp/nachher.json
+          cat /tmp/nachher.json; echo
+          if diff -q /tmp/vorher.json /tmp/nachher.json >/dev/null; then
+            echo "unveraendert"
+          else
+            echo "VERAENDERT. Entweder hat die Abnahme geschrieben - dann ist das"
+            echo "ein Fehler - oder jemand hat waehrenddessen wirklich gespielt."
+            diff /tmp/vorher.json /tmp/nachher.json || true
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: live-bestwerte
-          path: live-bestwerte.png
+          path: live-*.png
           if-no-files-found: ignore
