@@ -30,10 +30,10 @@
     {
       "binding": "DB",
       "database_name": "zehner-paare",
-      // >>> HIER die ID der angelegten D1-Datenbank eintragen. <<<
-      // Sie steht im Dashboard unter Storage & Databases -> D1 -> zehner-paare,
-      // oder kommt aus "npx wrangler d1 create zehner-paare".
-      "database_id": "HIER_DIE_DATENBANK_ID_EINTRAGEN",
+      // Kein Geheimnis: die ID benennt die Datenbank nur, sie oeffnet sie
+      // nicht. Wer sie lesen oder schreiben will, braucht ein Token des
+      // Kontos - darum steht sie hier und nicht in den Secrets.
+      "database_id": "6e58f098-c3a3-42ad-aae1-a86b0e0f62e8",
       // Gehoert in die Bindung und nicht auf die oberste Ebene - dort meldet
       // wrangler es als unbekanntes Feld und ignoriert es stillschweigend.
       "migrations_dir": "migrations"
