@@ -14,7 +14,8 @@
  *
  * Zwei Adressen, mehr braucht das Spiel nicht:
  *
- *   GET  /api/welt     Weltrekord je Stufe samt Kuerzel, dazu die Zaehler.
+ *   GET  /api/welt     Weltrekord je Stufe samt Kuerzel, die Bestenliste je
+ *                      Stufe und die Zaehler.
  *   POST /api/partie   Eine beendete Partie: zaehlt mit und traegt einen
  *                      Rekord ein, wenn es einer ist. Antwortet mit demselben
  *                      Stand wie /api/welt - so braucht das Spiel nach einer
@@ -53,28 +54,58 @@ const json = (daten, status = 200) => new Response(JSON.stringify(daten), {
   },
 });
 
+/** So viele Namen stehen je Stufe in der Bestenliste. */
+const BESTENLISTE = 10;
+
 /**
- * Der Weltstand: hoechster Punktestand je Stufe samt Kuerzel, dazu die Zaehler.
+ * Der Weltstand: hoechster Punktestand je Stufe samt Kuerzel, die Bestenliste
+ * je Stufe, dazu die Zaehler.
  *
- * Der Verbund statt eines blossen MAX(): mit MAX() allein bekaeme man die
- * Punktzahl, aber nicht das Kuerzel der Zeile, in der sie steht. SQLite wuerde
- * das hier zwar richtig raten, aber darauf soll sich niemand verlassen muessen.
+ * Alles in EINEM Ruf, obwohl die Bestenliste nur zu sehen ist, wer die
+ * Einstellungen aufschlaegt. Sie kostet knapp zwei Kilobyte, und dafuer steht
+ * sie sofort da - auch beim Umschalten der Stufe und auch ohne Netz, weil das
+ * Spiel den ganzen Stand auf dem Merkzettel behaelt. Ein zweiter Ruf beim
+ * Aufschlagen waere teurer als die zwei Kilobyte.
  */
 async function weltstand(db) {
-  const [rekorde, zaehler] = await db.batch([
+  const [rekorde, beste, zaehler] = await db.batch([
+    // Der Verbund statt eines blossen MAX(): mit MAX() allein bekaeme man die
+    // Punktzahl, aber nicht das Kuerzel der Zeile, in der sie steht. SQLite
+    // wuerde das hier zwar richtig raten, aber darauf soll sich niemand
+    // verlassen muessen.
     db.prepare(`
       SELECT r.stufe, r.punkte, r.kuerzel
         FROM rekorde r
         JOIN (SELECT stufe, MAX(punkte) AS hoch FROM rekorde GROUP BY stufe) b
           ON b.stufe = r.stufe AND b.hoch = r.punkte
        GROUP BY r.stufe`),
+    // Die Bestenliste zeigt NUR Eintraege mit Kuerzel: sie ist eine Liste von
+    // Namen, und eine Zeile ohne Namen sagt darin nichts. Das kann dazu
+    // fuehren, dass der Weltrekord einer Stufe NICHT in ihrer Bestenliste
+    // steht - Mittel steht auf 4169 aus der Zeit vor den Kuerzeln. Das ist
+    // gewollt: die Zeile darueber nennt weiter den wahren Rekord.
+    //
+    // Der zweite Sortierschluessel id macht die Reihenfolge eindeutig. Ohne
+    // ihn duerfte die Datenbank bei gleichem Punktestand jedes Mal anders
+    // ziehen, und die Liste haette sich bei jedem Laden umsortiert.
+    db.prepare(`
+      SELECT stufe, punkte, kuerzel FROM (
+        SELECT stufe, punkte, kuerzel,
+               ROW_NUMBER() OVER (PARTITION BY stufe ORDER BY punkte DESC, id) AS rang
+          FROM rekorde
+         WHERE kuerzel <> ''
+      ) WHERE rang <= ?1
+      ORDER BY stufe, punkte DESC`).bind(BESTENLISTE),
     db.prepare('SELECT name, wert FROM zaehler'),
   ]);
 
-  const stand = { spiele: 0, siege: 0, rekorde: {} };
+  const stand = { spiele: 0, siege: 0, rekorde: {}, beste: {} };
   for (const z of zaehler.results) stand[z.name] = z.wert;
   for (const r of rekorde.results) {
     stand.rekorde[r.stufe] = { punkte: r.punkte, kuerzel: r.kuerzel ?? '' };
+  }
+  for (const b of beste.results) {
+    (stand.beste[b.stufe] ??= []).push({ punkte: b.punkte, kuerzel: b.kuerzel });
   }
   return stand;
 }

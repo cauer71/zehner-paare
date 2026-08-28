@@ -718,10 +718,55 @@ einem Worker auf `10.auer.page`. Zwei Adressen, mehr braucht das Spiel nicht:
 
 | Adresse | Bedeutung |
 |---|---|
-| `GET /api/welt` | Weltrekord je Stufe samt Kürzel, dazu die beiden Zähler |
+| `GET /api/welt` | Weltrekord je Stufe samt Kürzel, die Bestenliste je Stufe, dazu die beiden Zähler |
 | `POST /api/partie` | eine beendete Partie: zählt mit, trägt einen Rekord ein, **wenn** es einer ist – und antwortet mit demselben Stand wie `/api/welt` |
 
 Das ist **ein** Ruf beim Start und **einer** am Partieende. Vorher waren es siebzehn und vier.
+
+### Die besten Zehn
+
+Unter den fünf Rekordzeilen steht die Bestenliste der **eingestellten** Stufe, höchstens zehn
+Namen. Nur eine Stufe und nicht alle fünf: fünfzig Zeilen wären keine Liste mehr, sondern eine
+Tapete. Sie folgt derselben Einstellung wie der Weltrekord im Spielfeld – wer umschaltet, sieht
+beides zusammen wechseln.
+
+**In der Liste stehen nur Einträge mit Kürzel.** Eine Bestenliste ist eine Liste von *Namen*;
+eine Zeile ohne Namen sagt darin nichts. Das hat eine Folge, die man kennen muss: der Weltrekord
+einer Stufe kann in ihrer Bestenliste **fehlen**. Mittel steht auf 4169 aus der Zeit vor den
+Kürzeln, die Liste beginnt darum bei 4155/CHR. Die Zeile darüber nennt weiter den wahren Rekord –
+die beiden widersprechen sich nicht, sie beantworten verschiedene Fragen.
+
+Das war der eigentliche Gewinn des Umzugs, und er lag schon da: der alte Dienst hatte jede
+Zwischenstufe als eigenen Zähler aufgehoben, und die Übernahme hat **alle 18** übernommen statt
+nur der fünf Spitzenwerte. Es brauchte also keine neuen Daten, nur eine Abfrage – mit einem
+bloßen Zähler wäre sie nie möglich gewesen:
+
+```sql
+SELECT stufe, punkte, kuerzel FROM (
+  SELECT stufe, punkte, kuerzel,
+         ROW_NUMBER() OVER (PARTITION BY stufe ORDER BY punkte DESC, id) AS rang
+    FROM rekorde WHERE kuerzel <> ''
+) WHERE rang <= 10
+```
+
+Der zweite Sortierschlüssel `id` macht die Reihenfolge eindeutig. Ohne ihn dürfte die Datenbank
+bei gleichem Punktestand jedes Mal anders ziehen, und die Liste hätte sich bei jedem Laden
+umsortiert.
+
+Sie kommt im selben Ruf mit wie alles andere, obwohl nur zu sehen bekommt, wer die Einstellungen
+aufschlägt. Das kostet knapp zwei Kilobyte und spart einen zweiten Ruf – dafür steht sie sofort
+da, auch beim Umschalten der Stufe und auch ohne Netz.
+
+Zwei Dinge, die beim Bauen auffielen und beide gemessen sind:
+
+* **Der leere Fall gehört nicht in die Liste.** Zuerst stand der Satz „Auf dieser Stufe hat noch
+  niemand mit Kürzel gespielt" in einem `<li>`. Der Überlaufcheck fand ihn: eine Datenzeile ist
+  für einen Satz zu eng gebaut, im Arcade-Stil (Versalien, 16 px) brach er auf drei Zeilen um –
+  in zwei Sprachen bei drei Breiten. Jetzt steht er als Notiz **neben** der Liste, und die
+  leere Liste bleibt leer.
+* **Die Bestenliste brauchte keine einzige neue CSS-Regel.** Rang, Kürzel und Punkte sind
+  dieselbe Zeilenform wie die Rekorde darüber, und `.best-list` gab es schon in allen vier
+  Stilen. Die vier Stylesheets sind vom ganzen Umbau unberührt.
 
 ### Warum überhaupt eine Datenbank
 
@@ -809,7 +854,13 @@ ist `'mittel'` – ein Array hätte als Stufe durchgesehen. Die zweite Grenze is
 `hoechster()`/`uebernehmen()` in `online.js`: ein Fehler dort lässt einen Rekord verschwinden,
 den es gibt, oder zeigt einen, den es nicht gibt.
 
-`npm run check:welt` startet eine **echte lokale D1** samt `wrangler dev`, spielt neun
+Seit es die Bestenliste gibt, kam eine dritte dazu, und sie ist die heikelste: `besteListe()`
+prüft jeden Eintrag, der als Markup in die Anzeige geht. Der erste Wurf fiel durch den eigenen
+Test – `Number('90')` ist 90, ein Punktestand als Zeichenkette wäre also durchgegangen. Dieselbe
+Falle, vor der `pruefePartie()` seit dem ersten Tag warnt, und ich bin an der neuen Grenze
+trotzdem hineingelaufen. Was an einer Grenze gilt, gilt an allen.
+
+`npm run check:welt` startet eine **echte lokale D1** samt `wrangler dev`, spielt zehn
 Abschnitte durch und räumt hinterher auf – der übernommene Bestand, eine schwache Partie
 (zählt mit, ändert nichts), ein echter Rekord samt großgeschriebenem Kürzel, fünf Formen von
 Unsinn (die mit 400 abgewiesen werden **und** nichts anfassen dürfen), unbekannte Adressen,

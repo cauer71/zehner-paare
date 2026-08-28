@@ -384,6 +384,12 @@
         <p class="field__note" data-i18n="set.initialsNote">Drei Zeichen, Buchstaben oder Ziffern. Sie stehen neben deinen Bestwerten – und wenn du einen Weltrekord aufstellst, auch in der Weltliste. Sonst bleiben sie auf diesem Gerät.</p>
         <ul class="best-list" id="world-list"></ul>
         <p class="field__note" id="world-count"></p>
+        <!-- Die Bestenliste der eingestellten Stufe. Ueberschrift und Liste
+             werden aus app.js gefuellt und bleiben leer, solange nichts da
+             ist - eine Ueberschrift ueber nichts waere schlimmer als keine. -->
+        <h3 class="field__title" id="top-title" hidden></h3>
+        <ol class="best-list" id="top-list"></ol>
+        <p class="field__note" id="top-none" hidden></p>
         <label class="switch-row">
           <span class="switch-row__text" data-i18n="set.optWorld">Weltweit mitzählen</span>
           <span class="switch"><input type="checkbox" id="opt-world"><span class="switch__track"></span></span>

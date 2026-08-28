@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.21.0';
+export const VERSION = '1.22.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', seen: 'zp.seen.v1' };
 
@@ -2009,6 +2009,8 @@ function renderWorld() {
       + `<b>${r ? zahl(r) : '–'}</b></li>`;
   }).join('');
 
+  renderBestenliste(w);
+
   if (!settings.world) { note.textContent = t('set.worldOff'); return; }
   if (w.spiele === null) {
     // "Noch keine Weltwerte geladen" waere falsch, wenn oben schon ein Rekord
@@ -2032,6 +2034,53 @@ function renderWorld() {
         ? ' ' + t('set.worldOld', { min: Math.round(w.alter / 60000) })
         : '');
   // Hinweis: set.worldOld faengt selbst mit " · " an, siehe i18n.test.js.
+}
+
+/**
+ * Die besten Zehn der EINGESTELLTEN Stufe.
+ *
+ * Nur eine Stufe und nicht alle fuenf: fuenfzig Zeilen waeren keine Liste
+ * mehr, sondern eine Tapete. Welche Stufe gemeint ist, steht in der
+ * Ueberschrift, und sie folgt derselben Einstellung wie der Weltrekord im
+ * Spielfeld - wer umschaltet, sieht beides zusammen wechseln.
+ *
+ * In der Liste stehen nur Eintraege MIT Kuerzel. Das kann dazu fuehren, dass
+ * der Weltrekord der Stufe hier fehlt: Mittel steht auf 4169 aus der Zeit vor
+ * den Kuerzeln. Die Zeile darueber nennt ihn weiter - die Bestenliste ist eine
+ * Liste von Namen, keine zweite Liste von Rekorden.
+ */
+function renderBestenliste(w) {
+  const titel = $('#top-title');
+  const liste = $('#top-list');
+  const leerNotiz = $('#top-none');
+  if (!titel || !liste || !leerNotiz) return;
+
+  const stufe = settings.difficulty;
+  const eintraege = Array.isArray(w.beste?.[stufe]) ? w.beste[stufe] : [];
+
+  titel.hidden = false;
+  titel.textContent = t('set.topTen', { stufe: diffName(stufe) });
+
+  // Der Satz steht NEBEN der Liste, nicht als Zeile darin. Zuerst stand er in
+  // einem <li>, und der Ueberlaufcheck hat es gefunden: eine Datenzeile ist
+  // fuer einen Satz zu eng gebaut, im Arcade-Stil (Versalien, 16px) brach er
+  // auf drei Zeilen um. Eine leere Liste bleibt leer, die Erklaerung ist eine
+  // Notiz wie die anderen auch.
+  leerNotiz.hidden = eintraege.length > 0;
+  if (!eintraege.length) {
+    liste.innerHTML = '';
+    leerNotiz.textContent = t('set.topNone');
+    return;
+  }
+
+  liste.innerHTML = eintraege.map((e, i) => {
+    // Beides kommt aus dem Netz und geht ohne Umweg ins Markup: das Kuerzel
+    // durch denselben Filter wie ueberall, die Punkte durch eine Rechnung.
+    const wer = sauberesKuerzel(e.kuerzel);
+    const punkte = Number(e.punkte) || 0;
+    return `<li><span>${i + 1}.</span><span class="best-list__who">${wer}</span>`
+      + `<b>${zahl(punkte)}</b></li>`;
+  }).join('');
 }
 
 /**

@@ -18,7 +18,9 @@
  *
  * Davon bleibt nichts. Zwei Rufe, mehr gibt es nicht:
  *
- *   GET  /api/welt     holt den ganzen Stand (vorher: 17 Anfragen)
+ *   GET  /api/welt     holt den ganzen Stand samt Bestenliste je Stufe
+ *                      (vorher: 17 Anfragen, und eine Bestenliste war mit
+ *                      einem blossen Zaehler gar nicht zu haben)
  *   POST /api/partie   meldet eine beendete Partie und bekommt den neuen
  *                      Stand gleich zurueck - kein zweiter Ruf noetig
  *
@@ -91,6 +93,8 @@ function zettel() {
     // Wer den Rekord haelt, je Stufe. Steht neben den Punkten und nicht in
     // ihnen: ein Rekord aus der Zeit vor dem Kuerzel hat eben keines.
     wer: roh?.wer && typeof roh.wer === 'object' ? { ...roh.wer } : {},
+    // Die Bestenliste je Stufe, hoechster zuerst. Nur Eintraege mit Kuerzel.
+    beste: roh?.beste && typeof roh.beste === 'object' ? { ...roh.beste } : {},
   };
   return merkzettel;
 }
@@ -154,7 +158,48 @@ export function uebernehmen(zettelchen, stand) {
     if (!Number.isFinite(wert) || wert <= 0) continue;
     hoechster(zettelchen, stufe, wert, typeof r?.kuerzel === 'string' ? r.kuerzel : '');
   }
+
+  const beste = stand.beste && typeof stand.beste === 'object' ? stand.beste : null;
+  if (beste) {
+    for (const [stufe, liste] of Object.entries(beste)) {
+      const geprueft = besteListe(liste);
+      // Nur ersetzen, wenn wirklich eine Liste kam. Bei Unsinn bleibt die
+      // bekannte stehen - anders als bei den Rekorden gibt es hier kein
+      // "hoeher gewinnt", die Datenbank ist die Wahrheit ueber die Reihenfolge.
+      if (geprueft) zettelchen.beste[stufe] = geprueft;
+    }
+  }
   return true;
+}
+
+/** Drei Zeichen aus A-Z und 0-9. Ohne Kuerzel kein Eintrag - so ist es gewollt. */
+const KUERZEL = /^[A-Z0-9]{1,3}$/;
+
+/**
+ * Prueft eine Bestenliste aus dem Netz. Gibt eine saubere Liste zurueck oder
+ * null, wenn es gar keine war.
+ *
+ * Streng, weil jeder Eintrag ohne Umweg in die Anzeige geht: was hier
+ * durchrutscht, steht anschliessend im Markup. Eine leere Liste ist erlaubt -
+ * eine Stufe, auf der noch niemand mit Kuerzel gespielt hat, hat eben keine.
+ */
+export function besteListe(roh) {
+  if (!Array.isArray(roh)) return null;
+  const sauber = [];
+  for (const e of roh) {
+    // Auf dem Typ bestehen, nicht umrechnen: Number('90') ist 90, ein
+    // Punktestand als Zeichenkette waere sonst durchgegangen. Dieselbe Regel
+    // wie in pruefePartie() - was an einer Grenze gilt, gilt an allen.
+    const punkte = typeof e?.punkte === 'number' ? e.punkte : NaN;
+    if (!Number.isInteger(punkte) || punkte <= 0) continue;
+    const kuerzel = typeof e?.kuerzel === 'string' ? e.kuerzel.toUpperCase() : '';
+    if (!KUERZEL.test(kuerzel)) continue;
+    sauber.push({ punkte, kuerzel });
+  }
+  // Die Datenbank sortiert schon, aber verlassen soll sich die Anzeige darauf
+  // nicht: eine verdrehte Liste saehe aus wie ein Fehler im Spiel.
+  sauber.sort((a, b) => b.punkte - a.punkte);
+  return sauber;
 }
 
 /* ------------------------------------------------------------- die Rufe */
@@ -198,7 +243,7 @@ export const welt = {
   zwischenstand() {
     const z = zettel();
     return { spiele: z.spiele, siege: z.siege, rekorde: { ...z.rekorde },
-             wer: { ...z.wer }, alter: alter() };
+             wer: { ...z.wer }, beste: { ...z.beste }, alter: alter() };
   },
 
   /** Ob es sich lohnt, neu zu lesen. */

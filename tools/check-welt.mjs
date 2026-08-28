@@ -99,6 +99,21 @@ try {
       `${stufe}: ${punkte}${kuerzel ? '/' + kuerzel : ' ohne Kuerzel'} (ist ${r?.punkte}/${r?.kuerzel})`);
   }
 
+  console.log('\n=== 1b. Die Bestenliste zeigt nur Namen ===');
+  const b = anfang.daten.beste;
+  pruefe(b?.leicht?.length === 3 && b.leicht[0].punkte === 3077 && b.leicht[0].kuerzel === 'TAB',
+    `leicht: 3 Namen, oben 3077/TAB (ist ${JSON.stringify(b?.leicht?.[0])})`);
+  pruefe(b?.leicht?.every((e) => e.kuerzel),
+    'kein Eintrag ohne Kuerzel');
+  // Mittel hat vier Zeilen, aber nur eine mit Kuerzel - und der Rekord der
+  // Stufe (4169) ist NICHT dabei. Genau das ist gewollt.
+  pruefe(b?.mittel?.length === 1 && b.mittel[0].punkte === 4155,
+    `mittel: nur 4155/CHR, der namenlose Rekord 4169 fehlt (ist ${JSON.stringify(b?.mittel)})`);
+  pruefe(anfang.daten.rekorde.mittel.punkte === 4169,
+    'der wahre Rekord steht trotzdem weiter da');
+  const fallend = (l) => l.every((e, i) => i === 0 || l[i - 1].punkte >= e.punkte);
+  pruefe(Object.values(b).every(fallend), 'jede Liste faellt von oben nach unten');
+
   /* ---------------------------------------------- 2. zaehlen und melden */
 
   console.log('\n=== 2. Eine schwache Partie zaehlt mit, aendert aber nichts ===');
@@ -112,6 +127,8 @@ try {
     kuerzel: 'abc', zaehlt: true, gewonnen: true, neuePartie: true });
   pruefe(stark.daten.rekorde.mittel.punkte === 5000, 'Mittel steht auf 5000');
   pruefe(stark.daten.rekorde.mittel.kuerzel === 'ABC', 'das Kuerzel wurde gross geschrieben');
+  pruefe(stark.daten.beste.mittel[0].kuerzel === 'ABC' && stark.daten.beste.mittel.length === 2,
+    `und steht sofort oben in der Bestenliste (ist ${JSON.stringify(stark.daten.beste.mittel)})`);
 
   /* ------------------------------------------- 4. der eigentliche Grund */
 
@@ -187,12 +204,49 @@ try {
     `beim Start genau EIN Ruf (war ${an.rufe.join(',') || 'keiner'})`);
   pruefe((await an.p.evaluate(() => document.getElementById('stat-world').textContent))
     .includes('5000'), 'der Weltrekord steht im Spielfeld');
+
+  const oben = await an.p.evaluate(() => {
+    document.getElementById('btn-settings')?.click();
+    const g = document.getElementById('grp-best');
+    if (g && !g.open) g.querySelector('summary').click();
+    return new Promise((f) => setTimeout(() => f({
+      titel: document.getElementById('top-title')?.textContent ?? '',
+      versteckt: document.getElementById('top-title')?.hidden,
+      zeilen: [...document.querySelectorAll('#top-list li')].map((l) => l.textContent.trim()),
+    }), 500));
+  });
+  // Die Einstellung steht auf "mittel", die Liste muss die von Mittel sein.
+  pruefe(!oben.versteckt && oben.titel.includes('Mittel'),
+    `die Ueberschrift nennt die eingestellte Stufe (ist ${JSON.stringify(oben.titel)})`);
+  // Zwei Namen, weil Abschnitt 3 selbst 5000/ABC eingetragen hat - der muss
+  // ueber dem uebernommenen 4155/CHR stehen. Der namenlose 4169 fehlt auch
+  // hier, obwohl er einmal Rekord war.
+  pruefe(oben.zeilen.length === 2
+      && oben.zeilen[0].includes('ABC') && oben.zeilen[0].includes('5000')
+      && oben.zeilen[1].includes('CHR'),
+    `und darunter stehen beide Namen in der richtigen Reihenfolge (ist ${JSON.stringify(oben.zeilen)})`);
   await an.ctx.close();
 
   const aus = await seiteAuf(false);
   pruefe(aus.rufe.length === 0, `Schalter aus: kein einziger Ruf (waren ${aus.rufe.length})`);
   pruefe((await aus.p.evaluate(() => document.querySelectorAll('.cell').length)) > 0,
     'und gespielt werden kann trotzdem');
+
+  // Der leere Fall, ohne ihn herbeizufuehren: mit ausgeschaltetem Schalter
+  // wurde nie gelesen, also kennt das Spiel keine Bestenliste. Genau so sieht
+  // es beim allerersten Start aus.
+  const ohne = await aus.p.evaluate(() => {
+    document.getElementById('btn-settings')?.click();
+    const g = document.getElementById('grp-best');
+    if (g && !g.open) g.querySelector('summary').click();
+    return new Promise((f) => setTimeout(() => f({
+      zeilen: document.querySelectorAll('#top-list li').length,
+      notiz: document.getElementById('top-none')?.hidden === false
+        ? document.getElementById('top-none').textContent.trim() : '',
+    }), 500));
+  });
+  pruefe(ohne.zeilen === 0, `ohne Weltwerte bleibt die Liste leer (sind ${ohne.zeilen} Zeilen)`);
+  pruefe(ohne.notiz.length > 10, `und ein Satz erklaert warum (ist ${JSON.stringify(ohne.notiz)})`);
   await aus.ctx.close();
 
   /* ------------------------------------- 9. der Servicearbeiter und /api/ */
