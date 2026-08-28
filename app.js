@@ -13,7 +13,7 @@ import { t, setzeSprache, sprache, spracheVomGeraet, SPRACHEN } from './i18n.js'
 
 /* ---------------------------------------------------------------- Speicher */
 
-export const VERSION = '1.19.0';
+export const VERSION = '1.20.0';
 
 const KEY = { save: 'zp.save.v1', settings: 'zp.settings.v1', seen: 'zp.seen.v1' };
 
@@ -858,6 +858,61 @@ function aufbauBeenden() {
   tickBase = Date.now();
 }
 
+/**
+ * Unter diese Kachelgroesse wird nicht verkleinert - dann lieber scrollen.
+ * 34 px ist knapp ueber dem, was auf dem schmalsten Handy ohnehin herauskommt
+ * (320 px durch neun Spalten ergibt rund 30 px), also die Grenze, unter der
+ * Zahlen anfangen, unleserlich zu werden.
+ */
+const KACHEL_MIN = 34;
+
+/*
+ * Das Brett soll in die Hoehe passen.
+ *
+ * Auf dem Handy ist die BREITE der Anschlag: neun Spalten auf 390 px ergeben
+ * Kacheln von rund 38 px. Kommen nach mehrmaligem Auffuellen mehr Zeilen
+ * dazu, als auf den Schirm passen, wird gescrollt - so ist es gedacht, das
+ * Brett waechst mit seinen Zeilen.
+ *
+ * Am Rechner ist es umgekehrt, und da war es kaputt. Dort deckelt --cell-max
+ * die Kachel bei 64 px, das Fenster ist breit genug, und stattdessen geht die
+ * HOEHE aus. Gemessen in "Schwer": bei 1440x900 scrollte der Rahmen um 57 px,
+ * bei 1280x720 um 105 - die unterste Zeile lag also ausserhalb des Bildes,
+ * und man musste scrollen, um sie ueberhaupt zu sehen.
+ *
+ * Also wird die Kachel zusaetzlich aus der freien Hoehe zurueckgerechnet.
+ * Polster und Abstaende kommen dabei aus dem laufenden Stylesheet und nicht
+ * aus einer Tabelle hier: nur so stimmt die Rechnung in allen vier Stilen,
+ * die alle andere Werte haben (der Automat 6 px Polster und 2 px Abstand, das
+ * Papier gar keinen).
+ *
+ * Zwei Grenzen:
+ *   - Nur verkleinern. Groesser als --cell-max des Stils wird nichts, sonst
+ *     saehe dasselbe Spiel auf einem hohen Schirm anders aus als gedacht.
+ *   - Nicht unter KACHEL_MIN. Passt es nur mit unleserlichen Zahlen, ist
+ *     Scrollen das kleinere Uebel - genau der Fall auf dem Handy nach
+ *     mehreren Auffuellen.
+ */
+function brettEinpassen() {
+  if (!state) return;
+  // Erst zurueck auf den Wert des Stils, sonst misst man die eigene Vorgabe.
+  boardWrap.style.removeProperty('--cell-max');
+
+  const rahmen = getComputedStyle(boardWrap);
+  const frei = boardWrap.clientHeight
+    - parseFloat(rahmen.paddingTop) - parseFloat(rahmen.paddingBottom);
+  const brett = getComputedStyle(board);
+  const polster = parseFloat(brett.paddingTop) + parseFloat(brett.paddingBottom);
+  const luecke = parseFloat(brett.rowGap) || 0;
+  const zeilen = Math.ceil(state.cells.length / state.cols) || 1;
+
+  const passt = (frei - polster - (zeilen - 1) * luecke) / zeilen;
+  if (!(passt >= KACHEL_MIN)) return;             // dann lieber scrollen
+  const grund = parseFloat(brett.getPropertyValue('--cell-max'));
+  if (!(passt < grund)) return;                   // die Breite bleibt der Anschlag
+  boardWrap.style.setProperty('--cell-max', `${Math.floor(passt)}px`);
+}
+
 function renderBoard({ aufbau = false } = {}) {
   board.style.setProperty('--cols', state.cols);
   // Die Rekordwelle liegt neben dem Feld, nicht darin (renderBoard sortiert
@@ -918,6 +973,9 @@ function renderBoard({ aufbau = false } = {}) {
     el.tabIndex = i === focusIndex ? 0 : -1;
     if (board.children[i] !== el) board.insertBefore(el, board.children[i] ?? null);
   });
+
+  // Erst einpassen, dann nachsehen, ob noch etwas ueberlaeuft.
+  brettEinpassen();
 
   // Kantenverlauf nur zeigen, wenn das Feld tatsaechlich ueberlaeuft. Gefragt
   // wird der Rahmen, nicht das Feld: das Feld fuellt den Rahmen aus und laeuft
@@ -2306,6 +2364,31 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'u' || (e.key === 'z' && (e.metaKey || e.ctrlKey))) doUndo();
   if (e.key === 'Escape') clearSelection();
 });
+
+/*
+ * Aendert sich die Hoehe des Rahmens, muss die Kachel neu gerechnet werden.
+ *
+ * Ein ResizeObserver auf dem Rahmen und nicht ein resize auf dem Fenster: er
+ * greift auch dort, wo das Fenster gleich bleibt und der Platz trotzdem ein
+ * anderer wird - eine nachgeladene Schrift, die die Kopfzeile um zwei Pixel
+ * verschiebt, die ein- und ausfahrende Adressleiste am Handy, ein Wechsel der
+ * sicheren Raender beim Drehen.
+ *
+ * Keine Rueckkopplung: die Hoehe des Rahmens kommt aus dem Flexlayout und
+ * nicht aus seinem Inhalt, und die einzige Klasse, die hier dazukommt
+ * (.scrollable), setzt bloss eine Maske und keine Masse. Trotzdem ueber
+ * requestAnimationFrame zusammengefasst - beim Ziehen am Fensterrand feuert
+ * der Beobachter dutzende Male je Sekunde, und jede Rechnung liest das Layout.
+ */
+let einpassLauf = 0;
+new ResizeObserver(() => {
+  cancelAnimationFrame(einpassLauf);
+  einpassLauf = requestAnimationFrame(() => {
+    brettEinpassen();
+    boardWrap.classList.toggle('scrollable',
+      boardWrap.scrollHeight > boardWrap.clientHeight + 2);
+  });
+}).observe(boardWrap);
 
 // Ton erst nach der ersten Nutzergeste anlegen (Autoplay-Regeln der Browser).
 window.addEventListener('pointerdown', () => audio(), { once: true });

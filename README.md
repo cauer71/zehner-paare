@@ -299,6 +299,38 @@ unten wird jetzt am Rahmen gemessen und nicht mehr am Feld – das Feld läuft j
 über. (Der Papier-Stil hatte `start` von Anfang an, weil das Blatt dort oben hängen soll;
 ihm ist das nie passiert.)
 
+**Am Rechner passt sich das Feld in die Höhe ein.** Auf dem Handy ist die *Breite* der
+Anschlag: neun Spalten auf 390 px ergeben Kacheln von rund 38 px, und kommen durch Auffüllen
+mehr Zeilen dazu, als auf den Schirm passen, wird gescrollt – so ist es gedacht. Am Rechner
+ist es umgekehrt, und da war es kaputt: `--cell-max` deckelt die Kachel bei 64 px, das
+Fenster ist breit genug, und stattdessen geht die Höhe aus. Gemessen in „Schwer": bei
+1440 × 900 scrollte der Rahmen um 57 px, bei 1280 × 720 um 105 – die unterste Zeile lag
+außerhalb des Bildes.
+
+`brettEinpassen()` in `app.js` rechnet die Kachel deshalb zusätzlich aus der freien Höhe
+zurück und setzt `--cell-max` am Rahmen. Polster und Abstände kommen dabei aus dem laufenden
+Stylesheet und nicht aus einer Tabelle im Skript – nur so stimmt die Rechnung in allen vier
+Stilen, die alle andere Werte haben (der Automat 6 px Polster und 2 px Abstand, das Papier
+gar keins). Zwei Grenzen: **nur verkleinern**, sonst sähe dasselbe Spiel auf einem hohen
+Schirm anders aus als gedacht; und **nicht unter 34 px** – passt es nur mit unleserlichen
+Zahlen, ist Scrollen das kleinere Übel. Genau das ist der Fall auf einem 320er nach mehreren
+Auffüllen, und dort bleibt darum alles, wie es war.
+
+Nachgerechnet wird bei jedem Zeichnen und über einen `ResizeObserver` auf dem Rahmen – nicht
+über `resize` am Fenster: der Beobachter greift auch dort, wo das Fenster gleich bleibt und
+der Platz trotzdem ein anderer wird (eine nachgeladene Schrift, die die Kopfzeile um zwei
+Pixel verschiebt; die ein- und ausfahrende Adressleiste am Handy; ein Wechsel der sicheren
+Ränder beim Drehen). Eine Rückkopplung gibt es nicht: die Höhe des Rahmens kommt aus dem
+Flexlayout und nicht aus seinem Inhalt.
+
+| Fenster | Stufe | vorher | nachher |
+|---|---|---|---|
+| 1280 × 800 | Mittel | 25 px Scroll | Kachel 59 px, passt |
+| 1440 × 900 | Schwer | 57 px Scroll | Kachel 56 px, passt |
+| 1280 × 720 | Schwer | 105 px Scroll | Kachel 38 px, passt |
+| 1920 × 1080 | Schwer | passte schon | unverändert 62 px |
+| 320 × 568 | Schwer | Scroll | Scroll (unter der Grenze) |
+
 ## Drei Sprachen
 
 Deutsch, Italienisch, Englisch. Beim ersten Start nimmt das Spiel die erste Sprache aus
