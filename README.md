@@ -583,14 +583,22 @@ Die drei Kärtchen über dem Brett sind gleich gebaut: **Titel, Zahl, eine Zeile
 | | Punkte | Übrig | Zeit |
 |---|---|---|---|
 | Zahl | Punktestand | übrige Kacheln | Spielzeit (in Endlos: Runde) |
-| Zeile darunter | `Welt 4155 CHR` | `Mittel` | – |
+| Zeile darunter | `Rekord 4155 CHR` | `Mittel` | – |
 
 Unter der Punktzahl steht also der **Weltrekord** der gespielten Stufe samt Kürzel dessen, der
-ihn hält; im Arcade-Stil `WR 004155 CHR`, in der Sprache eines Automaten. Dort und nicht
+ihn hält; im Arcade-Stil `Rekord 004155 CHR`, mit der aufgefüllten Zahl eines Automaten. Dort und nicht
 anderswo, aus drei Gründen: es ist dieselbe Größe wie der Punktestand darüber – ein Wert, den
 es zu schlagen gilt. Der Meldungsstreifen über dem Brett (`.ticker`) ist besetzt, dort liegen
 Kombo-Plakette und Einblendungen, beide mittig. Und auf dem Brett selbst wäre er im Weg, das
 ist Spielfläche.
+
+Bis 1.22.1 stand dort `Welt 4155 CHR`, im Arcade-Stil abgekürzt als `WR`. Dass es der
+*Welt*rekord ist, steht ohnehin überall sonst – „Rekord" sagt dasselbe und liest sich neben der
+eigenen Punktzahl direkter. Das kostet im Arcade-Stil eine Zeile: `WR 012503 SES` passte bis
+hinunter zu 320 px in eine, `Rekord 012503 SES` bricht dort auf zwei um. Gemessen, nicht
+geschätzt – ab 412 px bleibt es einzeilig, und die anderen drei Stile waren bei 320 px ohnehin
+schon zweizeilig. Der Überlaufcheck setzt für diese Zeile bewusst den breitesten denkbaren Fall
+ein (`999999` Punkte, Kürzel `WWW`) und meldet in allen 336 Lagen nichts.
 
 Unter der Zahl der übrigen Kacheln steht die eingestellte **Schwierigkeit**. Sonst müsste man
 dafür die Einstellungen aufmachen.

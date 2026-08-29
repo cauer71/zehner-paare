@@ -62,8 +62,12 @@ const TEXTE = {
     'hud.left': 'Übrig',
     'hud.time': 'Zeit',
     'hud.round': 'Runde',
-    'hud.world': 'Welt {score}',
-    'hud.worldArcade': 'WR {score}',
+    // Die Zeile unter dem Punktestand. Sie hiess bis 1.22.1 "Welt 12503 SES";
+    // "Rekord" sagt dasselbe kuerzer, denn dass es der WELTrekord ist, steht
+    // ohnehin ueberall sonst. Der Arcade-Schluessel bleibt getrennt, weil dort
+    // die Zahl sechsstellig aufgefuellt wird - der Text ist nur zufaellig gleich.
+    'hud.world': 'Rekord {score}',
+    'hud.worldArcade': 'Rekord {score}',
 
     // Knopfleiste unten – die engste Stelle im ganzen Spiel.
     // Gemessen bleiben der Beschriftung 48 px (Zurück/Tipp/Neu) bzw. rund
@@ -288,8 +292,8 @@ const TEXTE = {
     'hud.left': 'Rimasti',
     'hud.time': 'Tempo',
     'hud.round': 'Turno',
-    'hud.world': 'Mondo {score}',
-    'hud.worldArcade': 'WR {score}',
+    'hud.world': 'Record {score}',
+    'hud.worldArcade': 'Record {score}',
     // Knopfleiste unten – die engste Stelle im ganzen Spiel.
     // Gemessen bleiben der Beschriftung 48 px (Zurück/Tipp/Neu) bzw. rund
     // 60 px (Auffüllen/Rettung) bei 320 px. Nicht länger werden.
@@ -499,8 +503,8 @@ const TEXTE = {
     'hud.left': 'Remaining',
     'hud.time': 'Time',
     'hud.round': 'Round',
-    'hud.world': 'World {score}',
-    'hud.worldArcade': 'WR {score}',
+    'hud.world': 'Record {score}',
+    'hud.worldArcade': 'Record {score}',
     // Knopfleiste unten – die engste Stelle im ganzen Spiel.
     // Gemessen bleiben der Beschriftung 48 px (Zurück/Tipp/Neu) bzw. rund
     // 60 px (Auffüllen/Rettung) bei 320 px. Nicht länger werden.

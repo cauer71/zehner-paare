@@ -13,7 +13,7 @@
    Darum: der eigene Programmcode wird immer am Browserspeicher vorbei geholt
    ('reload'). Schriften und Bilder nicht - die aendern sich praktisch nie und
    sind der groesste Teil der Ladung. */
-const CACHE = 'zehner-paare-1.22.1';
+const CACHE = 'zehner-paare-1.22.2';
 const ASSETS = [
   './', 'index.html',
   'classic.css', 'material3.css', 'm3-colors.css', 'arcade.css', 'papier.css',

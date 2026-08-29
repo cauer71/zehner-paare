@@ -1,6 +1,6 @@
 {
   "name": "zehner-paare",
-  "version": "1.22.1",
+  "version": "1.22.2",
   "private": true,
   "description": "Zahlen-Streichspiel: gleiche Zahlen oder Summe 10 wegstreichen.",
   "type": "module",
