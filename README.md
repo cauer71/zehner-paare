@@ -251,6 +251,11 @@ im Dashboard hergestellt hat und den niemand mehr nachvollziehen kann.
 
 ## Entwicklung
 
+> **Wer hier weiterprogrammiert, liest [ENTWICKLUNG.md](ENTWICKLUNG.md).** Dort steht,
+> wie das Projekt gebaut ist: der Vertrag zwischen JS, Markup und den vier Stilen, das
+> Zustandsformat, die Schnittstelle zur Weltrangliste, welche Dateien erzeugt werden –
+> und welche Regeln man nicht brechen sollte, samt der Messung, aus der sie stammt.
+
 Keine Abhängigkeiten, kein Bundler. Lokal starten:
 
 ```bash
@@ -258,8 +263,12 @@ npm start          # oder: python3 -m http.server 4173
 # http://localhost:4173/
 ```
 
-Regeltests (21 Stück, decken Nachbarschaften, Zeilenentfernung, Auffüllen, Undo und
-Serialisierung ab):
+Die Weltrangliste antwortet dabei nicht – sie liegt hinter `/api/`, und ein schlichter
+Dateiserver hat die nicht. Das ist Absicht: so schreibt kein Probelauf in die echte
+Datenbank. Wer sie mitentwickeln will, nimmt `npm run build && npx wrangler dev`.
+
+Tests (79 Stück: Regeln, Punkte, Aufbau, Serialisierung, die drei Wörterbücher
+gegeneinander und die Grenze zur Datenbank):
 
 ```bash
 npm test               # Regeltests, Woerterbuchtests und die Grenze zur Datenbank

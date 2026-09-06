@@ -25,3 +25,7 @@ dist-ssr
 
 # Cloudflare / wrangler
 .wrangler
+
+# Messergebnis von tools/check-platz.mjs - nach jeder Textaenderung veraltet
+# und jederzeit neu erzeugbar. Gehoert nicht in den Verlauf.
+tools/budget.json
