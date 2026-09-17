@@ -754,8 +754,11 @@ und bei einem **Rekord** der Punktestand samt Stufe und den drei Zeichen, die de
 selbst gesetzt hat. Ein Schalter in derselben Gruppe stellt das ganz ab; dann geht keine
 einzige Anfrage hinaus.
 
-Dahinter liegt seit Fassung 1.21 eine **eigene Datenbank**: Cloudflare **D1** (SQLite) hinter
-einem Worker auf `10.auer.page`. Zwei Adressen, mehr braucht das Spiel nicht:
+Dahinter liegt seit Fassung 1.21 eine **Datenbank**: Cloudflare **D1** (SQLite) hinter einem
+Worker auf `10.auer.page`. Seit dem Umzug ist es keine eigene mehr, sondern die gemeinsame
+Datenbank `spiele`, die sich alle Spiele teilen; die Tabellen dieses Spiels heißen darin
+`zehner_rekorde` und `zehner_zaehler` (warum, steht unter
+[Veröffentlichen](#veröffentlichen)). Zwei Adressen, mehr braucht das Spiel nicht:
 
 | Adresse | Bedeutung |
 |---|---|

@@ -59,8 +59,8 @@ self.addEventListener('fetch', (e) => {
   // Zwischenspeicher waere sie sofort veraltet, und die Ausweichantwort
   // index.html waere fuer eine Zahlenauskunft blanker Unsinn.
   //
-  // Die Herkunft allein genuegt dafuer nicht mehr: seit die Rangliste in der
-  // eigenen Datenbank liegt, kommt /api/ vom SELBEN Host wie das Spiel. Die
+  // Die Herkunft allein genuegt dafuer nicht mehr: seit die Rangliste im
+  // eigenen Worker liegt, kommt /api/ vom SELBEN Host wie das Spiel. Die
   // alte Regel "nur Fremdes durchlassen" haette sie also ab dem Umzug
   // stillschweigend mitgespeichert - derselbe Gedanke, nur eine Zeile
   // weiter unten.
