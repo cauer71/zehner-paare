@@ -28,12 +28,34 @@
 
   "d1_databases": [
     {
+      // Die Bindung heisst weiter DB - im Skript aendert sich dadurch nichts.
       "binding": "DB",
-      "database_name": "zehner-paare",
+      // EINE Datenbank fuer alle Spiele, nicht mehr eine je Spiel.
+      //
+      // Der kostenlose Tarif von D1 zaehlt DATENBANKEN, und zehn sind das
+      // Limit - nicht Tabellen, nicht Zeilen, nicht Megabyte. Hier entsteht
+      // etwa alle vier Tage ein neues Spiel; mit einer eigenen Datenbank je
+      // Spiel waere die Grenze in wenigen Wochen erreicht gewesen, und zwar an
+      // einer Zahl, die mit dem tatsaechlichen Verbrauch nichts zu tun hat:
+      // alle Ranglisten zusammen sind ein paar Dutzend Zeilen. Verworfen wurde
+      // der kostenpflichtige Tarif - fuer ein paar Dutzend Zeilen zu zahlen
+      // waere die falsche Antwort auf eine Grenze, die gar nicht am
+      // Datenvolumen haengt.
+      //
+      // Bezahlt wird das mit dem Praefix "zehner_" vor jedem Tabellen- und
+      // Indexnamen. Der loest zwei ECHTE Zusammenstoesse, keine gedachten:
+      // "zaehler" hiess die Tabelle hier UND bei Shikaku, beide mit den Zeilen
+      // 'spiele' und 'siege' - in einer gemeinsamen Datenbank haetten die zwei
+      // Spiele einander hochgezaehlt. Und Indexnamen sind in SQLite je
+      // DATENBANK eindeutig und nicht je Tabelle, ein zweites
+      // "rekorde_bestenliste" waere beim Anlegen abgewiesen worden. Der
+      // Praefix kostet nichts und macht an jeder Abfrage sichtbar, zu welchem
+      // Spiel eine Tabelle gehoert.
+      "database_name": "spiele",
       // Kein Geheimnis: die ID benennt die Datenbank nur, sie oeffnet sie
       // nicht. Wer sie lesen oder schreiben will, braucht ein Token des
       // Kontos - darum steht sie hier und nicht in den Secrets.
-      "database_id": "6e58f098-c3a3-42ad-aae1-a86b0e0f62e8",
+      "database_id": "b82cb4dd-a307-4d2e-adb8-d20c98117ee2",
       // Gehoert in die Bindung und nicht auf die oberste Ebene - dort meldet
       // wrangler es als unbekanntes Feld und ignoriert es stillschweigend.
       "migrations_dir": "migrations"

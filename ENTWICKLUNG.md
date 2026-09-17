@@ -117,10 +117,10 @@ sie kommt. Wenn du eine änderst, miss nach.
 
 | Datei | Zeilen | Inhalt |
 |---|---:|---|
-| `worker.js` | 229 | zwei Adressen: `GET /api/welt`, `POST /api/partie`; alles andere sind die Dateien |
-| `migrations/0001_schema.sql` | 38 | zwei Tabellen: `rekorde` (jede je erreichte Bestmarke) und `zaehler` |
-| `migrations/0002_uebernahme.sql` | 89 | die Übernahme der Werte aus dem alten Zählerdienst |
-| `wrangler.jsonc` | 53 | Bindung an D1, Ausliefern von `dist/` |
+| `worker.js` | 236 | zwei Adressen: `GET /api/welt`, `POST /api/partie`; alles andere sind die Dateien |
+| `migrations/0001_zehner_schema.sql` | 59 | zwei Tabellen: `zehner_rekorde` (jede je erreichte Bestmarke) und `zehner_zaehler` |
+| `migrations/0002_zehner_uebernahme.sql` | 97 | die Übernahme der Werte aus dem alten Zählerdienst |
+| `wrangler.jsonc` | 75 | Bindung an die gemeinsame D1-Datenbank `spiele`, Ausliefern von `dist/` |
 
 ### Tests und Werkzeuge
 
@@ -610,9 +610,9 @@ dort nur als selbstgebautes Compare-and-Set über 409er.
 Hier ist es **ein SQL-Satz**:
 
 ```sql
-INSERT INTO rekorde (stufe, punkte, kuerzel, wann, herkunft)
+INSERT INTO zehner_rekorde (stufe, punkte, kuerzel, wann, herkunft)
 SELECT ?1, ?2, ?3, ?4, 'spiel'
- WHERE ?2 > COALESCE((SELECT MAX(punkte) FROM rekorde WHERE stufe = ?1), 0)
+ WHERE ?2 > COALESCE((SELECT MAX(punkte) FROM zehner_rekorde WHERE stufe = ?1), 0)
 ```
 
 Lesen, Vergleichen und Schreiben in derselben Anweisung. Zwei Spieler, die im
@@ -622,10 +622,19 @@ prüft.
 
 ### Das Schema
 
-`rekorde` hält **jeden** je erreichten Rekord, nicht nur den höchsten. Damit ist
-der Weltrekord ein `MAX()` und die Bestenliste ein `ORDER BY`, ohne dass etwas
-nachgeführt werden muss. `zaehler` ist eine Zeile je Zähler (`spiele`, `siege`)
-– ein dritter kommt ohne Schemaänderung dazu.
+`zehner_rekorde` hält **jeden** je erreichten Rekord, nicht nur den höchsten.
+Damit ist der Weltrekord ein `MAX()` und die Bestenliste ein `ORDER BY`, ohne
+dass etwas nachgeführt werden muss. `zehner_zaehler` ist eine Zeile je Zähler
+(`spiele`, `siege`) – ein dritter kommt ohne Schemaänderung dazu.
+
+**Warum der Präfix `zehner_`:** die Tabellen liegen seit dem Umzug nicht mehr
+allein in einer eigenen Datenbank, sondern zusammen mit denen der anderen Spiele
+in der gemeinsamen Datenbank `spiele` (warum, steht unter *Die gemeinsame
+Datenbank*). Ohne Präfix wäre `zaehler` hier dieselbe Tabelle gewesen wie
+`zaehler` bei Shikaku – mit denselben Zeilen `spiele` und `siege`, und die zwei
+Spiele hätten einander hochgezählt. Auch der Index heißt darum
+`zehner_rekorde_bestenliste` und nicht mehr `rekorde_bestenliste`: Indexnamen
+sind in SQLite je **Datenbank** eindeutig, nicht je Tabelle.
 
 Zwei Eigenheiten, die man kennen muss:
 
@@ -636,7 +645,7 @@ Zwei Eigenheiten, die man kennen muss:
   weiterhin den wahren Rekord.
 * **`herkunft`** unterscheidet `'spiel'` von `'abacus'` – so bleibt
   nachvollziehbar, was aus dem alten Dienst übernommen wurde
-  (`migrations/0002_uebernahme.sql`).
+  (`migrations/0002_zehner_uebernahme.sql`).
 
 ### Die einzige Grenze nach innen
 
@@ -781,8 +790,37 @@ Von GitHub Pages aus ruft das Spiel die Schnittstelle über Kreuz bei
 aus. Die Live-Abnahme prüft deshalb **beide** Adressen.
 
 Datenbankänderungen laufen über `migrations/` (`npx wrangler d1 migrations
-apply zehner-paare`). Die Migrationen müssen ein zweites Einspielen aushalten –
-`0002_uebernahme.sql` tut das ausdrücklich.
+apply spiele`). Die Migrationen müssen ein zweites Einspielen aushalten –
+`0002_zehner_uebernahme.sql` tut das ausdrücklich, und seit der Bestand in der
+gemeinsamen Datenbank bereits steht, ist das keine Vorsorge mehr, sondern die
+Bedingung dafür, dass die Datei überhaupt noch laufen darf.
+
+### Die gemeinsame Datenbank
+
+Die D1-Datenbank heißt **`spiele`** und gehört allen Spielen zusammen, nicht
+mehr diesem allein. Der Grund ist der kostenlose Tarif: er zählt
+**Datenbanken** – zehn sind das Limit –, nicht Tabellen, nicht Zeilen und nicht
+Megabyte. Etwa alle vier Tage entsteht ein neues Spiel; mit einer Datenbank je
+Spiel wäre die Grenze in wenigen Wochen erreicht gewesen, an einer Zahl, die mit
+dem tatsächlichen Verbrauch nichts zu tun hat (alle Ranglisten zusammen sind ein
+paar Dutzend Zeilen). Der kostenpflichtige Tarif wurde verworfen: für ein paar
+Dutzend Zeilen zu zahlen, ist die falsche Antwort auf eine Grenze, die gar nicht
+am Datenvolumen hängt.
+
+Zwei Dinge folgen daraus, und beide sind keine Kosmetik:
+
+* **Tabellen und Indizes tragen den Präfix `zehner_`.** `zaehler` gab es hier
+  *und* bei Shikaku, beide mit den Zeilen `spiele` und `siege` – die Spiele
+  hätten einander hochgezählt. Und Indexnamen sind in SQLite je **Datenbank**
+  eindeutig, nicht je Tabelle; ein zweites `rekorde_bestenliste` wäre beim
+  Anlegen abgewiesen worden.
+* **Auch die Migrations-DATEINAMEN sind global eindeutig**
+  (`0001_zehner_schema.sql`, `0002_zehner_uebernahme.sql`). `d1_migrations` ist
+  *eine* Tabelle je Datenbank und merkt sich den Dateinamen: zwei Spiele mit je
+  einem `0001_schema.sql` heißt, dass wrangler das zweite für schon angewandt
+  hält und **stillschweigend überspringt** – ohne Fehlermeldung, und das Schema
+  entsteht nie. Ein `migrations_table`, mit dem sich das je Spiel trennen ließe,
+  gibt es nicht; weder in der Konfiguration noch als Flag.
 
 **Die Version steht an drei Stellen** und muss übereinstimmen:
 
@@ -899,11 +937,15 @@ ausgeliefert und nicht das Projekt.
 
 ### Etwas an der Datenbank ändern
 
-1. Neue Datei `migrations/000N_….sql`, **ein zweites Einspielen muss sie
-   aushalten** (`IF NOT EXISTS`, `INSERT … WHERE NOT EXISTS`).
-2. `npx wrangler d1 migrations apply zehner-paare --local` und
-   `npm run check:welt`.
-3. Erst dann ohne `--local`.
+1. Neue Datei `migrations/000N_zehner_….sql` – der Präfix gehört **in den
+   Dateinamen**, weil `d1_migrations` in der gemeinsamen Datenbank nur eine
+   Tabelle ist und sich den Dateinamen merkt; ein Name, den ein anderes Spiel
+   schon benutzt hat, wird stillschweigend übersprungen.
+2. **Ein zweites Einspielen muss sie aushalten** (`IF NOT EXISTS`,
+   `INSERT … WHERE NOT EXISTS`).
+3. Neue Tabellen und Indizes heißen `zehner_…`.
+4. `npx wrangler d1 migrations apply spiele --local` und `npm run check:welt`.
+5. Erst dann ohne `--local`.
 
 ---
 

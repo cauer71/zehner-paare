@@ -54,7 +54,11 @@ const hole = async (pfad, koerper) => {
 
 console.log('=== Vorbereitung: frische lokale Datenbank ===');
 await rm(join(ROOT, '.wrangler/state/v3/d1'), { recursive: true, force: true });
-await lauf(['d1', 'migrations', 'apply', 'zehner-paare', '--local']);
+// "spiele" und nicht mehr "zehner-paare": seit dem Umzug teilen sich alle
+// Spiele EINE D1-Datenbank (Begruendung in wrangler.jsonc). Der Name muss
+// derselbe sein wie in der Bindung, sonst legt wrangler lokal eine zweite,
+// leere Datenbank an - die Pruefung liefe dann gegen ein leeres Schema.
+await lauf(['d1', 'migrations', 'apply', 'spiele', '--local']);
 await lauf(['deploy', '--dry-run']);          // baut nichts, prueft aber die Konfiguration
 
 // detached: npx startet wrangler als eigenes Kind, und ein kill auf npx

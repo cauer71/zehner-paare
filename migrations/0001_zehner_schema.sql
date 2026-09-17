@@ -9,8 +9,29 @@
 -- eines eigens angelegten Namens, das Kuerzel als Zahl zur Basis 37, und eine
 -- Rueckwaertssuche ueber vier Nummern, weil Schluessel verfallen. Hier ist es
 -- eine Zeile je Rekord.
+--
+-- Warum alles den Praefix "zehner_" traegt: seit alle Spiele sich EINE
+-- D1-Datenbank teilen (der kostenlose Tarif zaehlt Datenbanken und nicht
+-- Tabellen - die ausfuehrliche Begruendung steht in wrangler.jsonc), liegen
+-- diese Tabellen neben denen der anderen Spiele. Zwei Zusammenstoesse waren
+-- dabei echt und nicht ausgedacht: "zaehler" gab es hier UND bei Shikaku,
+-- beide mit den Zeilen 'spiele' und 'siege' - die Spiele haetten einander
+-- hochgezaehlt. Und Indexnamen sind in SQLite je DATENBANK eindeutig und nicht
+-- je Tabelle; ein zweites "rekorde_bestenliste" haette die Datenbank beim
+-- Anlegen abgewiesen. Darum tragen auch die Indizes den Praefix.
+--
+-- Auch der DATEINAME dieser Migration ist global eindeutig gemacht. Das ist
+-- kein Schoenheitsthema: d1_migrations ist EINE Tabelle je Datenbank, und sie
+-- merkt sich den Dateinamen. Zwei Spiele mit je einem "0001_schema.sql"
+-- heisst, dass wrangler das zweite fuer schon angewandt haelt und still
+-- ueberspringt. Ein "migrations_table", mit dem sich das je Spiel trennen
+-- liesse, gibt es nicht - weder in der Konfiguration noch als Flag.
+--
+-- Jede Anweisung hier traegt IF NOT EXISTS: das Schema steht in der
+-- gemeinsamen Datenbank bereits, diese Datei muss also folgenlos durchlaufen
+-- koennen.
 
-CREATE TABLE IF NOT EXISTS rekorde (
+CREATE TABLE IF NOT EXISTS zehner_rekorde (
   id       INTEGER PRIMARY KEY AUTOINCREMENT,
   stufe    TEXT    NOT NULL,
   punkte   INTEGER NOT NULL,
@@ -28,11 +49,11 @@ CREATE TABLE IF NOT EXISTS rekorde (
 
 -- Der Weltrekord je Stufe ist die haeufigste Frage ueberhaupt, die Bestenliste
 -- die zweithaeufigste. Beide beantwortet dieser eine Index.
-CREATE INDEX IF NOT EXISTS rekorde_bestenliste ON rekorde (stufe, punkte DESC, id);
+CREATE INDEX IF NOT EXISTS zehner_rekorde_bestenliste ON zehner_rekorde (stufe, punkte DESC, id);
 
 -- Gespielte und gewonnene Partien, weltweit. Eine Zeile je Zaehler statt einer
 -- Spalte je Zaehler: ein dritter kommt dann ohne Schemaaenderung dazu.
-CREATE TABLE IF NOT EXISTS zaehler (
+CREATE TABLE IF NOT EXISTS zehner_zaehler (
   name TEXT PRIMARY KEY,
   wert INTEGER NOT NULL DEFAULT 0
 );

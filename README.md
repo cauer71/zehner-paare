@@ -238,16 +238,40 @@ Was beim Umzug **nicht** mitkommt: `localStorage` gehört zur Herkunft, auf eine
 fängt das Spiel also ohne Spielstand, ohne Einstellungen und ohne Kürzel an. Die Weltrekorde
 sind davon unberührt – die liegen in der Datenbank, nicht am Gerät und nicht an der Domain.
 
+Die Datenbank heißt **`spiele`** und gehört nicht mehr diesem Spiel allein: alle Spiele
+teilen sich **eine** D1-Datenbank. Der Grund ist der kostenlose Tarif – er zählt
+**Datenbanken** (zehn sind das Limit), nicht Tabellen, nicht Zeilen und nicht Megabyte. Hier
+entsteht etwa alle vier Tage ein neues Spiel; mit einer Datenbank je Spiel wäre die Grenze in
+wenigen Wochen erreicht gewesen, und zwar an einer Zahl, die mit dem tatsächlichen Verbrauch
+nichts zu tun hat: alle Ranglisten zusammen sind ein paar Dutzend Zeilen. Für so wenig einen
+kostenpflichtigen Tarif zu nehmen, wäre die falsche Antwort auf eine Grenze gewesen, die gar
+nicht am Datenvolumen hängt.
+
+Bezahlt wird das mit einem Präfix vor jedem Tabellen- und Indexnamen: `zehner_rekorde`,
+`zehner_zaehler`, `zehner_rekorde_bestenliste`. Der löst zwei **echte** Zusammenstöße:
+`zaehler` hieß die Tabelle hier *und* bei Shikaku, beide mit den Zeilen `spiele` und `siege` –
+in einer gemeinsamen Datenbank hätten sich die zwei Spiele gegenseitig hochgezählt. Und
+Indexnamen sind in SQLite je **Datenbank** eindeutig und nicht je Tabelle; ein zweites
+`rekorde_bestenliste` wäre beim Anlegen abgewiesen worden.
+
 Die Datenbank wird einmal angelegt und danach über Migrationen fortgeschrieben:
 
 ```bash
-npx wrangler d1 create zehner-paare        # die database_id kommt in wrangler.jsonc
-npx wrangler d1 migrations apply zehner-paare            # lokal
-npx wrangler d1 migrations apply zehner-paare --remote   # in der Wolke
+npx wrangler d1 create spiele        # die database_id kommt in wrangler.jsonc
+npx wrangler d1 migrations apply spiele            # lokal
+npx wrangler d1 migrations apply spiele --remote   # in der Wolke
 ```
 
 `migrations/` ist damit die Wahrheit über das Schema – nicht ein Zustand, den jemand einmal
 im Dashboard hergestellt hat und den niemand mehr nachvollziehen kann.
+
+Die Migrationsdateien heißen **`0001_zehner_schema.sql`** und
+**`0002_zehner_uebernahme.sql`**, mit Präfix also auch im Dateinamen. Das ist kein
+Schönheitsthema: `d1_migrations` ist *eine* Tabelle je Datenbank, und sie merkt sich den
+**Dateinamen**. Zwei Spiele mit je einem `0001_schema.sql` heißt, dass wrangler das zweite für
+schon angewandt hält und **stillschweigend überspringt** – das Schema des zweiten Spiels
+entstünde nie, und es gäbe keine Fehlermeldung. Ein `migrations_table`, mit dem sich das je
+Spiel trennen ließe, gibt es nicht (geprüft: weder in der Konfiguration noch als Flag).
 
 ## Entwicklung
 
@@ -762,7 +786,7 @@ bloßen Zähler wäre sie nie möglich gewesen:
 SELECT stufe, punkte, kuerzel FROM (
   SELECT stufe, punkte, kuerzel,
          ROW_NUMBER() OVER (PARTITION BY stufe ORDER BY punkte DESC, id) AS rang
-    FROM rekorde WHERE kuerzel <> ''
+    FROM zehner_rekorde WHERE kuerzel <> ''
 ) WHERE rang <= 10
 ```
 
@@ -824,9 +848,9 @@ eines: **plus eins**. Was das gekostet hat, ist die eigentliche Begründung für
 In SQL ist davon **ein Satz** übrig, und in ihm steckt der ganze Grund:
 
 ```sql
-INSERT INTO rekorde (stufe, punkte, kuerzel, wann, herkunft)
+INSERT INTO zehner_rekorde (stufe, punkte, kuerzel, wann, herkunft)
 SELECT ?1, ?2, ?3, ?4, 'spiel'
- WHERE ?2 > COALESCE((SELECT MAX(punkte) FROM rekorde WHERE stufe = ?1), 0)
+ WHERE ?2 > COALESCE((SELECT MAX(punkte) FROM zehner_rekorde WHERE stufe = ?1), 0)
 ```
 
 Lesen, Vergleichen und Schreiben passieren in derselben Anweisung. Zwei Spieler, die im selben
@@ -850,7 +874,7 @@ Eine Bestenliste ist das Gegenteil.
 
 ### Was übernommen wurde
 
-`migrations/0002_uebernahme.sql` ist **nicht abgetippt**, sondern aus einem Abzug des alten
+`migrations/0002_zehner_uebernahme.sql` ist **nicht abgetippt**, sondern aus einem Abzug des alten
 Dienstes erzeugt: **alle 18 Rekorde** aller fünf Stufen mit ihren Kürzeln – nicht nur der
 jeweils höchste – dazu die Zähler (115 Partien, 75 Siege). Der alte Dienst hatte die ganze
 Reihe aufgehoben; damit gibt es vom ersten Tag an eine Bestenliste statt nur eines

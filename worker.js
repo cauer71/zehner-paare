@@ -2,7 +2,7 @@
  * Zehner-Paare: die Weltrangliste auf Cloudflare Workers und D1.
  *
  * Vorher lag sie in einem oeffentlichen Zaehlerdienst, der nur "plus eins"
- * kann. Was das gekostet hat, steht in migrations/0001_schema.sql: der
+ * kann. Was das gekostet hat, steht in migrations/0001_zehner_schema.sql: der
  * Punktestand als Startwert eines eigens angelegten Zaehlernamens, ein zweiter
  * Zaehler als Zeiger darauf, das Kuerzel als Zahl zur Basis 37 daneben, dazu
  * eine Rueckwaertssuche ueber vier Nummern, weil Schluessel verfallen. Und
@@ -22,6 +22,13 @@
  *                      Partie keinen zweiten Ruf.
  *
  * Alles andere geht an die statischen Dateien (env.ASSETS).
+ *
+ * Die Tabellen heissen zehner_rekorde und zehner_zaehler, mit Praefix. Seit
+ * alle Spiele sich EINE D1-Datenbank teilen (der kostenlose Tarif zaehlt
+ * Datenbanken, nicht Tabellen - die Begruendung steht in wrangler.jsonc),
+ * liegen sie neben denen der anderen Spiele. Ohne Praefix waere "zaehler" hier
+ * dieselbe Tabelle wie "zaehler" bei Shikaku gewesen, mit denselben Zeilen
+ * 'spiele' und 'siege': die zwei Spiele haetten einander hochgezaehlt.
  */
 
 /** Die Stufen des Spiels. Was nicht hier steht, kommt nicht in die Tabelle. */
@@ -75,8 +82,8 @@ async function weltstand(db) {
     // verlassen muessen.
     db.prepare(`
       SELECT r.stufe, r.punkte, r.kuerzel
-        FROM rekorde r
-        JOIN (SELECT stufe, MAX(punkte) AS hoch FROM rekorde GROUP BY stufe) b
+        FROM zehner_rekorde r
+        JOIN (SELECT stufe, MAX(punkte) AS hoch FROM zehner_rekorde GROUP BY stufe) b
           ON b.stufe = r.stufe AND b.hoch = r.punkte
        GROUP BY r.stufe`),
     // Die Bestenliste zeigt NUR Eintraege mit Kuerzel: sie ist eine Liste von
@@ -92,11 +99,11 @@ async function weltstand(db) {
       SELECT stufe, punkte, kuerzel FROM (
         SELECT stufe, punkte, kuerzel,
                ROW_NUMBER() OVER (PARTITION BY stufe ORDER BY punkte DESC, id) AS rang
-          FROM rekorde
+          FROM zehner_rekorde
          WHERE kuerzel <> ''
       ) WHERE rang <= ?1
       ORDER BY stufe, punkte DESC`).bind(BESTENLISTE),
-    db.prepare('SELECT name, wert FROM zaehler'),
+    db.prepare('SELECT name, wert FROM zehner_zaehler'),
   ]);
 
   const stand = { spiele: 0, siege: 0, rekorde: {}, beste: {} };
@@ -121,9 +128,9 @@ async function weltstand(db) {
  */
 function rekordEintragen(db, stufe, punkte, kuerzel) {
   return db.prepare(`
-    INSERT INTO rekorde (stufe, punkte, kuerzel, wann, herkunft)
+    INSERT INTO zehner_rekorde (stufe, punkte, kuerzel, wann, herkunft)
     SELECT ?1, ?2, ?3, ?4, 'spiel'
-     WHERE ?2 > COALESCE((SELECT MAX(punkte) FROM rekorde WHERE stufe = ?1), 0)
+     WHERE ?2 > COALESCE((SELECT MAX(punkte) FROM zehner_rekorde WHERE stufe = ?1), 0)
   `).bind(stufe, punkte, kuerzel, Date.now());
 }
 
@@ -185,7 +192,7 @@ async function partieBeendet(db, koerper) {
 /** Plus eins, und legt den Zaehler beim ersten Mal an. */
 function zaehlerHoch(db, name) {
   return db.prepare(`
-    INSERT INTO zaehler (name, wert) VALUES (?1, 1)
+    INSERT INTO zehner_zaehler (name, wert) VALUES (?1, 1)
     ON CONFLICT(name) DO UPDATE SET wert = wert + 1
   `).bind(name);
 }
